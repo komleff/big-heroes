@@ -1,0 +1,14 @@
+{
+  "name": "big-heroes",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=client",
+    "build": "npm run build --workspace=shared && npm run build --workspace=client",
+    "test": "npm run test --workspaces --if-present"
+  }
+}
