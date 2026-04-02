@@ -91,7 +91,7 @@
 
 ### Эскалация
 
-Opus → Человек-оператор *(для прototipa; для production: Opus → GPT-5.3-Codex → Человек)*
+Opus → Человек-оператор *(для прототипа; для production: Opus → GPT-5.3-Codex → Человек)*
 
 ---
 
@@ -159,9 +159,9 @@ Opus → Человек-оператор *(для прototipa; для production
 | **Light** | Документация, конфиги | Claude Reviewer (один проход) |
 | **Standard** | Фичи, рефакторинг | Claude Reviewer (все три аспекта) |
 | **Critical** | `shared/`, баланс, игровая логика | Claude Reviewer (два прохода) |
-| **Sprint Final** | Конец спринта, перед merge — **OPTIONAL (прototip)** | GPT-5.4 + GPT-5.3-Codex |
+| **Sprint Final** | Конец спринта, перед merge — **OPTIONAL (прототип)** | GPT-5.4 + GPT-5.3-Codex |
 
-> Для режима прototipa уровень Sprint Final пропускается. Достаточно Standard / Critical.
+> Для режима прототипа уровень Sprint Final пропускается. Достаточно Standard / Critical.
 
 ### Промпт активации
 
