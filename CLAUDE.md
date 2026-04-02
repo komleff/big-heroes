@@ -35,6 +35,7 @@ npm run test         # тесты
 | `config/balance.json` | Параметры баланса игры |
 | `client/src/main.ts` | Точка входа PixiJS Application |
 | `shared/src/index.ts` | Публичное API shared-пакета |
+| `docs/gdd/00_index.md` | GDD — индекс (13 файлов) |
 | `docs/architecture/architecture.md` | Архитектура демо: сцены, системы, актёры |
 | `docs/design/high-concept.md` | High Concept, MVP Scope, System Design |
 | `docs/design/style-guide.md` | UI стайлгайд |
