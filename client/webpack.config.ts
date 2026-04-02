@@ -21,6 +21,9 @@ const config: WebpackConfig = {
     },
     resolve: {
         extensions: ['.tsx', '.ts', '.js'],
+        alias: {
+            '@config': path.resolve(__dirname, '../config'),
+        },
     },
     output: {
         filename: 'bundle.js',

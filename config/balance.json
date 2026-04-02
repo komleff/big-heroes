@@ -1,1 +1,23 @@
-{}
+{
+  "hero": {
+    "startMass": 420,
+    "startRating": 1150,
+    "startHp": 100,
+    "baseAttack": 10,
+    "baseDefense": 5
+  },
+  "resources": {
+    "startGold": 1500,
+    "maxCampaignTickets": 5,
+    "startCampaignTickets": 3,
+    "maxArenaTickets": 3,
+    "startArenaTickets": 2
+  },
+  "equipment": {
+    "starterItems": [
+      { "id": "wpn_sword_t1", "name": "Меч", "slot": "weapon", "tier": 1, "modifier": 1.1, "maxDurability": 100, "basePrice": 50 },
+      { "id": "arm_chain_t1", "name": "Кольчуга", "slot": "armor", "tier": 1, "modifier": 1.1, "maxDurability": 100, "basePrice": 60 },
+      { "id": "acc_ring_t1", "name": "Кольцо", "slot": "accessory", "tier": 1, "modifier": 1.0, "maxDurability": 100, "basePrice": 40 }
+    ]
+  }
+}
