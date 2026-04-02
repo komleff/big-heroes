@@ -1,35 +1,41 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-02
-**Фаза:** Sprint 1 — готово к старту
+**Обновлён:** 2026-04-03
+**Фаза:** Sprint 1 — завершён, PR #2 ожидает merge
 
 ---
 
 ## Текущее состояние
 
-Sprint 0 завершён. PR #1 `setup/dev-environment` → `master` готов к merge.
+Sprint 1 (SceneManager + HubScene) завершён. 2 раунда ревью пройдены.
 
-- `client/` — PixiJS v8 + Webpack, сборка зелёная
-- `shared/` — пустой, готов к реализации формул
-- `docs/gdd/` — 13 файлов GDD (v1.0)
-- `docs/architecture/`, `docs/design/`, `docs/business/` — организованы
-- Beads инициализирован, git-хуки установлены
-- Пайплайн ИИ-агентов: правила ревью и публикации отчётов уточнены
+- `shared/` — типы: IGameState, IEquipmentItem, IBalanceConfig, IStarterEquipmentConfigItem
+- `client/src/core/` — EventBus, GameState, SceneManager (5 типов переходов, viewport 390×844)
+- `client/src/ui/` — Button (3 варианта), ResourceBar, ProgressBar, EquipmentCard, HeroPortrait, BottomNav
+- `client/src/scenes/` — BaseScene, HubScene, 4 заглушки (PveMap, PvpLobby, Inventory, DevPanel)
+- `client/src/config/ThemeConfig.ts` — полная таблица токенов из style-guide.md
+- `config/balance.json` — стартовые параметры героя, ресурсов, экипировки
+- Nunito font подключён, webpack alias @config настроен
+
+## Ревью
+
+- Наше ревью (архитектура/качество/безопасность): 1 CRITICAL + 5 WARNING → все исправлены
+- GitHub Copilot (8 inline): типизация, UX, promise safety → все исправлены
+- Deferred: setHp() бизнес-логика → shared/ (FormulaEngine), дублирование кода (рефакторинг)
 
 ## Ближайшие задачи
 
-- [ ] Merge PR #1 → master (оператор)
-- [ ] Sprint 1 — SceneManager + HubScene (первая играбельная сцена)
+- [ ] Merge PR #2 → master (оператор)
+- [ ] Sprint 2 — BattleSystem + BattleScene (пошаговый бой)
 
 ## Ветки
 
 | Ветка | Статус |
 |-------|--------|
-| master | базовая, scaffold |
-| setup/dev-environment | Sprint 0, готова к merge (PR #1) |
+| master | Sprint 0 merged |
+| sprint/1-scene-manager-hub | Sprint 1, PR #2 ожидает merge |
 
 ## История изменений
 
-- 2026-04-02 — Создан репозиторий, scaffold монорепо, перенесён пайплайн агентов
-- 2026-04-02 — Sprint 0: среда, Beads, docs/, Memory Bank, GDD (13 файлов), правила ревью
-
+- 2026-04-02 — Sprint 0: среда, Beads, docs/, Memory Bank, GDD (13 файлов)
+- 2026-04-03 — Sprint 1: SceneManager + HubScene (22 новых файла, 2700+ строк)
