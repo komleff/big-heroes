@@ -26,6 +26,13 @@ export function tweenProperty(
     easing: (t: number) => number = easeOutQuad,
 ): Promise<void> {
     return new Promise<void>((resolve) => {
+        // Guard: мгновенное завершение при нулевой длительности
+        if (durationMs <= 0) {
+            target[property] = to;
+            resolve();
+            return;
+        }
+
         let elapsed = 0;
         target[property] = from;
 

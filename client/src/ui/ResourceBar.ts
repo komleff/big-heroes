@@ -32,7 +32,7 @@ export class ResourceBar extends Container {
     this.labelText = new Text({
       text: options.label,
       style: new TextStyle({
-        fontSize: 18,
+        fontSize: THEME.font.sizes.resourceBar,
         fontFamily: THEME.font.family,
         fontWeight: THEME.font.weights.bold,
         fill: THEME.colors.accent_yellow,
@@ -45,7 +45,7 @@ export class ResourceBar extends Container {
     this.valueText = new Text({
       text: String(options.value),
       style: new TextStyle({
-        fontSize: 18,
+        fontSize: THEME.font.sizes.resourceBar,
         fontFamily: THEME.font.family,
         fontWeight: THEME.font.weights.bold,
         fill: THEME.colors.text_primary,

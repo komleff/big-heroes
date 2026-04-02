@@ -95,7 +95,7 @@ export class HeroPortrait extends Container {
     this.ratingText = new Text({
       text: String(options.rating),
       style: new TextStyle({
-        fontSize: 18,
+        fontSize: THEME.font.sizes.ratingNumber,
         fontFamily: THEME.font.family,
         fontWeight: THEME.font.weights.bold,
         fill: THEME.colors.text_primary,

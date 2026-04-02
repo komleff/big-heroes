@@ -93,6 +93,12 @@ export const THEME = Object.freeze({
       progressText: 12,
       /** Подпись вкладки навигации */
       navLabel: 12,
+      /** Ресурсная панель (Gold) */
+      resourceBar: 18,
+      /** Имя предмета в карточке экипировки */
+      itemName: 16,
+      /** Число рейтинга на портрете героя */
+      ratingNumber: 18,
     },
   },
 

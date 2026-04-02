@@ -90,7 +90,7 @@ export class EquipmentCard extends Container {
       const nameText = new Text({
         text: item.name,
         style: new TextStyle({
-          fontSize: 16,
+          fontSize: THEME.font.sizes.itemName,
           fontFamily: THEME.font.family,
           fontWeight: THEME.font.weights.bold,
           fill: THEME.colors.text_primary,

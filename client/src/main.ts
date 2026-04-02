@@ -1,6 +1,7 @@
 import { Application } from 'pixi.js';
 import type { IBalanceConfig } from 'shared';
 import balanceConfig from '@config/balance.json';
+import { THEME } from './config/ThemeConfig';
 import { EventBus } from './core/EventBus';
 import { GameState } from './core/GameState';
 import { SceneManager, TransitionType } from './core/SceneManager';
@@ -15,9 +16,9 @@ async function main(): Promise<void> {
     const app = new Application();
 
     await app.init({
-        width: 390,
-        height: 844,
-        backgroundColor: 0x1C2340,
+        width: THEME.layout.designWidth,
+        height: THEME.layout.designHeight,
+        backgroundColor: THEME.colors.bg_primary,
         resizeTo: window,
     });
 

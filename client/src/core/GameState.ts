@@ -65,17 +65,17 @@ export class GameState {
     // --- Сеттеры с уведомлениями ---
 
     setGold(value: number): void {
-        this._resources = { ...this._resources, gold: value };
+        this._resources = { ...this._resources, gold: Math.max(0, value) };
         this.eventBus.emit(GameEvents.STATE_RESOURCES_CHANGED, this._resources);
     }
 
     setMass(value: number): void {
-        this._hero = { ...this._hero, mass: value };
+        this._hero = { ...this._hero, mass: Math.max(0, value) };
         this.eventBus.emit(GameEvents.STATE_HERO_CHANGED, this._hero);
     }
 
     setRating(value: number): void {
-        this._hero = { ...this._hero, rating: value };
+        this._hero = { ...this._hero, rating: Math.max(0, value) };
         this.eventBus.emit(GameEvents.STATE_HERO_CHANGED, this._hero);
     }
 
