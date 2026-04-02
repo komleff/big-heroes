@@ -34,8 +34,22 @@ shared/       — игровая математика и типы (без side-e
 
 ---
 
+## Архитектура демо (из docs/architecture/architecture.md)
+
+См. полную структуру: `docs/architecture/architecture.md`
+
+Ключевые системы демо:
+- `GameState.ts` — центральное хранилище состояния
+- `EventBus.ts` — шина событий между системами
+- `BattleSystem.ts` — логика боя (PvE и PvP)
+- `FormulaEngine.ts` → выносится в `shared/` (расчёт урона, массы, рейтинга)
+
+Сцены: MainMenu → Hub → PveMap → Battle/Loot/Shop/Camp/Boss → PvpLobby → PvpResult
+
+---
+
 ## Что ещё не определено
 
-- Паттерн SceneManager (будет добавлен в Sprint 1+)
+- Паттерн SceneManager (Sprint 1)
 - Система ассетов и манифест
 - Игровой цикл и update-loop

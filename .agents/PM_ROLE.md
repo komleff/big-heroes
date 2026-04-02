@@ -83,6 +83,7 @@ git push --force
 ### 2.5 Landing the Plane
 
 При завершении спринта:
+
 1. Обнови `.memory_bank/status.md`
 2. Обнови `.memory_bank/systemPatterns.md` (если новые паттерны)
 3. Закрой issues: `bd close <id>` + `bd dolt push`

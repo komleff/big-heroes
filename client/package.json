@@ -1,26 +1,27 @@
 {
-  "name": "client",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "webpack serve --mode development",
-    "build": "webpack --mode production",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest"
-  },
-  "dependencies": {
-    "pixi.js": "^8.0.0",
-    "shared": "*"
-  },
-  "devDependencies": {
-    "typescript": "^5.4.0",
-    "webpack": "^5.91.0",
-    "webpack-cli": "^5.1.0",
-    "webpack-dev-server": "^5.0.0",
-    "ts-loader": "^9.5.0",
-    "html-webpack-plugin": "^5.6.0",
-    "@types/node": "^20.0.0",
-    "jest": "^29.0.0",
-    "@types/jest": "^29.0.0",
-    "ts-jest": "^29.0.0"
-  }
+    "name": "client",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "webpack serve --mode development",
+        "build": "webpack --mode production",
+        "test": "jest --passWithNoTests"
+    },
+    "dependencies": {
+        "pixi.js": "^8.0.0",
+        "shared": "*"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.0.0",
+        "@types/node": "^20.0.0",
+        "html-webpack-plugin": "^5.6.0",
+        "jest": "^29.0.0",
+        "ts-jest": "^29.0.0",
+        "ts-loader": "^9.5.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.4.0",
+        "webpack": "^5.91.0",
+        "webpack-cli": "^5.1.0",
+        "webpack-dev-server": "^5.0.0"
+    }
 }
