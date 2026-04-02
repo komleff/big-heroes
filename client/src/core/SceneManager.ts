@@ -98,9 +98,9 @@ export class SceneManager {
             this.modalOverlay.alpha = 0;
             this.modalOverlay.eventMode = 'static';
             this.modalOverlay.cursor = 'pointer';
-            this.modalOverlay.on('pointerdown', () =>
-                this.back({ transition: TransitionType.MODAL }),
-            );
+            this.modalOverlay.on('pointerdown', () => {
+                void this.back({ transition: TransitionType.MODAL });
+            });
             this.sceneContainer.addChild(this.modalOverlay);
 
             // Новая сцена поверх overlay
@@ -230,6 +230,10 @@ export class SceneManager {
         if (transition === TransitionType.MODAL && this.modalOverlay && this.modalUnderScene) {
             this.transitioning = true;
             const modalScene = this.currentScene;
+            const fromName = this.currentSceneName;
+            const toName = this.history[this.history.length - 1]?.name ?? null;
+
+            this.eventBus.emit(GameEvents.SCENE_TRANSITION_START, { from: fromName, to: toName });
 
             // Анимация исчезновения overlay и модальной сцены
             await Promise.all([
@@ -266,6 +270,8 @@ export class SceneManager {
             this.currentSceneName = prev?.name ?? null;
 
             this.transitioning = false;
+
+            this.eventBus.emit(GameEvents.SCENE_TRANSITION_END, { sceneName: this.currentSceneName });
             return;
         }
 

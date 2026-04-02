@@ -52,7 +52,7 @@ export class EquipmentCard extends Container {
     this.eventMode = 'static';
     this.cursor = 'pointer';
     if (this.onClickCb) {
-      this.on('pointerdown', this.onClickCb);
+      this.on('pointertap', this.onClickCb);
     }
   }
 

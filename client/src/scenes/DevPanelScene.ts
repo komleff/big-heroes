@@ -70,7 +70,7 @@ export class DevPanelScene extends BaseScene {
             text: 'ЗАКРЫТЬ',
             variant: 'danger',
             onClick: () => {
-                this.sceneManager.back({ transition: TransitionType.MODAL });
+                void this.sceneManager.back({ transition: TransitionType.MODAL });
             },
         });
         closeBtn.x = designWidth / 2;

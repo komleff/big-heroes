@@ -37,11 +37,12 @@ export class GameState {
         // Инициализация экипировки из стартовых предметов
         this._equipment = { weapon: null, armor: null, accessory: null };
         for (const item of config.equipment.starterItems) {
-            const slotId = item.slot as 'weapon' | 'armor' | 'accessory';
-            if (slotId in this._equipment) {
-                this._equipment[slotId] = {
+            const slot = item.slot;
+            // Явная проверка слота без unsafe-каста
+            if (slot === 'weapon' || slot === 'armor' || slot === 'accessory') {
+                this._equipment[slot] = {
                     ...item,
-                    slot: slotId,
+                    slot,
                     currentDurability: item.maxDurability,
                 };
             }

@@ -48,7 +48,7 @@ export class Button extends Container {
     // --- Обработка нажатия ---
     this.on('pointerdown', this.handlePress, this);
     this.on('pointerup', this.handleRelease, this);
-    this.on('pointerupoutside', this.handleRelease, this);
+    this.on('pointerupoutside', this.handleReleaseOutside, this);
   }
 
   // ─── Primary (зелёная 3D) ──────────────────────────────────────
@@ -178,5 +178,13 @@ export class Button extends Container {
     this.scale.set(1);
     this.y = this.baseY;
     this.onClick();
+  }
+
+  /** Отпускание вне кнопки — сбрасываем состояние без вызова onClick */
+  private handleReleaseOutside(): void {
+    if (!this.pressed) return;
+    this.pressed = false;
+    this.scale.set(1);
+    this.y = this.baseY;
   }
 }

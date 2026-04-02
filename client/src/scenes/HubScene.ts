@@ -68,7 +68,7 @@ export class HubScene extends BaseScene {
 
         // --- Карточки экипировки ---
         const goToInventory = (): void => {
-            sceneManager.goto('inventory', { transition: TransitionType.SLIDE_LEFT });
+            void sceneManager.goto('inventory', { transition: TransitionType.SLIDE_LEFT });
         };
 
         // Weapon
@@ -103,7 +103,7 @@ export class HubScene extends BaseScene {
             text: `ПОХОД (${gameState.resources.campaignTickets}/${gameState.resources.maxCampaignTickets})`,
             variant: 'primary',
             onClick: () => {
-                sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_LEFT });
+                void sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_LEFT });
             },
         });
         // Button выставляет pivot.x = w/2, поэтому x — это центр кнопки
@@ -115,7 +115,7 @@ export class HubScene extends BaseScene {
             text: `АРЕНА (${gameState.resources.arenaTickets}/${gameState.resources.maxArenaTickets})`,
             variant: 'secondary',
             onClick: () => {
-                sceneManager.goto('pvpLobby', { transition: TransitionType.SLIDE_LEFT });
+                void sceneManager.goto('pvpLobby', { transition: TransitionType.SLIDE_LEFT });
             },
         });
         arenaBtn.position.set(39 + THEME.layout.buttonWidth / 2, 636);
@@ -132,9 +132,9 @@ export class HubScene extends BaseScene {
             activeId: 'hero',
             onSelect: (id: string) => {
                 if (id === 'inventory') {
-                    sceneManager.goto('inventory', { transition: TransitionType.SLIDE_LEFT });
+                    void sceneManager.goto('inventory', { transition: TransitionType.SLIDE_LEFT });
                 } else if (id === 'dev') {
-                    sceneManager.goto('devPanel', { transition: TransitionType.MODAL });
+                    void sceneManager.goto('devPanel', { transition: TransitionType.MODAL });
                 }
                 // Остальные — noop
             },

@@ -58,7 +58,7 @@ export class PvpLobbyScene extends BaseScene {
             text: '← НАЗАД В ХАБ',
             variant: 'danger',
             onClick: () => {
-                this.sceneManager.back({ transition: TransitionType.SLIDE_RIGHT });
+                void this.sceneManager.back({ transition: TransitionType.SLIDE_RIGHT });
             },
         });
         backBtn.x = 39 + THEME.layout.buttonWidth / 2;

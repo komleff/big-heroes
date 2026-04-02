@@ -1,3 +1,16 @@
+import type { EquipmentSlotId } from './Equipment';
+
+// Предмет в конфиге баланса (без runtime-состояния вроде currentDurability)
+export interface IStarterEquipmentConfigItem {
+    id: string;
+    name: string;
+    slot: EquipmentSlotId;
+    tier: number;
+    modifier: number;
+    maxDurability: number;
+    basePrice: number;
+}
+
 // Типизация config/balance.json
 export interface IBalanceConfig {
     hero: {
@@ -15,14 +28,6 @@ export interface IBalanceConfig {
         startArenaTickets: number;
     };
     equipment: {
-        starterItems: Array<{
-            id: string;
-            name: string;
-            slot: string;
-            tier: number;
-            modifier: number;
-            maxDurability: number;
-            basePrice: number;
-        }>;
+        starterItems: IStarterEquipmentConfigItem[];
     };
 }
