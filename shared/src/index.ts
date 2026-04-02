@@ -1,2 +1,4 @@
 // Публичный API shared-пакета
-// Экспортируй сюда формулы, типы и контракты по мере их появления
+export type { EquipmentSlotId, IEquipmentItem } from './types/Equipment';
+export type { IHeroState, IResources, IEquipmentSlots, IGameState } from './types/GameState';
+export type { IBalanceConfig, IStarterEquipmentConfigItem } from './types/BalanceConfig';
