@@ -56,7 +56,7 @@ bd close <id>         # Complete work
    gh pr comment <NUMBER> --body-file <report>
    ```
 
-   > Push WITHOUT a report = incomplete work. Both steps are mandatory.
+   > If a PR exists, push WITHOUT a report = incomplete work.
 
 6. **Clean up** - Clear stashes, prune remote branches
 7. **Verify** - All changes committed AND pushed, report published
