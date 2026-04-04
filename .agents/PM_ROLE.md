@@ -22,7 +22,7 @@ Project Manager (PM) — координирующая роль для автом
 
 ## 1. Создание веток (ОБЯЗАТЕЛЬНО)
 
-> ⛔ **КРИТИЧНО: PM и все ИИ-агенты НЕ пушат в main.**
+> ⛔ **КРИТИЧНО: PM и все ИИ-агенты НЕ пушат в master.**
 
 ```bash
 # Создать ветку для спринта
@@ -36,7 +36,7 @@ git worktree add ../big-heroes-worktree sprint-N/feature-name
 
 ```bash
 # ❌ НИКОГДА:
-git push origin main
+git push origin master
 git push --force
 ```
 
