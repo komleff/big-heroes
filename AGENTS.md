@@ -41,6 +41,17 @@ bd sync               # Sync with git
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 
+## Documentation Artifacts
+
+- Do not delete completed specs, plans, or other AI-generated working artifacts unless the user explicitly asks.
+- Move obsolete or completed AI-generated artifacts into `docs/archive/` instead of removing them.
+
+## Root Instruction Files Maintenance
+
+- Keep `AGENTS.md` and `CLAUDE.md` focused on stable project-wide guidance, not temporary task notes.
+- Propose changes to the user before editing `AGENTS.md` or `CLAUDE.md`.
+- After editing, review the whole file for contradictions or stale rules.
+
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
 
