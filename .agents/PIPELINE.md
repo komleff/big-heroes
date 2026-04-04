@@ -24,7 +24,7 @@
 | PM | Роль | `.agents/PM_ROLE.md` (детали), `AGENT_ROLES.md` (сводка) | Оркестрация спринтов |
 | Architect | Роль | `.agents/AGENT_ROLES.md` | Архитектурные решения |
 | Developer | Роль + агент | `.claude/agents/developer.md` | Реализация, TDD |
-| Reviewer | Роль + агент | `.claude/agents/reviewer.md` | Проверка PR по 3 аспектам |
+| Reviewer | Роль + агент | `.claude/agents/reviewer.md` | Проверка PR по 4 аспектам |
 | Tester | Агент | `.claude/agents/tester.md` | Тесты и покрытие |
 | Planner | Агент | `.claude/agents/planner.md` | Исследование, планы |
 | sprint-pr-cycle | Скилл | `.claude/skills/sprint-pr-cycle/` | Цикл PR: ревью → фикс → отчёт |
@@ -50,7 +50,7 @@ build + test (зелёные)
        ↓
 git push → gh pr create
        ↓
-PM → /sprint-pr-cycle → внутреннее ревью (3 аспекта)
+PM → /sprint-pr-cycle → внутреннее ревью (4 аспекта)
        ↓
 CHANGES_REQUESTED? → Developer → fix → повтор
        ↓
