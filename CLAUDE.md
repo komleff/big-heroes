@@ -17,6 +17,7 @@
 | `.claude/agents/` | Нативные агенты (planner, developer, reviewer, tester) |
 | `.claude/skills/sprint-pr-cycle/` | Скилл оркестрации PR-цикла |
 | `.memory_bank/status.md` | Текущее состояние проекта |
+| `docs/architecture/pipeline-adr.md` | ADR: почему пайплайн устроен так (решения + обоснования) |
 
 ---
 
