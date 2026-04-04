@@ -1,6 +1,6 @@
 # 08 — Монетизация
 
-> Ссылки: [05_economy](05_economy.md) · [10_analytics](10_analytics.md) · [12_roadmap](12_roadmap.md)
+> Ссылки: [05_economy](05_economy.md) · [10_analytics](10_analytics.md) · [12_roadmap](12_roadmap.md) · [13_boosters_relics](13_boosters_relics.md)
 
 ---
 

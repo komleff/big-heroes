@@ -61,19 +61,26 @@
 |---------|-----------|-------|
 | tutorial_start | — | Начало FTUE |
 | tutorial_complete | time_sec | Завершение FTUE |
-| pve_run_start | chapter_id, equipment_ids, boosters, mass, gold | Вход в PvE-поход |
-| pve_node_enter | node_type, node_index, hp_percent | Вход в узел |
+| pve_run_start | chapter_id, equipment_ids, belt_items, mass, gold | Вход в PvE-поход |
+| relic_chosen | relic_id, alternatives, node_type (sanctuary/ancient_chest/elite/boss) | Выбор реликвии |
+| pve_node_enter | node_type, node_index | Вход в узел |
 | pve_fork_choice | fork_index, chosen_node_type, alternatives | Выбор на развилке |
-| pve_battle_result | node_type, result (win/lose), turns, hp_remaining | Результат боя PvE |
+| scout_used | consumable_id, node_index | Использование разведывательного расходника |
+| pve_battle_command | command_id, consumable_used, enemy_type, enemy_mass | Выбор команды перед боем PvE |
+| pve_battle_result | node_type, result (win/lose/draw), command_id, mass_after | Результат боя PvE |
 | pve_loot_decision | item_id, action (take/drop/sell), backpack_slots_used | Решение по луту |
-| pve_run_end | result (boss_win/defeat/retreat), mass_gained, gold_gained, items_count, duration_sec | Конец похода |
+| pve_run_end | result (boss_win/defeat/retreat), mass_gained, gold_gained, items_count, relics_count, duration_sec | Конец похода |
+| booster_activated | booster_id, context (pve/pvp) | Активация мета-бустера в хабе |
 | pvp_session_start | rating, mass, equipment_durabilities | Вход на арену |
-| pvp_battle_start | bot_mass, bot_rating, player_mass, player_rating | Выбор бота |
-| pvp_battle_result | result, rating_change, mass_change, durability_spent | Результат боя PvP |
+| pvp_battle_command | command_id, consumable_used, bot_mass, bot_rating | Выбор команды перед боем PvP |
+| pvp_battle_result | result, rating_change, mass_change, command_id | Результат боя PvP |
 | pvp_session_end | reason (voluntary/mass/durability), fights_count, rating_change_total, chest_progress | Конец сессии |
+| pvp_snapshot_saved | mass, equipment_durabilities, rating | Обновление оффлайн-снапшота (после победы) |
 | chest_open | rewards_list, chest_progress_total | Открытие аренного сундука |
 | chapter_complete | chapter_id, attempts_count | Первое прохождение главы |
 | league_reached | league_id, rating | Достижение новой лиги |
+| account_level_up | new_level, feature_unlocked | Повышение уровня аккаунта |
+| hero_level_up | hero_id, new_level, passive_rank | Повышение уровня героя |
 
 ### Экономика
 
@@ -114,10 +121,11 @@
 | Тест | Варианты | Метрика успеха |
 |------|----------|---------------|
 | FTUE длина | 3 шага vs 5 шагов | FTUE completion rate |
-| Потеря лута при поражении | Без потери vs 50% потеря vs полная потеря | D1, D7, NPS |
-| durability_cost_per_fight | 8 vs 12 vs 15 | PvP sessions length, repair spend |
+| Потеря лута при поражении | Без потери vs частичная vs полная | D1, D7, NPS |
+| Потеря массы в PvP | 5% vs 10% vs 15% | PvP session length, return to PvE rate |
+| Блок-выравниватель | block_power 0.3 vs 0.45 vs 0.6 | Использование блока, winrate |
 | Rewarded placement | Поражение PvE vs ремонт vs оба | Rewarded adoption, D7 |
-| pvp_mass_loss_ratio | 0.03 vs 0.05 vs 0.07 | PvP session length, return to PvE rate |
+| Реликвии: выбор vs случайная | Выбор 1 из 3 vs случайная | Удовлетворённость, D7 |
 
 ### Post-MVP (месяц 4–6)
 

@@ -1,0 +1,188 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.ph{width:390px;max-width:100%;margin:0 auto;background:linear-gradient(180deg,#2a3a5c 0%,#3a5070 40%,#4a6a50 100%);border-radius:20px;font-family:system-ui,-apple-system,sans-serif;color:#fff;overflow:hidden;position:relative;min-height:700px}
+.res{display:flex;align-items:center;gap:5px;padding:10px 12px 4px;flex-wrap:wrap}
+.pill{background:rgba(0,0,0,.35);border-radius:14px;padding:3px 8px;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500}
+.pill-sm{font-size:10px;padding:2px 6px}
+.cmd-used{text-align:center;padding:4px 0 0;font-size:11px;color:rgba(255,255,255,.5)}
+.cmd-used b{color:#FFD700}
+.arena{display:flex;align-items:flex-end;justify-content:center;gap:20px;padding:20px 14px 10px;min-height:280px;position:relative}
+.char{display:flex;flex-direction:column;align-items:center;position:relative;transition:transform .1s}
+.char-body{width:80px;height:100px;border-radius:16px;background:rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,.1);position:relative;transition:all .3s}
+.char-body svg{width:44px;height:44px;transition:opacity .3s}
+.c-hero .char-body{border-color:#5EC040}
+.c-enemy .char-body{border-color:#E53E3E}
+.char-nm{font-size:11px;color:rgba(255,255,255,.6);margin-top:6px}
+.char-mass{font-size:18px;font-weight:500;color:#4AE0E0;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.hp-wrap{width:100px;height:8px;background:rgba(0,0,0,.4);border-radius:4px;margin-top:4px;overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+.hp-fill{height:100%;border-radius:3px;transition:width .4s ease-out}
+.hp-hero{background:#5EC040}
+.hp-enemy{background:#E53E3E}
+.hp-txt{font-size:9px;color:rgba(255,255,255,.5);margin-top:2px}
+.dmg{position:absolute;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,.5);opacity:0;pointer-events:none;white-space:nowrap}
+.dmg-w{font-size:18px;color:#fff}
+.dmg-y{font-size:22px;color:#FFD700}
+.dmg-r{font-size:26px;color:#E53E3E}
+.log{background:rgba(0,0,0,.3);border-radius:12px;margin:6px 14px;padding:8px 10px;max-height:100px;overflow:hidden}
+.log-line{font-size:10px;color:rgba(255,255,255,.6);line-height:1.6;opacity:0;transition:opacity .3s}
+.log-line.show{opacity:1}
+.log-line b{font-weight:500}
+.log-hero b{color:#5EC040}
+.log-enemy b{color:#E53E3E}
+.log-crit{color:#FFD700}
+.victory-overlay{position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .5s;pointer-events:none;border-radius:20px}
+.victory-overlay.show{opacity:1;pointer-events:auto}
+.v-banner{font-size:32px;font-weight:500;color:#FFD700;text-shadow:0 2px 8px rgba(255,215,0,.4);margin-bottom:12px;transform:scale(0);transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
+.v-banner.pop{transform:scale(1)}
+.v-rewards{background:rgba(0,0,0,.4);border-radius:14px;padding:12px 20px;text-align:center;border:1.5px solid rgba(255,215,0,.3);transform:translateY(20px);opacity:0;transition:all .4s .3s}
+.v-rewards.pop{transform:translateY(0);opacity:1}
+.v-r-line{font-size:13px;color:rgba(255,255,255,.8);line-height:1.8}
+.v-r-line b{color:#4AE0E0}
+.v-r-line .gold{color:#FFD700}
+.v-btn{margin-top:16px;padding:12px 40px;background:#5EC040;border:2px solid rgba(255,255,255,.2);border-radius:14px;color:#fff;font-size:16px;font-weight:500;cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,.3);transform:translateY(20px);opacity:0;transition:all .4s .5s}
+.v-btn.pop{transform:translateY(0);opacity:1}
+.v-btn:active{transform:scale(.97)}
+@keyframes shake-l{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+@keyframes shake-r{0%,100%{transform:translateX(0)}25%{transform:translateX(6px)}75%{transform:translateX(-6px)}}
+@keyframes float-up{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-40px)}}
+@keyframes glow-pulse{0%,100%{box-shadow:0 0 10px rgba(94,192,64,.3)}50%{box-shadow:0 0 25px rgba(94,192,64,.6)}}
+.shake-l{animation:shake-l .15s ease 3}
+.shake-r{animation:shake-r .15s ease 3}
+.glow{animation:glow-pulse 1s ease infinite}
+.kneel .char-body{transform:scaleY(.6) translateY(20px);opacity:.4}
+.winner .char-body{border-color:#FFD700;border-width:3px}
+.replay-btn{text-align:center;padding:8px 0 12px}
+.replay-btn button{background:rgba(0,0,0,.35);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:rgba(255,255,255,.6);font-size:11px;padding:6px 16px;cursor:pointer}
+.replay-btn button:hover{background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.3)}
+</style>
+
+<div class="ph" id="screen">
+
+<div class="res">
+<div class="pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="#FFD700" stroke="none"><circle cx="12" cy="12" r="8"/></svg> 420</div>
+<div class="pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="#4AE0E0" stroke="none"><circle cx="12" cy="12" r="8"/></svg> 102 кг</div>
+<div class="pill pill-sm">Узел 4 из 10</div>
+</div>
+
+<div class="cmd-used">Команда: <b>Атака</b> | Расходник: <b>Настойка силы</b></div>
+
+<div class="arena" id="arena">
+<div class="char c-hero" id="hero">
+<div class="char-body" id="heroBody"><svg viewBox="0 0 24 24" fill="none" stroke="#5EC040" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg></div>
+<div class="char-nm">BigHero_42</div>
+<div class="char-mass">102 кг</div>
+<div class="hp-wrap"><div class="hp-fill hp-hero" id="hpHero" style="width:100%"></div></div>
+<div class="hp-txt" id="hpHeroTxt">102 / 102</div>
+</div>
+<div class="char c-enemy" id="enemy">
+<div class="char-body" id="enemyBody"><svg viewBox="0 0 24 24" fill="none" stroke="#E53E3E" stroke-width="1.5"><path d="M12 3c-1.5 2-4 3-6 3 0 4 1 8 6 11 5-3 6-7 6-11-2 0-4.5-1-6-3z"/></svg></div>
+<div class="char-nm">Волк</div>
+<div class="char-mass">85 кг</div>
+<div class="hp-wrap"><div class="hp-fill hp-enemy" id="hpEnemy" style="width:100%"></div></div>
+<div class="hp-txt" id="hpEnemyTxt">85 / 85</div>
+</div>
+</div>
+
+<div class="log" id="log"></div>
+
+<div class="replay-btn"><button onclick="startBattle()">Переиграть бой</button></div>
+
+<div class="victory-overlay" id="victory">
+<div class="v-banner" id="vBanner">Победа!</div>
+<div class="v-rewards" id="vRewards">
+<div class="v-r-line"><b>+8 кг</b> массы</div>
+<div class="v-r-line"><span class="gold">+30 Gold</span></div>
+<div class="v-r-line">Прочность меча: 2/3 → 1/3</div>
+</div>
+<div class="v-btn" id="vBtn" onclick="document.getElementById('victory').className='victory-overlay'">Продолжить</div>
+</div>
+
+</div>
+
+<script>
+var heroMax=102,enemyMax=85,heroHp=102,enemyHp=85;
+var hits=[
+{who:'hero',dmg:38,type:'y',text:'BigHero_42 наносит <b>38</b> урона!',cls:'log-hero'},
+{who:'enemy',dmg:22,type:'w',text:'Волк наносит <b>22</b> урона.',cls:'log-enemy'},
+{who:'hero',dmg:44,type:'r',text:'BigHero_42 — <b>44</b> МОЩНЫЙ УДАР!',cls:'log-hero log-crit'},
+{who:'enemy',dmg:19,type:'w',text:'Волк наносит <b>19</b> урона.',cls:'log-enemy'},
+{who:'hero',dmg:35,type:'w',text:'BigHero_42 добивает! <b>35</b> урона.',cls:'log-hero'}
+];
+
+function startBattle(){
+heroHp=heroMax;enemyHp=enemyMax;
+document.getElementById('hpHero').style.width='100%';
+document.getElementById('hpEnemy').style.width='100%';
+document.getElementById('hpHero').style.background='#5EC040';
+document.getElementById('hpEnemy').style.background='#E53E3E';
+document.getElementById('hpHeroTxt').textContent=heroMax+' / '+heroMax;
+document.getElementById('hpEnemyTxt').textContent=enemyMax+' / '+enemyMax;
+document.getElementById('hero').className='char c-hero';
+document.getElementById('enemy').className='char c-enemy';
+document.getElementById('heroBody').className='char-body';
+document.getElementById('enemyBody').className='char-body';
+document.getElementById('log').innerHTML='';
+document.getElementById('victory').className='victory-overlay';
+document.getElementById('vBanner').className='v-banner';
+document.getElementById('vRewards').className='v-rewards';
+document.getElementById('vBtn').className='v-btn';
+
+var delay=600;
+hits.forEach(function(h,i){
+setTimeout(function(){doHit(h,i===hits.length-1)},delay+i*800);
+});
+setTimeout(showVictory,delay+hits.length*800+400);
+}
+
+function doHit(h,isLast){
+var target=h.who==='hero'?'enemy':'hero';
+var body=document.getElementById(target+'Body');
+body.className='char-body '+(target==='hero'?'shake-l':'shake-r');
+setTimeout(function(){body.className='char-body'},500);
+
+if(h.who==='hero'){
+enemyHp=Math.max(0,enemyHp-h.dmg);
+document.getElementById('hpEnemy').style.width=Math.round(enemyHp/enemyMax*100)+'%';
+document.getElementById('hpEnemyTxt').textContent=enemyHp+' / '+enemyMax;
+if(enemyHp<enemyMax*.25)document.getElementById('hpEnemy').style.background='#E53E3E';
+}else{
+heroHp=Math.max(0,heroHp-h.dmg);
+document.getElementById('hpHero').style.width=Math.round(heroHp/heroMax*100)+'%';
+document.getElementById('hpHeroTxt').textContent=heroHp+' / '+heroMax;
+if(heroHp<heroMax*.25)document.getElementById('hpHero').style.background='#E53E3E';
+}
+
+showDmg(target,h.dmg,h.type);
+
+var line=document.createElement('div');
+line.className='log-line '+h.cls;
+line.innerHTML=h.text;
+document.getElementById('log').prepend(line);
+setTimeout(function(){line.classList.add('show')},50);
+}
+
+function showDmg(target,val,type){
+var el=document.getElementById(target+'Body');
+var d=document.createElement('div');
+d.className='dmg dmg-'+type;
+d.textContent=type==='r'?'-'+val+' !!!':'-'+val;
+d.style.left='50%';d.style.top='-10px';d.style.transform='translateX(-50%)';
+d.style.animation='float-up .8s ease-out forwards';
+el.appendChild(d);
+setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d)},900);
+}
+
+function showVictory(){
+document.getElementById('enemy').classList.add('kneel');
+document.getElementById('hero').classList.add('winner');
+document.getElementById('heroBody').classList.add('glow');
+
+var v=document.getElementById('victory');
+v.className='victory-overlay show';
+setTimeout(function(){document.getElementById('vBanner').className='v-banner pop'},100);
+setTimeout(function(){document.getElementById('vRewards').className='v-rewards pop'},100);
+setTimeout(function(){document.getElementById('vBtn').className='v-btn pop'},100);
+}
+
+startBattle();
+</script>

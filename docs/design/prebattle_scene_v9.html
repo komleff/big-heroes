@@ -1,0 +1,156 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.ph{width:390px;max-width:100%;margin:0 auto;background:linear-gradient(180deg,#3a8ec2 0%,#5a7eaa 35%,#4a6a90 100%);border-radius:20px;font-family:system-ui,-apple-system,sans-serif;color:#fff;overflow:hidden;display:flex;flex-direction:column}
+.res{display:flex;align-items:center;gap:5px;padding:10px 12px 4px;flex-wrap:wrap}
+.pill{background:rgba(0,0,0,.35);border-radius:14px;padding:3px 8px;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500}
+.pill-sm{font-size:10px;padding:2px 6px}
+.relic-row{display:flex;gap:3px;margin-left:auto}
+.relic{width:22px;height:22px;background:rgba(0,0,0,.3);border-radius:6px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.15)}
+.relic svg{width:12px;height:12px}
+.node-title{text-align:center;padding:8px 14px 2px;font-size:15px;font-weight:500;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.matchup{display:flex;align-items:stretch;gap:8px;padding:6px 14px 6px}
+.fighter{flex:1;background:rgba(0,0,0,.3);border-radius:14px;padding:10px 8px;text-align:center;border:1.5px solid rgba(255,255,255,.1)}
+.fighter-av{width:64px;height:64px;border-radius:14px;background:rgba(0,0,0,.15);margin:0 auto 6px;display:flex;align-items:center;justify-content:center}
+.f-hero{border:2px solid #5EC040}
+.f-enemy{border:2px solid #E53E3E}
+.f-nm{font-size:11px;color:rgba(255,255,255,.7)}
+.f-mass{font-size:22px;font-weight:500;color:#4AE0E0;margin:2px 0;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.f-stats{font-size:10px;color:rgba(255,255,255,.6);line-height:1.5}
+.vs-col{display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.vs-txt{font-size:20px;font-weight:500;color:#E91E8C;text-shadow:0 0 8px rgba(233,30,140,.3)}
+.section{padding:4px 14px 0}
+.s-label{font-size:9px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px}
+.belt{display:flex;gap:5px}
+.bs{flex:1;background:rgba(0,0,0,.3);border-radius:10px;padding:6px 3px;text-align:center;min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1.5px solid transparent;cursor:pointer;transition:all .15s}
+.bs:hover{border-color:rgba(255,255,255,.2)}
+.bs.sel{border-color:#5EC040;background:rgba(94,192,64,.15)}
+.bs-nm{font-size:8px;color:rgba(255,255,255,.6);margin-top:2px}
+.bs-ef{font-size:8px;color:#5EC040;margin-top:1px}
+.cmds{display:flex;gap:6px;padding:0 14px;margin-top:6px}
+.cmd{flex:1;background:rgba(0,0,0,.3);border-radius:14px;padding:10px 4px 8px;text-align:center;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.cmd:hover{border-color:rgba(255,255,255,.2)}
+.cmd.sel{border-color:#5EC040;background:rgba(94,192,64,.12)}
+.cmd-nm{font-size:12px;font-weight:500;margin-top:4px}
+.cmd-ch{font-size:13px;font-weight:500;margin-top:2px}
+.ch-g{color:#5EC040}.ch-y{color:#FFD700}.ch-r{color:#E53E3E}
+.cmd-dur{display:flex;justify-content:center;gap:2px;margin-top:4px}
+.pip{width:12px;height:3px;border-radius:1px}
+.p-on{background:#5EC040}.p-off{background:rgba(255,255,255,.15)}
+.cmd-item{font-size:8px;color:rgba(255,255,255,.5);margin-top:2px}
+.hint{background:rgba(0,0,0,.25);border-radius:10px;padding:6px 10px;margin:8px 14px 0;font-size:10px;color:rgba(255,255,255,.7);line-height:1.4;border-left:3px solid #4AE0E0}
+.summary{text-align:center;font-size:10px;color:rgba(255,255,255,.5);margin-top:6px;min-height:14px;padding:0 14px}
+.cta{margin:8px 14px 14px;padding:15px;background:#5EC040;border:2px solid rgba(255,255,255,.2);border-radius:14px;color:#fff;font-size:20px;font-weight:500;text-align:center;cursor:pointer;text-shadow:0 1px 2px rgba(0,0,0,.3);transition:all .12s}
+.cta:active{transform:scale(.98)}
+.cta.off{opacity:.3;cursor:not-allowed}
+</style>
+
+<div class="ph">
+
+<div class="res">
+<div class="pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="#FFD700" stroke="none"><circle cx="12" cy="12" r="8"/></svg> 420</div>
+<div class="pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="#4AE0E0" stroke="none"><circle cx="12" cy="12" r="8"/></svg> 102 кг</div>
+<div class="pill pill-sm">Pity 3/5</div>
+<div class="relic-row">
+<div class="relic"><svg viewBox="0 0 24 24" fill="none" stroke="#D946A8" stroke-width="2"><circle cx="12" cy="12" r="6"/><path d="M12 6v2M12 16v2"/></svg></div>
+<div class="relic"><svg viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="2"><path d="M12 3C7 3 3 7 3 12c0 3 1.5 6 4 8h10c2.5-2 4-5 4-8 0-5-4-9-9-9z"/></svg></div>
+<div class="relic" style="opacity:.2"></div>
+</div>
+</div>
+
+<div class="node-title">Узел 4 из 10</div>
+
+<div class="matchup">
+<div class="fighter">
+<div class="fighter-av f-hero"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5EC040" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg></div>
+<div class="f-nm">BigHero_42</div>
+<div class="f-mass">102 кг</div>
+<div class="f-stats">Сила: 37<br>Броня: 3<br>Удача: 1</div>
+</div>
+<div class="vs-col"><div class="vs-txt">VS</div></div>
+<div class="fighter">
+<div class="fighter-av f-enemy"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#E53E3E" stroke-width="1.5"><path d="M12 3c-1.5 2-4 3-6 3 0 4 1 8 6 11 5-3 6-7 6-11-2 0-4.5-1-6-3z"/></svg></div>
+<div class="f-nm">Волк</div>
+<div class="f-mass">85 кг</div>
+<div class="f-stats">Сила: 28<br>Броня: 0<br>Удача: 0</div>
+</div>
+</div>
+
+<div class="section">
+<div class="s-label">Расходник с пояса</div>
+<div class="belt">
+<div class="bs" onclick="pickB(0)" id="b0">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5EC040" stroke-width="1.8"><path d="M12 2v8m-4-4l4 4 4-4"/><rect x="6" y="14" width="12" height="6" rx="2"/></svg>
+<div class="bs-nm">Настойка силы</div>
+<div class="bs-ef">+8 силы</div>
+</div>
+<div class="bs" onclick="pickB(1)" id="b1">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="1.8"><path d="M12 2v8m-4-4l4 4 4-4"/><rect x="6" y="14" width="12" height="6" rx="2"/></svg>
+<div class="bs-nm">Настойка железа</div>
+<div class="bs-ef">+3 брони</div>
+</div>
+<div class="bs" onclick="pickB(2)" id="b2">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9F5EC0" stroke-width="1.8"><circle cx="12" cy="10" r="6"/><path d="M12 16v4"/></svg>
+<div class="bs-nm">Склянка яда</div>
+<div class="bs-ef">-5 силы врага</div>
+</div>
+</div>
+</div>
+
+<div class="section" style="margin-top:6px">
+<div class="s-label">Команда</div>
+</div>
+<div class="cmds">
+<div class="cmd" onclick="pickC(0)" id="c0">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="1.5"><path d="M14.5 3.5L20 9l-9.5 9.5-7-1.5L5 9.5z"/><path d="M5 17l-2 2"/></svg>
+<div class="cmd-nm">Атака</div>
+<div class="cmd-ch ch-g">~78%</div>
+<div class="cmd-dur"><span class="pip p-on"></span><span class="pip p-on"></span><span class="pip p-off"></span></div>
+<div class="cmd-item">Ржавый меч</div>
+</div>
+<div class="cmd" onclick="pickC(1)" id="c1">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="1.5"><path d="M12 3C7 3 3 7 3 12c0 3 1.5 6 4 8h10c2.5-2 4-5 4-8 0-5-4-9-9-9z"/></svg>
+<div class="cmd-nm">Блок</div>
+<div class="cmd-ch ch-y">~55%</div>
+<div class="cmd-dur"><span class="pip p-on"></span><span class="pip p-on"></span><span class="pip p-on"></span></div>
+<div class="cmd-item">Деревянный щит</div>
+</div>
+<div class="cmd" onclick="pickC(2)" id="c2">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D946A8" stroke-width="1.5"><path d="M9 20l-4-4 4-4"/><path d="M5 16h10a4 4 0 000-8h-1"/></svg>
+<div class="cmd-nm">Отступление</div>
+<div class="cmd-ch ch-g">72%</div>
+<div class="cmd-dur"><span class="pip p-on"></span><span class="pip p-off"></span><span class="pip p-off"></span></div>
+<div class="cmd-item">Сапоги-скороходы</div>
+</div>
+</div>
+
+<div class="hint" id="hint">Враг легче вас — Атака выгоднее. Тяжелее — Блок. Не уверены — Отступление.</div>
+<div class="summary" id="sum"></div>
+<div class="cta off" id="go" onclick="go()">В бой!</div>
+
+</div>
+
+<script>
+var selB=-1,selC=-1;
+var bN=['Настойка силы (+8 силы)','Настойка железа (+3 брони)','Склянка яда (-5 силы врага)'];
+var cN=['Атака','Блок','Отступление'];
+var cH=['Базовая атака. Шанс по TTK. Ломает оружие (main hand).','Подтягивает шанс к 50%. Выгоден против тяжёлых. Ломает щит (off-hand).','Назад на перекрёсток. Путь остаётся открытым. Ломает аксессуар.'];
+function pickB(i){
+selB=selB===i?-1:i;
+for(var j=0;j<3;j++){document.getElementById('b'+j).className='bs'+(j===selB?' sel':'');}
+upd();
+}
+function pickC(i){
+selC=i;
+for(var j=0;j<3;j++){document.getElementById('c'+j).className='cmd'+(j===selC?' sel':'');}
+document.getElementById('hint').textContent=cH[i];
+document.getElementById('go').className='cta';
+upd();
+}
+function upd(){
+var p=[];
+if(selC>=0)p.push(cN[selC]);
+if(selB>=0)p.push(bN[selB]);
+document.getElementById('sum').textContent=p.join(' + ');
+}
+function go(){if(selC<0)return;}
+</script>

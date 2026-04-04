@@ -1,0 +1,150 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.ph{width:390px;max-width:100%;margin:0 auto;background:linear-gradient(180deg,#3a8ec2 0%,#7ec8e3 30%,#a8d8a8 60%,#78b060 100%);border-radius:20px;font-family:system-ui,-apple-system,sans-serif;color:#fff;overflow:hidden;display:flex;flex-direction:column;min-height:800px}
+.hdr{display:flex;align-items:center;padding:10px 12px 4px;gap:6px}
+.hdr-av{width:36px;height:36px;border-radius:10px;background:#fff;border:2px solid #5EC040;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hdr-nick{font-size:13px;font-weight:500;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.hdr-right{margin-left:auto;display:flex;gap:6px}
+.cur{background:rgba(0,0,0,.35);border-radius:16px;padding:3px 6px 3px 8px;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:500}
+.cur-plus{width:18px;height:18px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer}
+.cur-plus:hover{background:rgba(255,255,255,.35)}
+.league-bar-area{text-align:center;padding:6px 14px 0}
+.league-nm{font-size:14px;font-weight:500;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.league-bar-wrap{background:rgba(0,0,0,.25);border-radius:8px;height:22px;margin-top:3px;overflow:hidden;position:relative;border:1px solid rgba(255,255,255,.1)}
+.league-bar-fill{height:100%;width:65%;background:linear-gradient(90deg,#5EC040,#8FE070);border-radius:7px}
+.league-bar-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;text-shadow:0 1px 1px rgba(0,0,0,.4)}
+.hero-zone{flex:1;display:flex;align-items:center;justify-content:center;padding:4px 12px;position:relative}
+.sq-btn{width:56px;height:56px;background:rgba(0,0,0,.35);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;gap:1px;border:1.5px solid rgba(255,255,255,.1);transition:all .15s;position:relative}
+.sq-btn:hover{background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.25)}
+.sq-btn svg{width:20px;height:20px}
+.sq-btn span{font-size:8px;color:rgba(255,255,255,.7)}
+.sq-dot{width:6px;height:6px;border-radius:50%;background:#E53E3E;position:absolute;top:4px;right:4px}
+.hero-col{flex:1;display:flex;flex-direction:column;align-items:center}
+.hero-char{width:130px;height:150px;background:rgba(0,0,0,.06);border-radius:18px;display:flex;align-items:center;justify-content:center}
+.hero-char svg{width:70px;height:70px}
+.hero-mass{font-size:34px;font-weight:500;color:#4AE0E0;text-shadow:0 2px 4px rgba(0,0,0,.4);margin-top:2px}
+.hero-stats{font-size:12px;color:rgba(255,255,255,.8);text-shadow:0 1px 1px rgba(0,0,0,.3);margin-top:2px}
+.slots{display:flex;gap:6px;margin-top:8px;justify-content:center}
+.slot{width:80px;background:rgba(0,0,0,.3);border-radius:12px;padding:6px 4px;text-align:center;cursor:pointer;border:1.5px solid rgba(255,255,255,.1);transition:border-color .15s}
+.slot:hover{border-color:rgba(255,255,255,.35)}
+.slot-nm{font-size:9px;color:rgba(255,255,255,.7)}
+.slot-stat{font-size:10px;font-weight:500;margin-top:1px}
+.slot-dur{display:flex;justify-content:center;gap:2px;margin-top:3px}
+.pip{width:12px;height:3px;border-radius:1px}
+.p-on{background:#5EC040}.p-off{background:rgba(255,255,255,.15)}
+.belt{display:flex;gap:5px;margin-top:8px;justify-content:center}
+.bs{width:60px;background:rgba(0,0,0,.25);border-radius:10px;padding:5px 3px;text-align:center;min-height:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.08)}
+.bs-nm{font-size:8px;color:rgba(255,255,255,.6);margin-top:2px}
+.bs-lock{display:flex;flex-direction:column;align-items:center;gap:1px}
+.bs-lock svg{width:14px;height:14px;opacity:.3}
+.bs-lock span{font-size:7px;color:rgba(255,255,255,.25)}
+.bottom{padding:6px 12px 8px}
+.act-row{display:flex;gap:6px;align-items:stretch;margin-bottom:5px}
+.btn-big{flex:1;border-radius:14px;padding:14px 14px;display:flex;align-items:center;gap:8px;cursor:pointer;border:2px solid rgba(255,255,255,.15);color:#fff;font-size:17px;font-weight:500;transition:all .12s;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.btn-big:active{transform:scale(.98)}
+.btn-pve{background:#5EC040}
+.btn-pvp{background:#D946A8}
+.btn-big svg{width:18px;height:18px;flex-shrink:0}
+.btn-big .tk{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:13px;opacity:.9}
+.spacer{width:56px;flex-shrink:0}
+.arena-hint{text-align:center;font-size:11px;color:#5EC040;text-shadow:0 1px 1px rgba(0,0,0,.3);margin-top:2px;margin-bottom:2px}
+.footer{display:flex;background:rgba(0,0,0,.5);padding:6px 0 10px;border-top:1px solid rgba(255,255,255,.08)}
+.ft{flex:1;text-align:center;padding:4px 0;cursor:pointer}
+.ft svg{width:22px;height:22px;display:block;margin:0 auto 2px}
+.ft span{font-size:9px;color:rgba(255,255,255,.5)}
+.ft.act svg{stroke:#FFD700}
+.ft.act span{color:#FFD700}
+</style>
+
+<div class="ph">
+
+<div class="hdr">
+<div class="hdr-av"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5EC040" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg></div>
+<div class="hdr-nick">BigHero_42</div>
+<div class="hdr-right">
+<div class="cur"><svg width="14" height="14" viewBox="0 0 24 24" fill="#FFD700" stroke="none"><circle cx="12" cy="12" r="8"/></svg> 1 500 <div class="cur-plus">+</div></div>
+<div class="cur"><svg width="14" height="14" viewBox="0 0 24 24" fill="#B060E0" stroke="none"><path d="M12 2l3 7h7l-5.5 4.5 2 7L12 16l-6.5 4.5 2-7L2 9h7z"/></svg> 80 <div class="cur-plus">+</div></div>
+</div>
+</div>
+
+<div class="league-bar-area">
+<div class="league-nm">Бронзовая лига</div>
+<div class="league-bar-wrap"><div class="league-bar-fill"></div><div class="league-bar-text">1 150 / 1 500</div></div>
+</div>
+
+<div class="hero-zone">
+<div class="sq-btn" style="align-self:center">
+<svg viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="1.5"><path d="M4 19V5a2 2 0 012-2h8l6 6v10a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M14 3v6h6"/></svg>
+<span>Путь</span>
+</div>
+
+<div class="hero-col">
+<div class="hero-char"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.8"><ellipse cx="12" cy="11" rx="7" ry="9"/><circle cx="10" cy="9" r="0.8" fill="rgba(255,255,255,.4)"/><circle cx="14" cy="9" r="0.8" fill="rgba(255,255,255,.4)"/></svg></div>
+<div class="hero-mass">95 kg</div>
+<div class="hero-stats">Сила: 32, Здоровье: 95</div>
+
+<div class="slots">
+<div class="slot">
+<div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="1.5"><path d="M14.5 3.5L20 9l-9.5 9.5-7-1.5L5 9.5z"/><path d="M5 17l-2 2"/></svg></div>
+<div class="slot-nm">Ржавый меч</div>
+<div class="slot-stat" style="color:#FFD700">+3 силы</div>
+<div class="slot-dur"><span class="pip p-on"></span><span class="pip p-on"></span><span class="pip p-off"></span></div>
+</div>
+<div class="slot">
+<div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D946A8" stroke-width="1.5"><path d="M9 20l-4-4 4-4"/><path d="M5 16h10a4 4 0 000-8h-1"/></svg></div>
+<div class="slot-nm">Сапоги-скороходы</div>
+<div class="slot-stat" style="color:#D946A8">Отступление</div>
+<div class="slot-dur"><span class="pip p-on"></span><span class="pip p-off"></span><span class="pip p-off"></span></div>
+</div>
+<div class="slot">
+<div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="1.5"><path d="M12 3C7 3 3 7 3 12c0 3 1.5 6 4 8h10c2.5-2 4-5 4-8 0-5-4-9-9-9z"/></svg></div>
+<div class="slot-nm">Деревянный щит</div>
+<div class="slot-stat" style="color:#378ADD">+3 брони</div>
+<div class="slot-dur"><span class="pip p-on"></span><span class="pip p-on"></span><span class="pip p-on"></span></div>
+</div>
+</div>
+
+<div class="belt">
+<div class="bs"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5EC040" stroke-width="1.8"><path d="M12 6v12M6 12h12"/><rect x="4" y="4" width="16" height="16" rx="4"/></svg><div class="bs-nm">Аптечка</div></div>
+<div class="bs"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="1.8"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.6-3.6a6 6 0 01-8.5 8.5L5 21l-2-2 7.8-7.8a6 6 0 018.5-8.5z"/></svg><div class="bs-nm">Ремкомплект</div></div>
+<div class="bs"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9F5EC0" stroke-width="1.8"><circle cx="12" cy="10" r="6"/><path d="M12 16v4"/></svg><div class="bs-nm">Яд</div></div>
+<div class="bs"><div class="bs-lock"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg><span>ур. 7</span></div></div>
+</div>
+</div>
+
+<div class="sq-btn" style="align-self:center">
+<svg viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 9v4M10 11h4"/></svg>
+<span>Пропуск</span>
+</div>
+</div>
+
+<div class="bottom">
+<div class="act-row">
+<div class="sq-btn" style="position:relative">
+<svg viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="1.5"><path d="M12 2l2 5h5l-4 3.5 1.5 5L12 13l-4.5 2.5L9 10.5 5 7h5z"/></svg>
+<span>Событие</span>
+<div class="sq-dot"></div>
+</div>
+<button class="btn-big btn-pve"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Охота <span class="tk"><svg width="14" height="14" viewBox="0 0 24 24" fill="#FFD700" stroke="none"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18" fill="#B89520"/></svg> 3</span></button>
+<div class="sq-btn">
+<svg viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="1.5"><path d="M6 9H3l3-6h12l3 6h-3"/><path d="M6 9l6 9 6-9"/></svg>
+<span>Рейтинг</span>
+</div>
+</div>
+<div class="act-row">
+<div class="spacer"></div>
+<button class="btn-big btn-pvp"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M8 8l8 8M16 8l-8 8"/></svg> Арена <span class="tk"><svg width="14" height="14" viewBox="0 0 24 24" fill="#FFD700" stroke="none"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18" fill="#B89520"/></svg> 2</span></button>
+<div class="spacer"></div>
+</div>
+<div class="arena-hint">Вашей массы достаточно для Арены!</div>
+</div>
+
+<div class="footer">
+<div class="ft"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>Магазин</span></div>
+<div class="ft"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg><span>Герои</span></div>
+<div class="ft act"><svg viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="1.5"><path d="M6 4l6 4 6-4v6l-6 4-6-4z"/><path d="M6 14l6 4 6-4"/></svg><span>Играть</span></div>
+<div class="ft"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18"/></svg><span>Инвентарь</span></div>
+<div class="ft"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg><span>Коллекции</span></div>
+</div>
+
+</div>
