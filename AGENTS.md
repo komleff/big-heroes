@@ -59,7 +59,7 @@ bd close <id>         # Complete work
    > If a PR exists, push WITHOUT a report = incomplete work.
 
 6. **Clean up** - Clear stashes, prune remote branches
-7. **Verify** - All changes committed AND pushed, report published
+7. **Verify** - All changes committed AND pushed, report published (if PR exists)
 8. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
