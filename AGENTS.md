@@ -35,7 +35,7 @@ bd close <id>         # Complete work
 
 ## Session Completion
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds AND report is published in PR.
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds AND report is published in PR (if PR exists).
 
 **MANDATORY WORKFLOW:**
 
@@ -64,9 +64,9 @@ bd close <id>         # Complete work
 
 **CRITICAL RULES:**
 
-- Work is NOT complete until `git push` succeeds AND report is published in PR
+- Work is NOT complete until `git push` succeeds AND report is published in PR (if PR exists)
 - NEVER stop before pushing - that leaves work stranded locally
-- NEVER stop after pushing without publishing a report - the team has no visibility
+- If a PR exists, NEVER stop after pushing without publishing a report - the team has no visibility
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 - All agents share the operator's GitHub account — use `gh pr comment`, NEVER `gh pr review` (author cannot review their own PR)
