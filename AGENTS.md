@@ -51,14 +51,24 @@ bd close <id>         # Complete work
    git status  # MUST show "up to date with origin"
    ```
 
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
+5. **Publish report to PR** (if PR exists) — summarize what was done/fixed:
+
+   ```bash
+   gh pr comment <NUMBER> --body-file <report>
+   ```
+
+   > Push WITHOUT a report = incomplete work. Both steps are mandatory.
+
+6. **Clean up** - Clear stashes, prune remote branches
+7. **Verify** - All changes committed AND pushed, report published
+8. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
 
-- Work is NOT complete until `git push` succeeds
+- Work is NOT complete until `git push` succeeds AND report is published in PR
 - NEVER stop before pushing - that leaves work stranded locally
+- NEVER stop after pushing without publishing a report - the team has no visibility
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+- All agents share the operator's GitHub account — use `gh pr comment`, NEVER `gh pr review` (author cannot review their own PR)
 <!-- END BEADS INTEGRATION -->
