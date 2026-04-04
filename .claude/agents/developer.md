@@ -55,7 +55,7 @@ git commit -m "checkpoint: before <описание>"
 
 ## Git workflow
 
-1. Убедись, что работаешь в правильной ветке (не main)
+1. Убедись, что работаешь в правильной ветке (не master)
 2. Коммиты — атомарные, с понятным сообщением
 3. После завершения всех шагов: `npm run build --if-present && npm run test --if-present`
 4. Push в рабочую ветку
