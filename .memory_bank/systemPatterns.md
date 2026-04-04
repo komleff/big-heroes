@@ -1,6 +1,6 @@
 # Архитектурные паттерны — Big Heroes
 
-**Обновлён:** 2026-04-02
+**Обновлён:** 2026-04-05
 
 ---
 
@@ -50,6 +50,29 @@ shared/       — игровая математика и типы (без side-e
 
 ## Что ещё не определено
 
-- Паттерн SceneManager (Sprint 1)
 - Система ассетов и манифест
 - Игровой цикл и update-loop
+
+---
+
+## AI-пайплайн (установлен Pipeline Audit, PR #3)
+
+### Роли и агенты
+- PM → оркестрация, ветки, делегирование
+- Developer → реализация (TDD), `.claude/agents/developer.md`
+- Reviewer → 4 аспекта, `.claude/agents/reviewer.md`
+- Tester → тесты, `.claude/agents/tester.md`
+- Planner → исследование, планы
+
+### Ревью-процесс
+- 4 аспекта: Архитектура, Безопасность, Качество, Гигиена кода
+- 4 уровня: Light (doc-only), Standard (фичи), Critical (shared/balance), Sprint Final (внешние модели)
+- Hard gate: сессия не завершена без `git push` + `gh pr comment` (if PR exists)
+- Comment-only: `gh pr comment`, не `gh pr review` (все агенты = аккаунт оператора)
+
+### Завершение сессии
+1. Issues для оставшейся работы
+2. Quality gates (build + test)
+3. git push
+4. gh pr comment (if PR exists) — **hard gate**
+5. Verify + hand off
