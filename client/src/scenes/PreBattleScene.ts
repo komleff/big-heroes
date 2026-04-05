@@ -485,7 +485,10 @@ export class PreBattleScene extends BaseScene {
 
             // Атака и Блок доступны ВСЕГДА (по GDD), остальные — блокируются при durability=0
             const isAlwaysAvailable = cmd.id === 'cmd_attack' || cmd.id === 'cmd_block';
-            const isDisabled = isBroken && !isAlwaysAvailable;
+            // Retreat и Bypass запрещены против босса (по GDD)
+            const isBossRestricted = this.enemy.type === 'boss'
+                && (cmd.id === 'cmd_retreat' || cmd.id === 'cmd_bypass');
+            const isDisabled = isBossRestricted || (isBroken && !isAlwaysAvailable);
 
             const container = new Container();
             container.x = x;
@@ -516,11 +519,11 @@ export class PreBattleScene extends BaseScene {
             iconText.y = 6;
             container.addChild(iconText);
 
-            // Название команды
+            // Название команды (при блокировке против босса — специальный текст)
             const nameText = new Text({
-                text: cmd.label,
+                text: isBossRestricted ? 'Запрещено vs босс' : cmd.label,
                 style: new TextStyle({
-                    fontSize: 12,
+                    fontSize: isBossRestricted ? 9 : 12,
                     fontFamily: THEME.font.family,
                     fontWeight: THEME.font.weights.bold,
                     fill: isDisabled ? THEME.colors.text_muted : THEME.colors.text_primary,

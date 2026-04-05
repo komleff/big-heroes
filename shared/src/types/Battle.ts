@@ -33,4 +33,5 @@ export interface IBattleResult {
     durabilityTarget: EquipmentSlotId | null;  // слот экипировки для износа
     massReward: number;         // +кг при победе (0 при поражении)
     goldReward: number;
+    enemyInitiative: boolean;   // враг бьёт первым (fallback после провала retreat/bypass/polymorph)
 }

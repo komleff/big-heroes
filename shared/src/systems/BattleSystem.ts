@@ -13,7 +13,7 @@ import {
  * Разрешение боя. Чистая функция — без side-effects.
  *
  * Логика:
- * 1. Применить эффект расходника к героStats (если есть)
+ * 1. Применить эффект расходника к heroStats (если есть)
  * 2. Рассчитать урон и TTK для обеих сторон
  * 3. Рассчитать шанс победы для выбранной команды
  * 4. rng() < winChance → победа, иначе поражение
@@ -28,6 +28,11 @@ export function resolveBattle(
     formulaConfig: IFormulaConfig,
 ): IBattleResult {
     const { heroStats, enemy, command, consumable, rng } = context;
+
+    // Против босса retreat и bypass запрещены — автоматический fallback в обычную атаку
+    const effectiveCommand = (enemy.type === 'boss' && (command === 'cmd_retreat' || command === 'cmd_bypass'))
+        ? 'cmd_attack'
+        : command;
 
     // 1. Применить расходник (через общую функцию FormulaEngine)
     const { modifiedStats, modifiedEnemyStrength: modifiedEnemyStr } =
@@ -48,8 +53,9 @@ export function resolveBattle(
     // 4. Шанс по команде
     let winChance: number;
     let outcome: BattleOutcome;
+    let isFallback = false; // Флаг: бой произошёл после провала retreat/bypass/polymorph
 
-    switch (command) {
+    switch (effectiveCommand) {
         case 'cmd_attack':
             winChance = calcAttackWinChance(baseChance, modifiedStats.luck, min, max, luckAttackCoeff);
             outcome = rng() < winChance ? 'victory' : 'defeat';
@@ -72,6 +78,7 @@ export function resolveBattle(
                 outcome = 'retreat';
             } else {
                 // Провал отступления → обычный бой с инициативой врага
+                isFallback = true;
                 const retreatFallback = calcAttackWinChance(baseChance, modifiedStats.luck, min, max, luckAttackCoeff);
                 outcome = rng() < retreatFallback ? 'victory' : 'defeat';
             }
@@ -82,6 +89,7 @@ export function resolveBattle(
                 outcome = 'bypass';
             } else {
                 // Провал обхода → обычный бой с инициативой врага
+                isFallback = true;
                 const bypassFallback = calcAttackWinChance(baseChance, modifiedStats.luck, min, max, luckAttackCoeff);
                 outcome = rng() < bypassFallback ? 'victory' : 'defeat';
             }
@@ -92,6 +100,7 @@ export function resolveBattle(
                 outcome = 'polymorph';
             } else {
                 // Провал полиморфа → обычный бой с инициативой врага
+                isFallback = true;
                 const polymorphFallback = calcAttackWinChance(baseChance, modifiedStats.luck, min, max, luckAttackCoeff);
                 outcome = rng() < polymorphFallback ? 'victory' : 'defeat';
             }
@@ -102,9 +111,10 @@ export function resolveBattle(
     }
 
     // 5. Анимация — для специальных исходов не генерируем удары
+    //    При fallback victory враг бьёт первым (enemyFirst)
     let hits: IHitAnimation[];
     if (outcome === 'victory') {
-        hits = generateHitAnimation('hero', heroDamage, enemyDamage, rng);
+        hits = generateHitAnimation('hero', heroDamage, enemyDamage, rng, isFallback);
     } else if (outcome === 'defeat') {
         hits = generateHitAnimation('enemy', heroDamage, enemyDamage, rng);
     } else {
@@ -135,5 +145,6 @@ export function resolveBattle(
         durabilityTarget,
         massReward,
         goldReward,
+        enemyInitiative: isFallback,
     };
 }

@@ -149,25 +149,29 @@ export function applyConsumableEffect(
 }
 
 /**
- * Генерация анимации ударов (2–3 удара).
- * Каждый удар = damage × rand(0.7–1.3). Сумма ≈ totalDamage.
+ * Генерация анимации ударов (2–3 удара победителя + 1–2 ответных).
+ * Каждый удар = baseDamage × rand(0.7–1.3).
  * Удар с множителем ≥1.15 — «сильный», ≥1.25 — «критический».
+ *
+ * @param enemyFirst — если true, сначала генерируются удары проигравшего
+ *   (инициатива врага при fallback после провала retreat/bypass/polymorph)
  */
 export function generateHitAnimation(
     winner: 'hero' | 'enemy',
     heroDamage: number,
     enemyDamage: number,
     rng: () => number,
+    enemyFirst: boolean = false,
 ): IHitAnimation[] {
     const hitCount = rng() < 0.5 ? 2 : 3;
-    const hits: IHitAnimation[] = [];
 
     // Удары победителя по проигравшему
+    const winnerHits: IHitAnimation[] = [];
     for (let i = 0; i < hitCount; i++) {
         const multiplier = 0.7 + rng() * 0.6; // 0.7–1.3
         const dmg = winner === 'hero' ? heroDamage : enemyDamage;
         const displayDmg = Math.max(1, Math.round(dmg * multiplier));
-        hits.push({
+        winnerHits.push({
             attacker: winner,
             damage: displayDmg,
             isStrong: multiplier >= 1.15,
@@ -177,11 +181,12 @@ export function generateHitAnimation(
 
     // Ответные удары проигравшего (1–2)
     const responseCount = Math.max(1, hitCount - 1);
+    const loserHits: IHitAnimation[] = [];
     for (let i = 0; i < responseCount; i++) {
         const multiplier = 0.7 + rng() * 0.6;
         const dmg = winner === 'hero' ? enemyDamage : heroDamage;
         const displayDmg = Math.max(1, Math.round(dmg * multiplier));
-        hits.push({
+        loserHits.push({
             attacker: winner === 'hero' ? 'enemy' : 'hero',
             damage: displayDmg,
             isStrong: multiplier >= 1.15,
@@ -189,5 +194,9 @@ export function generateHitAnimation(
         });
     }
 
-    return hits;
+    // При enemyFirst — проигравший бьёт первым (инициатива врага при fallback)
+    if (enemyFirst) {
+        return [...loserHits, ...winnerHits];
+    }
+    return [...winnerHits, ...loserHits];
 }

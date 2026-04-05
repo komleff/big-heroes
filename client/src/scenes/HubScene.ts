@@ -10,7 +10,7 @@ import { EquipmentCard } from '../ui/EquipmentCard';
 import { HeroPortrait } from '../ui/HeroPortrait';
 import { BottomNav } from '../ui/BottomNav';
 import balanceConfig from '@config/balance.json';
-import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig, IMobConfig } from 'shared';
+import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig } from 'shared';
 import hubBgUrl from '../assets/hub-bg.png';
 
 /**

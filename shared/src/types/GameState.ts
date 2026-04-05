@@ -1,4 +1,4 @@
-import type { IEquipmentItem, EquipmentSlotId } from './Equipment';
+import type { IEquipmentItem } from './Equipment';
 import type { IConsumable } from './Consumable';
 import type { IRelic } from './Relic';
 
