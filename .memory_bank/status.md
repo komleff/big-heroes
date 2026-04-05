@@ -1,55 +1,48 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-05
-**Фаза:** Sprint 1 — завершён и смержен; Pipeline Audit — APPROVED, готов к merge
-**last_checked_commit:** f633d08
+**Обновлён:** 2026-04-06
+**Фаза:** Sprint 2 — завершён, PR #4 на ревью (Copilot + GPT-5.4 + GPT-5.3-Codex)
+**last_checked_commit:** 86b8d44
 
 ---
 
 ## Текущее состояние
 
-Sprint 1 (SceneManager + HubScene) завершён. PR #2 смержен в master.
+Sprint 2 (Новая модель данных + боевая система v5) завершён. PR #4 ожидает ревью.
 
-Pipeline Audit (PR #3, ветка `review/pipeline-audit`) — APPROVED после 11 раундов ревью.
-Изменения: дедупликация инструкций, 4 аспекта ревью (было 3), main→master, hard gate на публикацию отчётов, comment-only правило, унификация нейминга моделей, bd sync удалён, doc-only исключение для тестов.
+**Ключевые изменения Sprint 2:**
+- Модель данных полностью переписана под GDD v1.2: HP=масса, strength=mass/3+bonus, durability 3
+- FormulaEngine: 13 чистых функций в shared/ (TTK, 6 command chances, Elo, hitAnim)
+- BattleSystem: resolveBattle() — чистая функция контекст→результат
+- PreBattleScene: matchup, belt, 6 команд с цветовой индикацией шанса
+- BattleScene: автобой 2–3 сек (shake, float damage, баннеры)
+- HubScene: фоновая картинка cover-fit + ПОХОД→PreBattle
+- DurabilityPips ●●○, EquipmentCard с бонусами
+- balance.json v1.2: 9 предметов, 10 расходников, 7 мобов, 6 реликвий
+- 45 unit-тестов FormulaEngine — все проходят
 
-- `shared/` — типы: IGameState, IEquipmentItem, IBalanceConfig, IStarterEquipmentConfigItem
-- `client/src/core/` — EventBus, GameState, SceneManager (5 типов переходов, viewport 390×844)
-- `client/src/ui/` — Button (3 варианта), ResourceBar, ProgressBar, EquipmentCard, HeroPortrait, BottomNav
-- `client/src/scenes/` — BaseScene, HubScene, 4 заглушки (PveMap, PvpLobby, Inventory, DevPanel)
-- `client/src/config/ThemeConfig.ts` — полная таблица токенов из style-guide.md
-- `config/balance.json` — стартовые параметры героя, ресурсов, экипировки
-- Nunito font подключён, webpack alias @config настроен
-
-## AI-пайплайн (после Pipeline Audit)
+## AI-пайплайн
 
 - 5 ролей: PM, Architect, Developer, Reviewer, Tester
 - 4 аспекта ревью: Архитектура, Безопасность, Качество, Гигиена кода
-- 4 уровня ревью: Light, Standard, Critical, Sprint Final
-- Hard gate: push + report (if PR exists) = обязательное условие завершения сессии
-- Внешние модели: GPT-5.4 + GPT-5.3-Codex (Sprint Final)
-- Comment-only: все агенты используют `gh pr comment`, не `gh pr review`
-
-## Ревью
-
-- Наше ревью (архитектура/качество/безопасность): 1 CRITICAL + 5 WARNING → все исправлены
-- GitHub Copilot (8 inline): типизация, UX, promise safety → все исправлены
-- Deferred: setHp() бизнес-логика → shared/ (FormulaEngine), дублирование кода (рефакторинг)
+- Sprint Final: GPT-5.4 + GPT-5.3-Codex (запущен для PR #4)
 
 ## Ближайшие задачи
 
-- [ ] Merge PR #3 (Pipeline Audit) — оператор
-- [ ] Sprint 2 — BattleSystem + BattleScene (пошаговый бой)
+- [ ] Ревью PR #4 (Copilot + GPT-5.4 + GPT-5.3-Codex) — ожидаем
+- [ ] Исправления по ревью → merge PR #4
+- [ ] Sprint 3 — PvE-поход (случайная генерация маршрута)
 
 ## Ветки
 
 | Ветка | Статус |
 |-------|--------|
-| master | Sprint 1 merged |
-| review/pipeline-audit | PR #3, APPROVED, ожидает merge |
+| master | Sprint 1 merged + Pipeline Audit merged |
+| sprint/2-data-model-battle-v5 | PR #4, ожидает ревью |
 
 ## История изменений
 
-- 2026-04-02 — Sprint 0: среда, Beads, docs/, Memory Bank, GDD (13 файлов)
-- 2026-04-03 — Sprint 1: SceneManager + HubScene (22 новых файла, 2700+ строк)
-- 2026-04-05 — Pipeline Audit: ревизия AI-пайплайна (14 файлов, 11 раундов ревью)
+- 2026-04-02 — Sprint 0: среда, Beads, docs/, Memory Bank, GDD
+- 2026-04-03 — Sprint 1: SceneManager + HubScene (22 файла, 2700+ строк)
+- 2026-04-05 — Pipeline Audit: ревизия AI-пайплайна
+- 2026-04-06 — Sprint 2: модель данных v1.2 + боевая система (24 файла, ~3000 строк, 45 тестов)
