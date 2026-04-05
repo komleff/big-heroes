@@ -1,11 +1,11 @@
 {
   "hero": {
-    "startMass": 420,
-    "startRating": 1150,
-    "massCap": 999
+    "startMass": 50,
+    "startRating": 1000,
+    "massCap": 125
   },
   "resources": {
-    "startGold": 1500
+    "startGold": 100
   },
   "formulas": {
     "baseBlockPower": 0.3,
@@ -49,7 +49,13 @@
     { "id": "pouch_t1", "name": "Подсумок", "type": "hiking", "tier": 1, "effect": "backpack_slot", "value": 1, "basePrice": 100 }
   ],
   "enemies": [
-    { "id": "mob_slime", "name": "Слизень", "type": "combat", "mass": 35, "strength": 12, "armor": 0, "massReward": 6, "goldReward": 20 }
+    { "id": "mob_slime", "name": "Слизень", "type": "combat", "mass": 35, "strength": 12, "armor": 0, "massReward": 6, "goldReward": 10 },
+    { "id": "mob_goblin", "name": "Гоблин", "type": "combat", "mass": 50, "strength": 17, "armor": 1, "massReward": 7, "goldReward": 10 },
+    { "id": "mob_wolf", "name": "Волк", "type": "combat", "mass": 45, "strength": 18, "armor": 0, "massReward": 7, "goldReward": 10 },
+    { "id": "mob_skeleton", "name": "Скелет", "type": "combat", "mass": 55, "strength": 16, "armor": 3, "massReward": 8, "goldReward": 10 },
+    { "id": "elite_ogre", "name": "Огр", "type": "elite", "mass": 90, "strength": 25, "armor": 5, "massReward": 12, "goldReward": 20 },
+    { "id": "elite_mage", "name": "Маг", "type": "elite", "mass": 60, "strength": 28, "armor": 1, "massReward": 15, "goldReward": 20 },
+    { "id": "boss_dragon", "name": "Дракон", "type": "boss", "mass": 150, "strength": 40, "armor": 8, "massReward": 25, "goldReward": 30 }
   ],
   "relics": [
     { "id": "relic_strength", "name": "Амулет силы", "effect": "strength_bonus", "value": 2 },

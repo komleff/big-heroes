@@ -99,8 +99,8 @@ export function resolveBattle(
             if (rng() < winChance) {
                 outcome = 'polymorph';
             } else {
-                // Провал полиморфа → обычный бой с инициативой врага
-                isFallback = true;
+                // Провал полиморфа → обычный бой (без инициативы врага, по GDD)
+                // isFallback = false — полиморф не даёт enemy initiative
                 const polymorphFallback = calcAttackWinChance(baseChance, modifiedStats.luck, min, max, luckAttackCoeff);
                 outcome = rng() < polymorphFallback ? 'victory' : 'defeat';
             }
@@ -122,11 +122,11 @@ export function resolveBattle(
         hits = [];
     }
 
-    // 6. Предмет для износа (привязан к команде)
-    // cmd_attack → weapon, cmd_block → armor, остальные → accessory
+    // 6. Предмет для износа (по фактически выполненной команде, не исходной)
+    // Для boss retreat/bypass → effectiveCommand=cmd_attack → wear weapon
     let durabilityTarget: EquipmentSlotId | null = null;
-    if (command === 'cmd_attack') durabilityTarget = 'weapon';
-    else if (command === 'cmd_block') durabilityTarget = 'armor';
+    if (effectiveCommand === 'cmd_attack') durabilityTarget = 'weapon';
+    else if (effectiveCommand === 'cmd_block') durabilityTarget = 'armor';
     else durabilityTarget = 'accessory';
 
     // 7. Награды
