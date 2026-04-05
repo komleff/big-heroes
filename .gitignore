@@ -8,3 +8,6 @@ dist/
 .dolt/
 *.db
 .beads-credential-key
+
+# Windows shortcuts
+*.lnk

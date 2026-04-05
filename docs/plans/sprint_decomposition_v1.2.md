@@ -2,7 +2,7 @@
 
 **Версия:** 1.2
 **Дата:** 2026-04-05
-**Источники:** GDD v1.1, MVP Prototype Proposal v1.1, реальный код komleff/big-heroes
+**Источники:** GDD v1.2, MVP Prototype Proposal v1.2, реальный код komleff/big-heroes
 **Статус:** Готово к реализации
 
 ---
@@ -32,7 +32,7 @@
 | Shared types | shared/src/types/*.ts | ✅ Готово | **Переписать** (новая модель) |
 | balance.json | config/balance.json | ✅ Готово | **Переписать** (новые параметры) |
 | Агентный пайплайн | .agents/, .claude/, .memory_bank/ | ✅ Готово | Да |
-| GDD v1.0 | docs/gdd/*.md | ✅ 13 файлов | **Заменить на GDD v1.1** (уже в проекте project knowledge) |
+| GDD v1.0 | docs/gdd/*.md | ✅ 13 файлов | **Заменить на GDD v1.2** (уже в проекте project knowledge) |
 
 ### Что нужно переписать и почему
 
@@ -41,7 +41,7 @@
 | IHeroState | Старая модель: отдельные hp, maxHp, baseAttack, baseDefense | Новая: HP = mass, strength = mass/3 + bonus, armor = shield, luck = accessory |
 | IEquipmentItem | Старая: generic modifier, durability 100 | Новая: +strength/+armor/+luck, durability 3, привязка к командам |
 | IBalanceConfig | Старая: startHp, baseAttack, baseDefense | Новая: startMass 50, потолок 125, 9 предметов с конкретными бонусами |
-| GameState | Сеттеры setHp(), вычисления не по GDD v1.1 | Новые: calcHeroStats из FormulaEngine, belt, backpack, relics |
+| GameState | Сеттеры setHp(), вычисления не по GDD v1.2 | Новые: calcHeroStats из FormulaEngine, belt, backpack, relics |
 | balance.json | startMass: 420, durability: 100 | startMass: 50, durability: 3, 9 предметов tier 1 |
 | EquipmentCard | ProgressBar для прочности (100/100) | Пипсы прочности (●●○ = 2/3) |
 | HubScene | Зависит от старого GameState | Обновить под новую модель, добавить пояс |
@@ -66,9 +66,9 @@
 
 Старый Sprint 1 (SceneManager + HubScene) выполнен. Боевой системы нет. PvE нет. Нумерация спринтов продолжается: следующий — Sprint 2.
 
-### Sprint 2: Новая модель данных + боевая система v4
+### Sprint 2: Новая модель данных + боевая система v5
 
-**Цель:** Переход на модель GDD v1.1. Работающий автобой с 6 командами.
+**Цель:** Переход на модель GDD v1.2. Работающий автобой с 6 командами. HP = масса, полное восстановление перед каждым боем.
 
 **Время:** 1–2 сессии.
 
@@ -76,8 +76,8 @@
 
 | ID | Задача | Приоритет | Тип | Критерий готовности |
 |----|--------|-----------|-----|---------------------|
-| S2-01 | Переписать shared/ types под GDD v1.1 | P0 | Рефакторинг | IHeroState: mass (HP=mass, strength=mass/3+bonus). IEquipmentItem: strength_bonus, armor_bonus, luck_bonus, durability 3, command_id |
-| S2-02 | Переписать balance.json | P0 | Рефакторинг | startMass: 50, massCap: 125, 9 предметов из MVP Proposal, 12 расходников, 7 мобов |
+| S2-01 | Переписать shared/ types под GDD v1.2 | P0 | Рефакторинг | IHeroState: mass (HP=mass, strength=mass/3+bonus). IEquipmentItem: strength_bonus, armor_bonus, luck_bonus, durability 3, command_id |
+| S2-02 | Переписать balance.json | P0 | Рефакторинг | startMass: 50, massCap: 125, 9 предметов из MVP Proposal, 10 расходников, 7 мобов |
 | S2-03 | Переписать GameState под новую модель | P0 | Рефакторинг | Убрать hp/maxHp/baseAttack/baseDefense. Добавить belt (2 слота), backpack (4 слота), stash, activeRelics |
 | S2-04 | FormulaEngine в shared/ | P0 | Новый | calcHeroStats, calcDamage, calcTTK, calcAttackWinChance, calcBlockWinChance, calcRetreatChance, calcBypassChance, calcPolymorphChance, calcEloChange, generateHitAnimation |
 | S2-05 | BattleSystem в shared/ | P0 | Новый | Вход: {mode, hero, enemy, command, consumable}. Выход: {result, win_chance, hits, durability_target, mass_reward}. 6 команд. Правило износа |
@@ -86,7 +86,7 @@
 | S2-08 | Обновить HubScene | P1 | Рефакторинг | Новая модель данных, отображение belt (2 слота), масса = HP |
 | S2-09 | DurabilityPips (UI) | P1 | Новый | Пипсы ●●○ вместо ProgressBar в EquipmentCard |
 | S2-10 | Обновить EquipmentCard | P1 | Рефакторинг | Использовать DurabilityPips, показывать +strength/+armor/+luck |
-| S2-11 | MobConfig, ConsumableConfig | P1 | Новый | 7 мобов, 12 расходников из MVP Proposal |
+| S2-11 | MobConfig, ConsumableConfig | P1 | Новый | 7 мобов, 10 расходников из MVP Proposal (без аптечек — HP восстанавливается перед каждым боем) |
 | S2-12 | EventBus: новые события | P2 | Обновление | battle:start, battle:result, pve:node:enter, pvp:battle:result |
 | S2-13 | Тесты FormulaEngine | P0 | Тесты | TTK-формула, блок-выравниватель, граничные значения |
 
@@ -144,11 +144,11 @@ IMob { id, name, mass, hp, strength, armor, massReward, type (combat/elite/boss)
 | baseDefense | 5 | убрано (armor = shield bonus) |
 | startGold | 1500 | 100 |
 | equipment.starterItems | 3 предмета с modifier и durability 100 | 3 предмета с конкретными бонусами и durability 3 |
-| — | — | + mobs (7 штук), consumables (12), relics (6), events (3) |
+| — | — | + mobs (7 штук), consumables (10), relics (6), events (3) |
 
 **S2-04: FormulaEngine — переносится в shared/src/formulas/**
 
-Чистые функции без side-effects. Тестируются юнит-тестами. Все формулы из 03_battle.md GDD v1.1.
+Чистые функции без side-effects. Тестируются юнит-тестами. Все формулы из 03_battle.md GDD v1.2.
 
 | Функция | Из GDD |
 |---------|--------|
@@ -192,7 +192,7 @@ S2-09 (DurabilityPips) ──▶ S2-10 (EquipmentCard update) ──▶ S2-08
 | ID | Задача | Приоритет | Тип | Критерий готовности |
 |----|--------|-----------|-----|---------------------|
 | S3-01 | PveConfig | P0 | Новый | Параметры генерации: total_nodes 8–10, fork_count 3–4, веса типов, ограничения |
-| S3-02 | RelicConfig | P0 | Новый | 6 реликвий из MVP Proposal (включая relic_thick_skin) |
+| S3-02 | RelicConfig | P0 | Новый | 6 реликвий из MVP Proposal (relic_thick_skin: −15% силы врага) |
 | S3-03 | EventConfig | P1 | Новый | 3 события с вариантами |
 | S3-04 | Random (с seed) | P0 | Новый | Детерминированный генератор для воспроизводимости |
 | S3-05 | PveSystem (генерация) | P0 | Новый | Алгоритм: якоря (sanctuary, ancient_chest, boss) + случайное заполнение + валидация ограничений |
@@ -202,7 +202,7 @@ S2-09 (DurabilityPips) ──▶ S2-10 (EquipmentCard update) ──▶ S2-08
 | S3-09 | PveMapScene (замена заглушки) | P0 | Замена | Карта похода: текущий узел, развилки, «???», кнопка выхода |
 | S3-10 | LootScene | P0 | Новый | Предмет → рюкзак или пропустить |
 | S3-11 | ShopScene | P1 | Новый | 3–4 товара + ремонт (дороже) |
-| S3-12 | CampScene | P1 | Новый | +30–50% HP, или +масса / −HP |
+| S3-12 | CampScene | P1 | Новый | Починить 1 предмет (+1 прочность бесплатно) ИЛИ тренировка (+3–5 кг массы) + пересборка пояса |
 | S3-13 | EventScene | P1 | Новый | 2–3 варианта, эффекты |
 | S3-14 | PveResultScene | P0 | Новый | Итог похода: масса, Gold, рюкзак → инвентарь |
 
@@ -255,7 +255,7 @@ S2-09 (DurabilityPips) ──▶ S2-10 (EquipmentCard update) ──▶ S2-08
 | S6-02 | MainMenuScene | P0 | Новый | «Новая игра» / «Продолжить» |
 | S6-03 | DevPanelScene (замена заглушки) | P1 | Замена | Gold ±, масса ±, рейтинг ±, предметы, seed |
 | S6-04 | Подсказки FTUE | P2 | Новый | 5–7 подсказок по сценарию |
-| S6-05 | Обновить .memory_bank/ и docs/gdd/ | P1 | Обновление | Привести в соответствие с GDD v1.1 |
+| S6-05 | Обновить .memory_bank/ и docs/gdd/ | P1 | Обновление | Привести в соответствие с GDD v1.2 |
 
 **Результат:** 10-минутный сценарий плейтеста проходится. Сохранение. Dev-панель.
 
@@ -267,7 +267,7 @@ S2-09 (DurabilityPips) ──▶ S2-10 (EquipmentCard update) ──▶ S2-08
 |--------|-----------------|--------------------------|
 | Спринтов | 5 (с нуля) | 5 новых (Sprint 2–6), Sprint 1 выполнен |
 | Sprint 1 | Init + ThemeConfig + GameState + FormulaEngine + BattleSystem | **Выполнен:** SceneManager + HubScene + UI компоненты |
-| Sprint 2 | PvE-поход | **Новая модель + боевая система v4** (рефакторинг + новое) |
+| Sprint 2 | PvE-поход | **Новая модель + боевая система v5** (рефакторинг + новое) |
 | Сборщик | Vite (предполагался) | **Webpack** (реальный) |
 | Структура | Плоская src/ | **Монорепо: client/ + shared/** |
 | FormulaEngine | client/src/core/ | **shared/src/formulas/** (чистые функции, тестируемые) |
@@ -349,9 +349,9 @@ config/
 
 > Ты Developer. Прочитай .agents/AGENT_ROLES.md секция "2. Developer".
 >
-> Задача: Sprint 2 — Новая модель данных + боевая система v4.
+> Задача: Sprint 2 — Новая модель данных + боевая система v5.
 >
-> Контекст: Sprint 1 (SceneManager + HubScene) выполнен. PR #2. Текущая модель данных устарела — переходим на GDD v1.1.
+> Контекст: Sprint 1 (SceneManager + HubScene) выполнен. PR #2. Текущая модель данных устарела — переходим на GDD v1.2. Ключевое: HP = масса, полное восстановление перед каждым боем (PvE и PvP одинаково). Аптечки (heal_t1, heal_t2) отсутствуют в каталоге расходников.
 >
 > **Фаза 1: Рефакторинг типов (shared/)**
 > 1. Переписать shared/src/types/Equipment.ts: убрать generic modifier, добавить strengthBonus, armorBonus, luckBonus, hpBonus, commandId. Durability: 3 (не 100).
@@ -366,7 +366,7 @@ config/
 > 8. Создать shared/src/systems/BattleSystem.ts: вход {mode, hero, enemy, command, consumable} → выход {result, winChance, hits, durabilityTarget, massReward}. 6 команд. Износ: ломается предмет чьё действие выбрано.
 >
 > **Фаза 3: Обновление client/**
-> 9. Переписать config/balance.json: startMass 50, startGold 100, rating 1000, 9 предметов tier 1, 12 расходников, 7 мобов, 6 реликвий.
+> 9. Переписать config/balance.json: startMass 50, startGold 100, rating 1000, 9 предметов tier 1, 10 расходников (без аптечек — HP = масса перед каждым боем), 7 мобов, 6 реликвий.
 > 10. Переписать client/src/core/GameState.ts под новые типы: mass, equipment, belt, backpack, stash, relics.
 > 11. Создать client/src/ui/DurabilityPips.ts: пипсы ●●○ для прочности 3.
 > 12. Обновить client/src/ui/EquipmentCard.ts: DurabilityPips вместо ProgressBar, показывать +strength/+armor/+luck.
