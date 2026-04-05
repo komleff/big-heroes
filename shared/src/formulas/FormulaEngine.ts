@@ -13,11 +13,10 @@ export function calcHeroStats(
     equipment: IEquipmentSlots,
     relics: IRelic[],
 ): IHeroStats {
-    // Бонусы экипировки
-    const weaponStr = equipment.weapon?.strengthBonus ?? 0;
-    const shieldArmor = equipment.armor?.armorBonus ?? 0;
-    const accLuck = equipment.accessory?.luckBonus ?? 0;
-    const hpBonus = (equipment.weapon?.hpBonus ?? 0) + (equipment.armor?.hpBonus ?? 0) + (equipment.accessory?.hpBonus ?? 0);
+    // Бонусы экипировки (сломанные предметы с durability=0 не дают бонусов)
+    const weaponStr = (equipment.weapon?.currentDurability ?? 0) > 0 ? (equipment.weapon?.strengthBonus ?? 0) : 0;
+    const shieldArmor = (equipment.armor?.currentDurability ?? 0) > 0 ? (equipment.armor?.armorBonus ?? 0) : 0;
+    const accLuck = (equipment.accessory?.currentDurability ?? 0) > 0 ? (equipment.accessory?.luckBonus ?? 0) : 0;
 
     // Бонусы реликвий
     let relicStr = 0, relicArmor = 0, relicLuck = 0;
@@ -28,7 +27,7 @@ export function calcHeroStats(
     }
 
     return {
-        hp: mass + hpBonus,
+        hp: mass,
         strength: Math.floor(mass / 3) + weaponStr + relicStr,
         armor: shieldArmor + relicArmor,
         luck: accLuck + relicLuck,

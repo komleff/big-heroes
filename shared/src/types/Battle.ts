@@ -1,6 +1,7 @@
 import type { IHeroStats } from './GameState';
-import type { CommandId } from './Equipment';
-import type { IConsumableConfig, IMobConfig } from './BalanceConfig';
+import type { CommandId, EquipmentSlotId } from './Equipment';
+import type { IMobConfig } from './BalanceConfig';
+import type { IConsumable } from './Consumable';
 
 // Контекст боя
 export interface IBattleContext {
@@ -9,8 +10,9 @@ export interface IBattleContext {
     heroMass: number;
     enemy: IMobConfig;
     command: CommandId;
-    consumable: IConsumableConfig | null;
+    consumable: IConsumable | null;
     rng: () => number;          // для детерминированных тестов
+    shieldArmorBonus: number;   // чистый бонус щита (без реликвий), для расчёта блока
 }
 
 // Один удар в анимации
@@ -29,7 +31,7 @@ export interface IBattleResult {
     outcome: BattleOutcome;
     winChance: number;          // шанс команды (для отображения)
     hits: IHitAnimation[];      // анимация ударов (2–3 штуки)
-    durabilityTarget: string | null;  // id предмета для износа (-1)
+    durabilityTarget: EquipmentSlotId | null;  // слот экипировки для износа
     massReward: number;         // +кг при победе (0 при поражении)
     goldReward: number;
 }

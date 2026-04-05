@@ -1,8 +1,8 @@
 import { Graphics, Text, TextStyle, Container } from 'pixi.js';
 import type {
-    IMobConfig, IBalanceConfig, IFormulaConfig, IConsumableConfig,
+    IMobConfig, IBalanceConfig, IFormulaConfig,
     IBattleContext, CommandId,
-    IEquipmentSlots, IEquipmentItem,
+    IEquipmentSlots, IEquipmentItem, IConsumable,
 } from 'shared';
 import {
     calcHeroStats, calcDamage, calcTTK, calcBaseWinChance,
@@ -385,6 +385,7 @@ export class PreBattleScene extends BaseScene {
             this.selectedBeltIndex = index;
         }
         this.updateBeltHighlight();
+        this.rebuildCommandGrid();
     }
 
     /** Обновление подсветки слотов пояса */
@@ -410,6 +411,24 @@ export class PreBattleScene extends BaseScene {
 
     // ──────────────────────── 6 кнопок команд (3x2) ─────────────────────
 
+    /** Пересобрать grid команд (при смене расходника — пересчёт шансов) */
+    private rebuildCommandGrid(): void {
+        // Удалить старые кнопки команд
+        for (const container of this.commandContainers) {
+            this.removeChild(container);
+            container.destroy({ children: true });
+        }
+        this.commandContainers = [];
+
+        // Построить заново с актуальными шансами
+        this.buildCommandGrid();
+
+        // Восстановить подсветку выбранной команды
+        if (this.selectedCommand) {
+            this.updateCommandHighlight();
+        }
+    }
+
     private buildCommandGrid(): void {
         const equipment = this.gameState.equipment;
         const relics = [...this.gameState.activeRelics];
@@ -419,14 +438,27 @@ export class PreBattleScene extends BaseScene {
             relics,
         );
 
+        // Применить эффект выбранного расходника к статам для расчёта шансов
+        const modifiedStats = { ...heroStats };
+        let modifiedEnemyStr = this.enemy.strength;
+        if (this.selectedBeltIndex >= 0) {
+            const consumable = this.gameState.belt[this.selectedBeltIndex];
+            if (consumable) {
+                if (consumable.effect === 'strength_bonus') modifiedStats.strength += consumable.value;
+                else if (consumable.effect === 'armor_bonus') modifiedStats.armor += consumable.value;
+                else if (consumable.effect === 'luck_bonus') modifiedStats.luck += consumable.value;
+                else if (consumable.effect === 'enemy_strength_reduction') modifiedEnemyStr = Math.max(0, modifiedEnemyStr - consumable.value);
+            }
+        }
+
         // Рассчитываем базовый шанс и шанс атаки (нужны для блока)
-        const heroDamage = calcDamage(heroStats.strength, this.enemy.armor);
-        const enemyDamage = calcDamage(this.enemy.strength, heroStats.armor);
-        const heroTTK = calcTTK(heroStats.hp, enemyDamage);
+        const heroDamage = calcDamage(modifiedStats.strength, this.enemy.armor);
+        const enemyDamage = calcDamage(modifiedEnemyStr, modifiedStats.armor);
+        const heroTTK = calcTTK(modifiedStats.hp, enemyDamage);
         const enemyTTK = calcTTK(this.enemy.mass, heroDamage);
         const baseChance = calcBaseWinChance(heroTTK, enemyTTK);
         const attackChance = calcAttackWinChance(
-            baseChance, heroStats.luck,
+            baseChance, modifiedStats.luck,
             formulaConfig.winChanceMin, formulaConfig.winChanceMax, formulaConfig.luckAttackCoeff,
         );
 
@@ -444,8 +476,11 @@ export class PreBattleScene extends BaseScene {
             const x = gridX + col * (btnW + gap);
             const y = gridY + row * (btnH + gap);
 
-            // Шанс победы для этой команды
-            const chance = cmd.calcChance(baseChance, attackChance, heroStats.armor, heroStats.luck);
+            // Шанс победы для этой команды (с учётом расходника)
+            // Для блока используем чистый бонус щита (без реликвий); сломанный щит = 0
+            const shieldItem = (equipment as IEquipmentSlots).armor;
+            const shieldArmorForBlock = (shieldItem?.currentDurability ?? 0) > 0 ? (shieldItem?.armorBonus ?? 0) : 0;
+            const chance = cmd.calcChance(baseChance, attackChance, shieldArmorForBlock, modifiedStats.luck);
             const pct = Math.round(chance * 100);
 
             // Предмет привязанный к слоту
@@ -454,16 +489,20 @@ export class PreBattleScene extends BaseScene {
             const maxDurability = item?.maxDurability ?? 0;
             const isBroken = durability === 0;
 
+            // Атака и Блок доступны ВСЕГДА (по GDD), остальные — блокируются при durability=0
+            const isAlwaysAvailable = cmd.id === 'cmd_attack' || cmd.id === 'cmd_block';
+            const isDisabled = isBroken && !isAlwaysAvailable;
+
             const container = new Container();
             container.x = x;
             container.y = y;
-            container.eventMode = isBroken ? 'none' : 'static';
-            container.cursor = isBroken ? 'default' : 'pointer';
+            container.eventMode = isDisabled ? 'none' : 'static';
+            container.cursor = isDisabled ? 'default' : 'pointer';
 
             // Фон кнопки
             const btnBg = new Graphics();
             btnBg.roundRect(0, 0, btnW, btnH, 14);
-            if (isBroken) {
+            if (isDisabled) {
                 btnBg.fill({ color: THEME.colors.text_muted, alpha: 0.2 });
             } else {
                 btnBg.fill({ color: 0x000000, alpha: 0.3 });
@@ -472,7 +511,7 @@ export class PreBattleScene extends BaseScene {
 
             // Иконка-эмодзи
             const iconText = new Text({
-                text: isBroken ? '\uD83D\uDD12' : cmd.icon,
+                text: isDisabled ? '\uD83D\uDD12' : cmd.icon,
                 style: new TextStyle({
                     fontSize: 20,
                     fontFamily: THEME.font.family,
@@ -490,7 +529,7 @@ export class PreBattleScene extends BaseScene {
                     fontSize: 12,
                     fontFamily: THEME.font.family,
                     fontWeight: THEME.font.weights.bold,
-                    fill: isBroken ? THEME.colors.text_muted : THEME.colors.text_primary,
+                    fill: isDisabled ? THEME.colors.text_muted : THEME.colors.text_primary,
                 }),
             });
             nameText.anchor.set(0.5, 0);
@@ -506,7 +545,7 @@ export class PreBattleScene extends BaseScene {
                     fontSize: 13,
                     fontFamily: THEME.font.family,
                     fontWeight: THEME.font.weights.bold,
-                    fill: isBroken ? THEME.colors.text_muted : chanceColor,
+                    fill: isDisabled ? THEME.colors.text_muted : chanceColor,
                 }),
             });
             chanceText.anchor.set(0.5, 0);
@@ -540,8 +579,8 @@ export class PreBattleScene extends BaseScene {
             itemLabel.y = 74;
             container.addChild(itemLabel);
 
-            // Обработчик тапа
-            if (!isBroken) {
+            // Обработчик тапа (attack/block доступны всегда, остальные — только если не сломаны)
+            if (!isDisabled) {
                 container.on('pointerdown', () => {
                     this.onCommandTap(cmd.id);
                 });
@@ -686,12 +725,12 @@ export class PreBattleScene extends BaseScene {
         const heroStats = calcHeroStats(this.gameState.hero.mass, equipment, relics);
 
         // Расходник из пояса (или null)
-        // IBattleContext ожидает IConsumableConfig, но пояс хранит IConsumable (без basePrice).
-        // BattleSystem использует только effect/value — приведение безопасно.
-        let consumable: IConsumableConfig | null = null;
+        let consumable: IConsumable | null = null;
         if (this.selectedBeltIndex >= 0) {
             const beltItem = this.gameState.belt[this.selectedBeltIndex];
-            consumable = beltItem ? { ...beltItem, basePrice: 0 } as IConsumableConfig : null;
+            consumable = beltItem ?? null;
+            // Израсходовать расходник из пояса
+            this.gameState.useConsumable(this.selectedBeltIndex as 0 | 1);
         }
 
         // Собираем IBattleContext
@@ -703,6 +742,7 @@ export class PreBattleScene extends BaseScene {
             command: this.selectedCommand,
             consumable,
             rng: Math.random,
+            shieldArmorBonus: (equipment.armor?.currentDurability ?? 0) > 0 ? (equipment.armor?.armorBonus ?? 0) : 0,
         };
 
         // Разрешение боя

@@ -1,5 +1,6 @@
-import type { IBattleContext, IBattleResult, BattleOutcome } from '../types/Battle';
+import type { IBattleContext, IBattleResult, BattleOutcome, IHitAnimation } from '../types/Battle';
 import type { IFormulaConfig } from '../types/BalanceConfig';
+import type { EquipmentSlotId } from '../types/Equipment';
 import {
     calcDamage, calcTTK, calcBaseWinChance,
     calcAttackWinChance, calcBlockWinChance, calcFortuneChance,
@@ -61,7 +62,8 @@ export function resolveBattle(
             break;
         case 'cmd_block': {
             const attackChance = calcAttackWinChance(baseChance, modifiedStats.luck, min, max, luckAttackCoeff);
-            const shieldArmor = modifiedStats.armor;
+            // Используем чистый бонус щита (без реликвий) для расчёта block_power
+            const shieldArmor = context.shieldArmorBonus;
             winChance = calcBlockWinChance(attackChance, shieldArmor, modifiedStats.luck, baseBlockPower, shieldArmorBlockCoeff, luckAttackCoeff, min, max);
             outcome = rng() < winChance ? 'victory' : 'defeat';
             break;
@@ -72,28 +74,53 @@ export function resolveBattle(
             break;
         case 'cmd_retreat':
             winChance = calcRetreatChance(modifiedStats.luck, retreatBase, luckAbilityCoeff, min, max);
-            outcome = rng() < winChance ? 'retreat' : 'defeat';
+            if (rng() < winChance) {
+                outcome = 'retreat';
+            } else {
+                // Провал отступления → обычный бой с инициативой врага
+                const retreatFallback = calcAttackWinChance(baseChance, modifiedStats.luck, min, max, luckAttackCoeff);
+                outcome = rng() < retreatFallback ? 'victory' : 'defeat';
+            }
             break;
         case 'cmd_bypass':
             winChance = calcBypassChance(modifiedStats.luck, bypassBase, luckAbilityCoeff, min, max);
-            outcome = rng() < winChance ? 'bypass' : 'defeat';
+            if (rng() < winChance) {
+                outcome = 'bypass';
+            } else {
+                // Провал обхода → обычный бой с инициативой врага
+                const bypassFallback = calcAttackWinChance(baseChance, modifiedStats.luck, min, max, luckAttackCoeff);
+                outcome = rng() < bypassFallback ? 'victory' : 'defeat';
+            }
             break;
         case 'cmd_polymorph':
             winChance = calcPolymorphChance(baseChance, modifiedStats.luck, luckAbilityCoeff, min, max);
-            outcome = rng() < winChance ? 'polymorph' : 'defeat';
+            if (rng() < winChance) {
+                outcome = 'polymorph';
+            } else {
+                // Провал полиморфа → обычный бой с инициативой врага
+                const polymorphFallback = calcAttackWinChance(baseChance, modifiedStats.luck, min, max, luckAttackCoeff);
+                outcome = rng() < polymorphFallback ? 'victory' : 'defeat';
+            }
             break;
         default:
             winChance = baseChance;
             outcome = 'defeat';
     }
 
-    // 5. Анимация
-    const winner = (outcome === 'defeat') ? 'enemy' : 'hero';
-    const hits = generateHitAnimation(winner, heroDamage, enemyDamage, rng);
+    // 5. Анимация — для специальных исходов не генерируем удары
+    let hits: IHitAnimation[];
+    if (outcome === 'victory') {
+        hits = generateHitAnimation('hero', heroDamage, enemyDamage, rng);
+    } else if (outcome === 'defeat') {
+        hits = generateHitAnimation('enemy', heroDamage, enemyDamage, rng);
+    } else {
+        // retreat, bypass, polymorph — без ударов
+        hits = [];
+    }
 
     // 6. Предмет для износа (привязан к команде)
     // cmd_attack → weapon, cmd_block → armor, остальные → accessory
-    let durabilityTarget: string | null = null;
+    let durabilityTarget: EquipmentSlotId | null = null;
     if (command === 'cmd_attack') durabilityTarget = 'weapon';
     else if (command === 'cmd_block') durabilityTarget = 'armor';
     else durabilityTarget = 'accessory';

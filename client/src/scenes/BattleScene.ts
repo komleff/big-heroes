@@ -14,9 +14,6 @@ interface BattleSceneData {
     enemy: IMobConfig;
 }
 
-/** Тип слота экипировки для wearItem */
-type EquipSlot = 'weapon' | 'armor' | 'accessory';
-
 /**
  * Простой HP-бар на Graphics (два цвета: зелёный/красный).
  * ProgressBar не поддерживает fillColor, поэтому рисуем вручную.
@@ -619,8 +616,7 @@ export class BattleScene extends BaseScene {
 
         // Износ экипировки
         if (result.durabilityTarget) {
-            const slot = result.durabilityTarget as EquipSlot;
-            this.gameState.wearItem(slot);
+            this.gameState.wearItem(result.durabilityTarget);
         }
 
         // Эмит события результата боя

@@ -8,8 +8,6 @@
     "startGold": 1500
   },
   "formulas": {
-    "massDamageCoeff": 0.333,
-    "minDamage": 1,
     "baseBlockPower": 0.3,
     "shieldArmorBlockCoeff": 0.05,
     "luckAttackCoeff": 0.01,

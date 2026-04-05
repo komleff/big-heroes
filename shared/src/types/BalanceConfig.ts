@@ -48,8 +48,6 @@ export interface IRelicConfig {
 
 // Конфигурация формул
 export interface IFormulaConfig {
-    massDamageCoeff: number;      // mass/3 коэффициент
-    minDamage: number;
     baseBlockPower: number;       // 0.3
     shieldArmorBlockCoeff: number; // 0.05
     luckAttackCoeff: number;      // 0.01

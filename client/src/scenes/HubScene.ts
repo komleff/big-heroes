@@ -125,7 +125,8 @@ export class HubScene extends BaseScene {
             variant: 'primary',
             onClick: () => {
                 const config = balanceConfig as unknown as IBalanceConfig;
-                const firstEnemy = config.enemies[0] as IMobConfig;
+                const firstEnemy = config.enemies[0];
+                if (!firstEnemy) return; // нет врагов — не переходим
                 void sceneManager.goto('preBattle', {
                     transition: TransitionType.SLIDE_LEFT,
                     data: { enemy: firstEnemy },

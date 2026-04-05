@@ -112,7 +112,7 @@ describe('calcHeroStats', () => {
         expect(stats.luck).toBe(0);
     });
 
-    test('предмет с hpBonus → hp = mass + hpBonus', () => {
+    test('предмет с hpBonus не влияет на HP (HP = mass)', () => {
         // Arrange
         const equipment: IEquipmentSlots = {
             weapon: makeItem({ slot: 'weapon', hpBonus: 10 }),
@@ -124,8 +124,45 @@ describe('calcHeroStats', () => {
         // Act
         const stats = calcHeroStats(50, equipment, relics);
 
+        // Assert — HP = масса, hpBonus не учитывается
+        expect(stats.hp).toBe(50);
+    });
+
+    test('предмет с durability=0 не даёт бонусов', () => {
+        // Arrange — все предметы со сломанной прочностью (currentDurability=0)
+        const equipment: IEquipmentSlots = {
+            weapon: makeItem({ slot: 'weapon', strengthBonus: 5, currentDurability: 0 }),
+            armor: makeItem({ slot: 'armor', armorBonus: 4, currentDurability: 0 }),
+            accessory: makeItem({ slot: 'accessory', luckBonus: 3, currentDurability: 0 }),
+        };
+        const relics: IRelic[] = [];
+
+        // Act
+        const stats = calcHeroStats(60, equipment, relics);
+
+        // Assert — бонусы сломанных предметов не учитываются
+        expect(stats.hp).toBe(60);
+        expect(stats.strength).toBe(Math.floor(60 / 3));  // 20, без бонуса оружия
+        expect(stats.armor).toBe(0);                       // без бонуса щита
+        expect(stats.luck).toBe(0);                        // без бонуса аксессуара
+    });
+
+    test('предмет с durability>0 даёт бонусы, с durability=0 — нет (смешанный)', () => {
+        // Arrange — оружие рабочее, щит сломан, аксессуар рабочий
+        const equipment: IEquipmentSlots = {
+            weapon: makeItem({ slot: 'weapon', strengthBonus: 3, currentDurability: 2 }),
+            armor: makeItem({ slot: 'armor', armorBonus: 4, currentDurability: 0 }),
+            accessory: makeItem({ slot: 'accessory', luckBonus: 2, currentDurability: 1 }),
+        };
+        const relics: IRelic[] = [];
+
+        // Act
+        const stats = calcHeroStats(30, equipment, relics);
+
         // Assert
-        expect(stats.hp).toBe(65);  // 50 + 10 + 5
+        expect(stats.strength).toBe(Math.floor(30 / 3) + 3);  // 10 + 3 = 13
+        expect(stats.armor).toBe(0);                            // щит сломан — 0
+        expect(stats.luck).toBe(2);                             // аксессуар рабочий
     });
 
     test('несколько реликвий разных типов суммируются', () => {
