@@ -1,23 +1,70 @@
 {
   "hero": {
-    "startMass": 420,
-    "startRating": 1150,
-    "startHp": 100,
-    "baseAttack": 10,
-    "baseDefense": 5
+    "startMass": 50,
+    "startRating": 1000,
+    "massCap": 125
   },
   "resources": {
-    "startGold": 1500,
-    "maxCampaignTickets": 5,
-    "startCampaignTickets": 3,
-    "maxArenaTickets": 3,
-    "startArenaTickets": 2
+    "startGold": 100
+  },
+  "formulas": {
+    "baseBlockPower": 0.3,
+    "shieldArmorBlockCoeff": 0.05,
+    "luckAttackCoeff": 0.01,
+    "luckAbilityCoeff": 0.02,
+    "retreatBase": 0.70,
+    "bypassBase": 0.60,
+    "eloK": 32,
+    "winChanceMin": 0.05,
+    "winChanceMax": 0.95
   },
   "equipment": {
     "starterItems": [
-      { "id": "wpn_sword_t1", "name": "Меч", "slot": "weapon", "tier": 1, "modifier": 1.1, "maxDurability": 100, "basePrice": 50 },
-      { "id": "arm_chain_t1", "name": "Кольчуга", "slot": "armor", "tier": 1, "modifier": 1.1, "maxDurability": 100, "basePrice": 60 },
-      { "id": "acc_ring_t1", "name": "Кольцо", "slot": "accessory", "tier": 1, "modifier": 1.0, "maxDurability": 100, "basePrice": 40 }
+      { "id": "wpn_sword_t1", "name": "Меч", "slot": "weapon", "tier": 1, "strengthBonus": 3, "armorBonus": 0, "luckBonus": 0, "commandId": "cmd_attack", "maxDurability": 3, "basePrice": 50 },
+      { "id": "arm_chain_t1", "name": "Кольчуга", "slot": "armor", "tier": 1, "strengthBonus": 0, "armorBonus": 2, "luckBonus": 0, "commandId": "cmd_block", "maxDurability": 3, "basePrice": 60 },
+      { "id": "acc_ring_t1", "name": "Кольцо", "slot": "accessory", "tier": 1, "strengthBonus": 0, "armorBonus": 0, "luckBonus": 1, "commandId": "cmd_fortune", "maxDurability": 3, "basePrice": 40 }
+    ],
+    "catalog": [
+      { "id": "wpn_sword_t1", "name": "Меч", "slot": "weapon", "tier": 1, "strengthBonus": 3, "armorBonus": 0, "luckBonus": 0, "commandId": "cmd_attack", "maxDurability": 3, "basePrice": 50 },
+      { "id": "wpn_axe_t1", "name": "Топор", "slot": "weapon", "tier": 1, "strengthBonus": 4, "armorBonus": 0, "luckBonus": 0, "commandId": "cmd_attack", "maxDurability": 3, "basePrice": 70 },
+      { "id": "wpn_dagger_t1", "name": "Кинжал", "slot": "weapon", "tier": 1, "strengthBonus": 2, "armorBonus": 0, "luckBonus": 1, "commandId": "cmd_attack", "maxDurability": 3, "basePrice": 60 },
+      { "id": "shd_buckler_t1", "name": "Баклер", "slot": "armor", "tier": 1, "strengthBonus": 0, "armorBonus": 3, "luckBonus": 0, "commandId": "cmd_block", "maxDurability": 3, "basePrice": 60 },
+      { "id": "shd_leather_t1", "name": "Кожанка", "slot": "armor", "tier": 1, "strengthBonus": 0, "armorBonus": 2, "luckBonus": 0, "commandId": "cmd_block", "maxDurability": 3, "basePrice": 50 },
+      { "id": "shd_helmet_t1", "name": "Шлем", "slot": "armor", "tier": 1, "strengthBonus": 0, "armorBonus": 2, "luckBonus": 1, "commandId": "cmd_block", "maxDurability": 3, "basePrice": 55 },
+      { "id": "acc_ring_t1", "name": "Кольцо удачи", "slot": "accessory", "tier": 1, "strengthBonus": 0, "armorBonus": 0, "luckBonus": 1, "commandId": "cmd_fortune", "maxDurability": 3, "basePrice": 60 },
+      { "id": "acc_boots_t1", "name": "Сапоги", "slot": "accessory", "tier": 1, "strengthBonus": 0, "armorBonus": 0, "luckBonus": 0, "commandId": "cmd_retreat", "maxDurability": 3, "basePrice": 80 },
+      { "id": "acc_vial_t1", "name": "Склянка", "slot": "accessory", "tier": 1, "strengthBonus": 0, "armorBonus": 0, "luckBonus": 0, "commandId": "cmd_polymorph", "maxDurability": 3, "basePrice": 70 }
     ]
-  }
+  },
+  "consumables": [
+    { "id": "str_pot_t1", "name": "Настойка силы", "type": "combat", "tier": 1, "effect": "strength_bonus", "value": 8, "basePrice": 30 },
+    { "id": "arm_pot_t1", "name": "Настойка брони", "type": "combat", "tier": 1, "effect": "armor_bonus", "value": 3, "basePrice": 30 },
+    { "id": "luck_pot_t1", "name": "Настойка удачи", "type": "combat", "tier": 1, "effect": "luck_bonus", "value": 3, "basePrice": 30 },
+    { "id": "poison_t1", "name": "Яд", "type": "combat", "tier": 1, "effect": "enemy_strength_reduction", "value": 5, "basePrice": 40 },
+    { "id": "repair_t1", "name": "Ремкомплект", "type": "hiking", "tier": 1, "effect": "repair", "value": 1, "basePrice": 25 },
+    { "id": "torch_t1", "name": "Факел", "type": "scout", "tier": 1, "effect": "reveal_node", "value": 1, "basePrice": 15 },
+    { "id": "spyglass_t2", "name": "Подзорная труба", "type": "scout", "tier": 2, "effect": "show_enemy_stats", "value": 1, "basePrice": 50 },
+    { "id": "compass_t2", "name": "Компас", "type": "scout", "tier": 2, "effect": "safe_path", "value": 1, "basePrice": 60 },
+    { "id": "picnic_t1", "name": "Провиант", "type": "hiking", "tier": 1, "effect": "mass_bonus", "value": 5, "basePrice": 35 },
+    { "id": "pouch_t1", "name": "Подсумок", "type": "hiking", "tier": 1, "effect": "backpack_slot", "value": 1, "basePrice": 100 }
+  ],
+  "enemies": [
+    { "id": "mob_slime", "name": "Слизень", "type": "combat", "mass": 35, "strength": 12, "armor": 0, "massReward": 6, "goldReward": 10 },
+    { "id": "mob_goblin", "name": "Гоблин", "type": "combat", "mass": 50, "strength": 17, "armor": 1, "massReward": 7, "goldReward": 10 },
+    { "id": "mob_wolf", "name": "Волк", "type": "combat", "mass": 45, "strength": 18, "armor": 0, "massReward": 7, "goldReward": 10 },
+    { "id": "mob_skeleton", "name": "Скелет", "type": "combat", "mass": 55, "strength": 16, "armor": 3, "massReward": 8, "goldReward": 10 },
+    { "id": "elite_ogre", "name": "Огр", "type": "elite", "mass": 90, "strength": 25, "armor": 5, "massReward": 12, "goldReward": 20 },
+    { "id": "elite_mage", "name": "Маг", "type": "elite", "mass": 60, "strength": 28, "armor": 1, "massReward": 15, "goldReward": 20 },
+    { "id": "boss_dragon", "name": "Дракон", "type": "boss", "mass": 150, "strength": 40, "armor": 8, "massReward": 25, "goldReward": 30 }
+  ],
+  "relics": [
+    { "id": "relic_strength", "name": "Амулет силы", "effect": "strength_bonus", "value": 2 },
+    { "id": "relic_armor", "name": "Оберег брони", "effect": "armor_bonus", "value": 3 },
+    { "id": "relic_gold_bonus", "name": "Монета удачи", "effect": "gold_bonus", "value": 0.3 },
+    { "id": "relic_mass_bonus", "name": "Талисман роста", "effect": "mass_bonus", "value": 0.2 },
+    { "id": "relic_thick_skin", "name": "Толстая кожа", "effect": "enemy_strength_reduction", "value": 0.15 },
+    { "id": "relic_luck", "name": "Клевер", "effect": "luck_bonus", "value": 2 }
+  ],
+  "starterBelt": ["torch_t1", "str_pot_t1"],
+  "starterBackpack": ["str_pot_t1", "str_pot_t1", "repair_t1", null]
 }
