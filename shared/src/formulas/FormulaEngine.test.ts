@@ -33,7 +33,6 @@ function makeItem(overrides: Partial<IEquipmentItem> & { slot: IEquipmentItem['s
         strengthBonus: 0,
         armorBonus: 0,
         luckBonus: 0,
-        hpBonus: 0,
         commandId: null,
         maxDurability: 3,
         currentDurability: 3,
@@ -110,22 +109,6 @@ describe('calcHeroStats', () => {
         expect(stats.strength).toBe(Math.floor(50 / 3));  // 16
         expect(stats.armor).toBe(0);
         expect(stats.luck).toBe(0);
-    });
-
-    test('предмет с hpBonus не влияет на HP (HP = mass)', () => {
-        // Arrange
-        const equipment: IEquipmentSlots = {
-            weapon: makeItem({ slot: 'weapon', hpBonus: 10 }),
-            armor: makeItem({ slot: 'armor', hpBonus: 5 }),
-            accessory: null,
-        };
-        const relics: IRelic[] = [];
-
-        // Act
-        const stats = calcHeroStats(50, equipment, relics);
-
-        // Assert — HP = масса, hpBonus не учитывается
-        expect(stats.hp).toBe(50);
     });
 
     test('предмет с durability=0 не даёт бонусов', () => {

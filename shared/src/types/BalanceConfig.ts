@@ -9,7 +9,6 @@ export interface IStarterEquipmentConfigItem {
     strengthBonus: number;
     armorBonus: number;
     luckBonus: number;
-    hpBonus: number;
     commandId: CommandId | null;
     maxDurability: number;
     basePrice: number;

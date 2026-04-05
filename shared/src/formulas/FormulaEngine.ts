@@ -1,7 +1,7 @@
-import type { IEquipmentSlots } from '../types/GameState';
+import type { IEquipmentSlots, IHeroStats } from '../types/GameState';
 import type { IRelic } from '../types/Relic';
-import type { IHeroStats } from '../types/GameState';
 import type { IHitAnimation } from '../types/Battle';
+import type { IConsumable } from '../types/Consumable';
 
 /**
  * Вычисление боевых характеристик героя.
@@ -129,6 +129,23 @@ export function calcEloChange(
 ): number {
     const expected = 1 / (1 + Math.pow(10, (enemyRating - playerRating) / 400));
     return Math.round(K * (result - expected));
+}
+
+/** Применение эффекта расходника к характеристикам героя */
+export function applyConsumableEffect(
+    stats: IHeroStats,
+    consumable: IConsumable | null,
+    enemyStrength?: number,
+): { modifiedStats: IHeroStats; modifiedEnemyStrength: number } {
+    const modifiedStats = { ...stats };
+    let modifiedEnemyStr = enemyStrength ?? 0;
+    if (consumable) {
+        if (consumable.effect === 'strength_bonus') modifiedStats.strength += consumable.value;
+        else if (consumable.effect === 'armor_bonus') modifiedStats.armor += consumable.value;
+        else if (consumable.effect === 'luck_bonus') modifiedStats.luck += consumable.value;
+        else if (consumable.effect === 'enemy_strength_reduction') modifiedEnemyStr = Math.max(0, modifiedEnemyStr - consumable.value);
+    }
+    return { modifiedStats, modifiedEnemyStrength: modifiedEnemyStr };
 }
 
 /**

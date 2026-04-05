@@ -7,7 +7,6 @@ import type { IConsumable } from './Consumable';
 export interface IBattleContext {
     mode: 'pve' | 'pvp';
     heroStats: IHeroStats;
-    heroMass: number;
     enemy: IMobConfig;
     command: CommandId;
     consumable: IConsumable | null;

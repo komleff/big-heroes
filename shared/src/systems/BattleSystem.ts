@@ -6,6 +6,7 @@ import {
     calcAttackWinChance, calcBlockWinChance, calcFortuneChance,
     calcRetreatChance, calcBypassChance, calcPolymorphChance,
     generateHitAnimation,
+    applyConsumableEffect,
 } from '../formulas/FormulaEngine';
 
 /**
@@ -28,16 +29,9 @@ export function resolveBattle(
 ): IBattleResult {
     const { heroStats, enemy, command, consumable, rng } = context;
 
-    // 1. Применить расходник (модифицируем копию stats)
-    let modifiedStats = { ...heroStats };
-    let modifiedEnemyStr = enemy.strength;
-    if (consumable) {
-        // Расходники по эффекту
-        if (consumable.effect === 'strength_bonus') modifiedStats.strength += consumable.value;
-        else if (consumable.effect === 'armor_bonus') modifiedStats.armor += consumable.value;
-        else if (consumable.effect === 'luck_bonus') modifiedStats.luck += consumable.value;
-        else if (consumable.effect === 'enemy_strength_reduction') modifiedEnemyStr = Math.max(0, modifiedEnemyStr - consumable.value);
-    }
+    // 1. Применить расходник (через общую функцию FormulaEngine)
+    const { modifiedStats, modifiedEnemyStrength: modifiedEnemyStr } =
+        applyConsumableEffect(heroStats, consumable, enemy.strength);
 
     // 2. Урон и TTK
     const heroDamage = calcDamage(modifiedStats.strength, enemy.armor);

@@ -5,13 +5,12 @@ export type { IBalanceConfig, IStarterEquipmentConfigItem, IMobConfig, IConsumab
 export type { IBattleContext, IHitAnimation, BattleOutcome, IBattleResult } from './types/Battle';
 export type { ConsumableType, IConsumable } from './types/Consumable';
 export type { IRelic } from './types/Relic';
-export type { MobType, IMob } from './types/Mob';
-
 // Формулы (FormulaEngine)
 export { calcHeroStats, calcDamage, calcTTK, calcBaseWinChance, clamp,
     calcAttackWinChance, calcBlockWinChance, calcFortuneChance,
     calcRetreatChance, calcBypassChance, calcPolymorphChance,
-    calcEloChange, generateHitAnimation } from './formulas/FormulaEngine';
+    calcEloChange, generateHitAnimation,
+    applyConsumableEffect } from './formulas/FormulaEngine';
 
 // Системы
 export { resolveBattle } from './systems/BattleSystem';

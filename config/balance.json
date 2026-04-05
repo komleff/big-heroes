@@ -20,9 +20,9 @@
   },
   "equipment": {
     "starterItems": [
-      { "id": "wpn_sword_t1", "name": "Меч", "slot": "weapon", "tier": 1, "strengthBonus": 3, "armorBonus": 0, "luckBonus": 0, "hpBonus": 0, "commandId": "cmd_attack", "maxDurability": 3, "basePrice": 50 },
-      { "id": "arm_chain_t1", "name": "Кольчуга", "slot": "armor", "tier": 1, "strengthBonus": 0, "armorBonus": 2, "luckBonus": 0, "hpBonus": 0, "commandId": "cmd_block", "maxDurability": 3, "basePrice": 60 },
-      { "id": "acc_ring_t1", "name": "Кольцо", "slot": "accessory", "tier": 1, "strengthBonus": 0, "armorBonus": 0, "luckBonus": 1, "hpBonus": 0, "commandId": "cmd_fortune", "maxDurability": 3, "basePrice": 40 }
+      { "id": "wpn_sword_t1", "name": "Меч", "slot": "weapon", "tier": 1, "strengthBonus": 3, "armorBonus": 0, "luckBonus": 0, "commandId": "cmd_attack", "maxDurability": 3, "basePrice": 50 },
+      { "id": "arm_chain_t1", "name": "Кольчуга", "slot": "armor", "tier": 1, "strengthBonus": 0, "armorBonus": 2, "luckBonus": 0, "commandId": "cmd_block", "maxDurability": 3, "basePrice": 60 },
+      { "id": "acc_ring_t1", "name": "Кольцо", "slot": "accessory", "tier": 1, "strengthBonus": 0, "armorBonus": 0, "luckBonus": 1, "commandId": "cmd_fortune", "maxDurability": 3, "basePrice": 40 }
     ],
     "catalog": []
   },

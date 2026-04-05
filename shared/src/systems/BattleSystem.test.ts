@@ -40,7 +40,6 @@ function makeContext(overrides: Partial<IBattleContext>): IBattleContext {
     return {
         mode: 'pve',
         heroStats: { ...heroStats },
-        heroMass: heroStats.hp,
         enemy: { ...enemy },
         command: 'cmd_attack',
         consumable: null,

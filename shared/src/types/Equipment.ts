@@ -13,7 +13,6 @@ export interface IEquipmentItem {
     strengthBonus: number;         // +N к силе
     armorBonus: number;            // +N к броне
     luckBonus: number;             // +N к удаче
-    hpBonus: number;               // +N к HP
     commandId: CommandId | null;   // привязанная команда (null = нет)
     maxDurability: number;         // 3 (tier 1), 5, 7, 9
     currentDurability: number;

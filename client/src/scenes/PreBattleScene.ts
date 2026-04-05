@@ -8,7 +8,7 @@ import {
     calcHeroStats, calcDamage, calcTTK, calcBaseWinChance,
     calcAttackWinChance, calcBlockWinChance, calcFortuneChance,
     calcRetreatChance, calcBypassChance, calcPolymorphChance,
-    resolveBattle,
+    resolveBattle, applyConsumableEffect,
 } from 'shared';
 import balanceConfig from '@config/balance.json';
 import { BaseScene } from './BaseScene';
@@ -439,17 +439,11 @@ export class PreBattleScene extends BaseScene {
         );
 
         // Применить эффект выбранного расходника к статам для расчёта шансов
-        const modifiedStats = { ...heroStats };
-        let modifiedEnemyStr = this.enemy.strength;
-        if (this.selectedBeltIndex >= 0) {
-            const consumable = this.gameState.belt[this.selectedBeltIndex];
-            if (consumable) {
-                if (consumable.effect === 'strength_bonus') modifiedStats.strength += consumable.value;
-                else if (consumable.effect === 'armor_bonus') modifiedStats.armor += consumable.value;
-                else if (consumable.effect === 'luck_bonus') modifiedStats.luck += consumable.value;
-                else if (consumable.effect === 'enemy_strength_reduction') modifiedEnemyStr = Math.max(0, modifiedEnemyStr - consumable.value);
-            }
-        }
+        const selectedConsumable = this.selectedBeltIndex >= 0
+            ? (this.gameState.belt[this.selectedBeltIndex] ?? null)
+            : null;
+        const { modifiedStats, modifiedEnemyStrength: modifiedEnemyStr } =
+            applyConsumableEffect(heroStats, selectedConsumable, this.enemy.strength);
 
         // Рассчитываем базовый шанс и шанс атаки (нужны для блока)
         const heroDamage = calcDamage(modifiedStats.strength, this.enemy.armor);
@@ -737,7 +731,6 @@ export class PreBattleScene extends BaseScene {
         const context: IBattleContext = {
             mode: 'pve',
             heroStats,
-            heroMass: this.gameState.hero.mass,
             enemy: this.enemy,
             command: this.selectedCommand,
             consumable,

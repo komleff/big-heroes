@@ -32,6 +32,10 @@ export class DurabilityPips extends Container {
 
     /** Перерисовывает все пипсы */
     private draw(): void {
+        // Уничтожаем старые пипсы перед пересозданием
+        for (const child of this.children) {
+            child.destroy();
+        }
         this.removeChildren();
         for (let i = 0; i < this.maxPips; i++) {
             const pip = new Graphics();
