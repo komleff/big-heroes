@@ -43,4 +43,9 @@ export const GameEvents = {
     STATE_EQUIPMENT_CHANGED: 'state:equipment:changed',
     SCENE_TRANSITION_START: 'scene:transition:start',
     SCENE_TRANSITION_END: 'scene:transition:end',
+
+    // Sprint 2: Боевые события
+    BATTLE_START: 'battle:start',
+    BATTLE_RESULT: 'battle:result',
+    BATTLE_ANIMATION_HIT: 'battle:animation:hit',
 } as const;

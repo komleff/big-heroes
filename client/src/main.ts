@@ -1,4 +1,4 @@
-import { Application } from 'pixi.js';
+import { Application, Assets } from 'pixi.js';
 import type { IBalanceConfig } from 'shared';
 import balanceConfig from '@config/balance.json';
 import { THEME } from './config/ThemeConfig';
@@ -10,6 +10,9 @@ import { PveMapScene } from './scenes/PveMapScene';
 import { PvpLobbyScene } from './scenes/PvpLobbyScene';
 import { InventoryScene } from './scenes/InventoryScene';
 import { DevPanelScene } from './scenes/DevPanelScene';
+import { PreBattleScene } from './scenes/PreBattleScene';
+import { BattleScene } from './scenes/BattleScene';
+import hubBgUrl from './assets/hub-bg.png';
 
 // Точка входа — инициализация PixiJS Application и игровых систем
 async function main(): Promise<void> {
@@ -27,9 +30,12 @@ async function main(): Promise<void> {
     // Дождаться загрузки шрифта Nunito
     await document.fonts.ready;
 
+    // Прелоад ассетов (фон хаба)
+    await Assets.load(hubBgUrl);
+
     // Инициализация ядра
     const eventBus = new EventBus();
-    const gameState = new GameState(balanceConfig as IBalanceConfig, eventBus);
+    const gameState = new GameState(balanceConfig as unknown as IBalanceConfig, eventBus);
     const sceneManager = new SceneManager(app, eventBus);
 
     // Регистрация сцен
@@ -38,6 +44,8 @@ async function main(): Promise<void> {
     sceneManager.register('pvpLobby', () => new PvpLobbyScene(sceneManager));
     sceneManager.register('inventory', () => new InventoryScene(sceneManager));
     sceneManager.register('devPanel', () => new DevPanelScene(sceneManager));
+    sceneManager.register('preBattle', () => new PreBattleScene(gameState, eventBus, sceneManager));
+    sceneManager.register('battle', () => new BattleScene(gameState, eventBus, sceneManager));
 
     // Стартовая сцена
     await sceneManager.goto('hub', { transition: TransitionType.FADE });

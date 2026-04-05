@@ -1,4 +1,4 @@
-import { Graphics } from 'pixi.js';
+import { Assets, Sprite, Graphics } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { GameState } from '../core/GameState';
 import { EventBus, GameEvents } from '../core/EventBus';
@@ -9,7 +9,9 @@ import { ResourceBar } from '../ui/ResourceBar';
 import { EquipmentCard } from '../ui/EquipmentCard';
 import { HeroPortrait } from '../ui/HeroPortrait';
 import { BottomNav } from '../ui/BottomNav';
-import type { IResources, IHeroState, IEquipmentSlots } from 'shared';
+import balanceConfig from '@config/balance.json';
+import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig, IMobConfig } from 'shared';
+import hubBgUrl from '../assets/hub-bg.png';
 
 /**
  * Центральный хаб — главный экран игры.
@@ -44,11 +46,30 @@ export class HubScene extends BaseScene {
     onEnter(): void {
         const { gameState, sceneManager } = this;
 
-        // --- Фон ---
-        const bg = new Graphics();
-        bg.rect(0, 0, THEME.layout.designWidth, THEME.layout.designHeight);
-        bg.fill(THEME.colors.bg_primary);
-        this.addChild(bg);
+        // --- Фон — Sprite из прелоаженного ассета (cover-fit) ---
+        const bgTexture = Assets.get(hubBgUrl);
+        if (bgTexture) {
+            const bg = new Sprite(bgTexture);
+            const scaleX = THEME.layout.designWidth / bgTexture.width;
+            const scaleY = THEME.layout.designHeight / bgTexture.height;
+            const coverScale = Math.max(scaleX, scaleY);
+            bg.scale.set(coverScale);
+            bg.x = (THEME.layout.designWidth - bgTexture.width * coverScale) / 2;
+            bg.y = (THEME.layout.designHeight - bgTexture.height * coverScale) / 2;
+            this.addChild(bg);
+        } else {
+            // Fallback — сплошной цвет
+            const bg = new Graphics();
+            bg.rect(0, 0, THEME.layout.designWidth, THEME.layout.designHeight);
+            bg.fill(THEME.colors.bg_primary);
+            this.addChild(bg);
+        }
+
+        // Полупрозрачный overlay поверх фона чтобы UI читался
+        const overlay = new Graphics();
+        overlay.rect(0, 0, THEME.layout.designWidth, THEME.layout.designHeight);
+        overlay.fill({ color: THEME.colors.bg_primary, alpha: 0.5 });
+        this.addChild(overlay);
 
         // --- ResourceBar (Gold) ---
         this.resourceBar = new ResourceBar({
@@ -100,10 +121,15 @@ export class HubScene extends BaseScene {
 
         // --- Кнопка «ПОХОД» (primary) ---
         const campaignBtn = new Button({
-            text: `ПОХОД (${gameState.resources.campaignTickets}/${gameState.resources.maxCampaignTickets})`,
+            text: 'ПОХОД',
             variant: 'primary',
             onClick: () => {
-                void sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_LEFT });
+                const config = balanceConfig as unknown as IBalanceConfig;
+                const firstEnemy = config.enemies[0] as IMobConfig;
+                void sceneManager.goto('preBattle', {
+                    transition: TransitionType.SLIDE_LEFT,
+                    data: { enemy: firstEnemy },
+                });
             },
         });
         // Button выставляет pivot.x = w/2, поэтому x — это центр кнопки
@@ -112,7 +138,7 @@ export class HubScene extends BaseScene {
 
         // --- Кнопка «АРЕНА» (secondary) ---
         const arenaBtn = new Button({
-            text: `АРЕНА (${gameState.resources.arenaTickets}/${gameState.resources.maxArenaTickets})`,
+            text: 'АРЕНА',
             variant: 'secondary',
             onClick: () => {
                 void sceneManager.goto('pvpLobby', { transition: TransitionType.SLIDE_LEFT });

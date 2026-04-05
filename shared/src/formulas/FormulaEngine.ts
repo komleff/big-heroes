@@ -1,0 +1,177 @@
+import type { IEquipmentSlots } from '../types/GameState';
+import type { IRelic } from '../types/Relic';
+import type { IHeroStats } from '../types/GameState';
+import type { IHitAnimation } from '../types/Battle';
+
+/**
+ * Вычисление боевых характеристик героя.
+ * HP = масса. Сила = масса/3 + бонус оружия + бонус реликвий.
+ * Броня = бонус щита + бонус реликвий. Удача = бонус аксессуара + бонус реликвий.
+ */
+export function calcHeroStats(
+    mass: number,
+    equipment: IEquipmentSlots,
+    relics: IRelic[],
+): IHeroStats {
+    // Бонусы экипировки
+    const weaponStr = equipment.weapon?.strengthBonus ?? 0;
+    const shieldArmor = equipment.armor?.armorBonus ?? 0;
+    const accLuck = equipment.accessory?.luckBonus ?? 0;
+    const hpBonus = (equipment.weapon?.hpBonus ?? 0) + (equipment.armor?.hpBonus ?? 0) + (equipment.accessory?.hpBonus ?? 0);
+
+    // Бонусы реликвий
+    let relicStr = 0, relicArmor = 0, relicLuck = 0;
+    for (const relic of relics) {
+        if (relic.effect === 'strength_bonus') relicStr += relic.value;
+        else if (relic.effect === 'armor_bonus') relicArmor += relic.value;
+        else if (relic.effect === 'luck_bonus') relicLuck += relic.value;
+    }
+
+    return {
+        hp: mass + hpBonus,
+        strength: Math.floor(mass / 3) + weaponStr + relicStr,
+        armor: shieldArmor + relicArmor,
+        luck: accLuck + relicLuck,
+    };
+}
+
+/** Урон = max(1, сила − броня) */
+export function calcDamage(strength: number, armor: number): number {
+    return Math.max(1, strength - armor);
+}
+
+/** TTK (Time-To-Kill) = HP / урон за удар */
+export function calcTTK(hp: number, damagePerHit: number): number {
+    return hp / Math.max(1, damagePerHit);
+}
+
+/** Базовый шанс победы (TTK-метод) */
+export function calcBaseWinChance(ttkHero: number, ttkEnemy: number): number {
+    return ttkEnemy / (ttkHero + ttkEnemy);
+}
+
+/** Ограничение значения в диапазоне [min, max] */
+export function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
+
+/** Шанс команды «Атака» */
+export function calcAttackWinChance(
+    baseChance: number, luck: number,
+    minChance: number, maxChance: number, luckCoeff: number,
+): number {
+    return clamp(baseChance + luck * luckCoeff, minChance, maxChance);
+}
+
+/**
+ * Шанс команды «Блок» (выравниватель для слабых).
+ * block_power = baseBlockPower + shieldArmor × shieldArmorBlockCoeff
+ * block_modifier = (0.5 − attackWinChance) × block_power
+ * Итого: clamp(attackWinChance + block_modifier + luck × luckCoeff, min, max)
+ */
+export function calcBlockWinChance(
+    attackWinChance: number,
+    shieldArmor: number,
+    luck: number,
+    baseBlockPower: number,
+    shieldArmorBlockCoeff: number,
+    luckCoeff: number,
+    minChance: number,
+    maxChance: number,
+): number {
+    const blockPower = baseBlockPower + shieldArmor * shieldArmorBlockCoeff;
+    const blockModifier = (0.5 - attackWinChance) * blockPower;
+    return clamp(attackWinChance + blockModifier + luck * luckCoeff, minChance, maxChance);
+}
+
+/** Шанс команды «Фортуна» */
+export function calcFortuneChance(
+    baseChance: number, luck: number,
+    luckCoeff: number, minChance: number, maxChance: number,
+): number {
+    return clamp(baseChance + luck * luckCoeff, minChance, maxChance);
+}
+
+/** Шанс команды «Отступление» */
+export function calcRetreatChance(
+    luck: number, retreatBase: number,
+    luckCoeff: number, minChance: number, maxChance: number,
+): number {
+    return clamp(retreatBase + luck * luckCoeff, minChance, maxChance);
+}
+
+/** Шанс команды «Обход» */
+export function calcBypassChance(
+    luck: number, bypassBase: number,
+    luckCoeff: number, minChance: number, maxChance: number,
+): number {
+    return clamp(bypassBase + luck * luckCoeff, minChance, maxChance);
+}
+
+/** Шанс команды «Полиморф» */
+export function calcPolymorphChance(
+    baseChance: number, luck: number,
+    luckCoeff: number, minChance: number, maxChance: number,
+): number {
+    return clamp(baseChance + luck * luckCoeff, minChance, maxChance);
+}
+
+/**
+ * Расчёт изменения рейтинга (Elo).
+ * expected = 1 / (1 + 10^((enemyRating − playerRating) / 400))
+ * change = round(K × (result − expected))
+ * result: 1 = победа, 0 = поражение
+ */
+export function calcEloChange(
+    playerRating: number,
+    enemyRating: number,
+    result: 0 | 1,
+    K: number,
+): number {
+    const expected = 1 / (1 + Math.pow(10, (enemyRating - playerRating) / 400));
+    return Math.round(K * (result - expected));
+}
+
+/**
+ * Генерация анимации ударов (2–3 удара).
+ * Каждый удар = damage × rand(0.7–1.3). Сумма ≈ totalDamage.
+ * Удар с множителем ≥1.15 — «сильный», ≥1.25 — «критический».
+ */
+export function generateHitAnimation(
+    winner: 'hero' | 'enemy',
+    heroDamage: number,
+    enemyDamage: number,
+    rng: () => number,
+): IHitAnimation[] {
+    const hitCount = rng() < 0.5 ? 2 : 3;
+    const hits: IHitAnimation[] = [];
+
+    // Удары победителя по проигравшему
+    for (let i = 0; i < hitCount; i++) {
+        const multiplier = 0.7 + rng() * 0.6; // 0.7–1.3
+        const dmg = winner === 'hero' ? heroDamage : enemyDamage;
+        const displayDmg = Math.max(1, Math.round(dmg * multiplier));
+        hits.push({
+            attacker: winner,
+            damage: displayDmg,
+            isStrong: multiplier >= 1.15,
+            isCritical: multiplier >= 1.25,
+        });
+    }
+
+    // Ответные удары проигравшего (1–2)
+    const responseCount = Math.max(1, hitCount - 1);
+    for (let i = 0; i < responseCount; i++) {
+        const multiplier = 0.7 + rng() * 0.6;
+        const dmg = winner === 'hero' ? enemyDamage : heroDamage;
+        const displayDmg = Math.max(1, Math.round(dmg * multiplier));
+        hits.push({
+            attacker: winner === 'hero' ? 'enemy' : 'hero',
+            damage: displayDmg,
+            isStrong: multiplier >= 1.15,
+            isCritical: multiplier >= 1.25,
+        });
+    }
+
+    return hits;
+}

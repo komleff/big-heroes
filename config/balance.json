@@ -2,22 +2,37 @@
   "hero": {
     "startMass": 420,
     "startRating": 1150,
-    "startHp": 100,
-    "baseAttack": 10,
-    "baseDefense": 5
+    "massCap": 999
   },
   "resources": {
-    "startGold": 1500,
-    "maxCampaignTickets": 5,
-    "startCampaignTickets": 3,
-    "maxArenaTickets": 3,
-    "startArenaTickets": 2
+    "startGold": 1500
+  },
+  "formulas": {
+    "massDamageCoeff": 0.333,
+    "minDamage": 1,
+    "baseBlockPower": 0.3,
+    "shieldArmorBlockCoeff": 0.05,
+    "luckAttackCoeff": 0.01,
+    "luckAbilityCoeff": 0.02,
+    "retreatBase": 0.70,
+    "bypassBase": 0.60,
+    "eloK": 32,
+    "winChanceMin": 0.05,
+    "winChanceMax": 0.95
   },
   "equipment": {
     "starterItems": [
-      { "id": "wpn_sword_t1", "name": "Меч", "slot": "weapon", "tier": 1, "modifier": 1.1, "maxDurability": 100, "basePrice": 50 },
-      { "id": "arm_chain_t1", "name": "Кольчуга", "slot": "armor", "tier": 1, "modifier": 1.1, "maxDurability": 100, "basePrice": 60 },
-      { "id": "acc_ring_t1", "name": "Кольцо", "slot": "accessory", "tier": 1, "modifier": 1.0, "maxDurability": 100, "basePrice": 40 }
-    ]
-  }
+      { "id": "wpn_sword_t1", "name": "Меч", "slot": "weapon", "tier": 1, "strengthBonus": 3, "armorBonus": 0, "luckBonus": 0, "hpBonus": 0, "commandId": "cmd_attack", "maxDurability": 3, "basePrice": 50 },
+      { "id": "arm_chain_t1", "name": "Кольчуга", "slot": "armor", "tier": 1, "strengthBonus": 0, "armorBonus": 2, "luckBonus": 0, "hpBonus": 0, "commandId": "cmd_block", "maxDurability": 3, "basePrice": 60 },
+      { "id": "acc_ring_t1", "name": "Кольцо", "slot": "accessory", "tier": 1, "strengthBonus": 0, "armorBonus": 0, "luckBonus": 1, "hpBonus": 0, "commandId": "cmd_fortune", "maxDurability": 3, "basePrice": 40 }
+    ],
+    "catalog": []
+  },
+  "consumables": [],
+  "enemies": [
+    { "id": "mob_slime", "name": "Слизень", "type": "combat", "mass": 35, "strength": 12, "armor": 0, "massReward": 6, "goldReward": 20 }
+  ],
+  "relics": [],
+  "starterBelt": [null, null],
+  "starterBackpack": [null, null, null, null]
 }

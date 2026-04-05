@@ -1,6 +1,6 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { THEME } from '../config/ThemeConfig';
-import { ProgressBar } from './ProgressBar';
+import { DurabilityPips } from './DurabilityPips';
 import type { IEquipmentItem } from 'shared';
 
 /** Параметры конструктора EquipmentCard */
@@ -100,18 +100,49 @@ export class EquipmentCard extends Container {
       nameText.y = slotText.y + slotText.height + 4;
       this.content.addChild(nameText);
 
-      // Полоса прочности (мини-версия)
-      const barWidth = w - pad * 2;
-      const durabilityBar = new ProgressBar({
-        width: barWidth,
+      // Бонусы — компактно в одну строку
+      let nextY = nameText.y + nameText.height + 4;
+      const bonusParts: { label: string; color: number }[] = [];
+      if (item.strengthBonus > 0) {
+        bonusParts.push({ label: `+${item.strengthBonus} Str`, color: THEME.colors.accent_green });
+      }
+      if (item.armorBonus > 0) {
+        bonusParts.push({ label: `+${item.armorBonus} Arm`, color: THEME.colors.accent_cyan });
+      }
+      if (item.luckBonus > 0) {
+        bonusParts.push({ label: `+${item.luckBonus} Luck`, color: THEME.colors.accent_yellow });
+      }
+      if (bonusParts.length > 0) {
+        // Собираем все бонусы в одну строку через пробел
+        let bonusX = pad;
+        for (let i = 0; i < bonusParts.length; i++) {
+          const part = bonusParts[i];
+          const prefix = i > 0 ? ' ' : '';
+          const bonusText = new Text({
+            text: prefix + part.label,
+            style: new TextStyle({
+              fontSize: THEME.font.sizes.small,
+              fontFamily: THEME.font.family,
+              fontWeight: THEME.font.weights.bold,
+              fill: part.color,
+            }),
+          });
+          bonusText.x = bonusX;
+          bonusText.y = nextY;
+          this.content.addChild(bonusText);
+          bonusX += bonusText.width;
+        }
+        nextY += THEME.font.sizes.small + 4;
+      }
+
+      // Пипсы прочности
+      const durabilityPips = new DurabilityPips({
         max: item.maxDurability,
         current: item.currentDurability,
       });
-      durabilityBar.x = pad;
-      durabilityBar.y = nameText.y + nameText.height + 6;
-      // Уменьшаем высоту визуально через масштаб (10/16)
-      durabilityBar.scale.y = 10 / 16;
-      this.content.addChild(durabilityBar);
+      durabilityPips.x = pad;
+      durabilityPips.y = nextY;
+      this.content.addChild(durabilityPips);
     } else {
       // Пустой слот — текст «Пусто» по центру
       const emptyText = new Text({
