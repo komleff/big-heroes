@@ -732,7 +732,11 @@ export class BattleScene extends BaseScene {
                             relicsForExtraction,
                             bossRelicPool,
                             onSelectBossRelic: (relic: IRelic) => {
-                                this.gameState.addRelic(relic);
+                                if (this.gameState.isRelicsFull()) {
+                                    this.gameState.addRelic(relic, this.gameState.activeRelics.length - 1);
+                                } else {
+                                    this.gameState.addRelic(relic);
+                                }
                             },
                             onGetActiveRelics: () => {
                                 return [...this.gameState.activeRelics] as IRelic[];
