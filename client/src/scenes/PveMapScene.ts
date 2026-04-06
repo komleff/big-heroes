@@ -489,32 +489,25 @@ export class PveMapScene extends BaseScene {
                 gold: this.gameState.resources.gold + expedition.goldGained,
                 itemCount: expedition.itemsFound.length,
                 onChoose: (variantIndex: number) => {
-                    // Применить эффекты варианта с учётом вероятностей из описаний
                     const variant = eventConfig.variants[variantIndex];
                     let state = this.gameState.expeditionState as IPveExpeditionState;
                     const rng = createRng(Date.now());
 
-                    // Проверка вероятности: описания содержат "(50/50)", "(70/30)", "(80/20)"
-                    const probMatch = variant.description.match(/(\d+)%|(\d+)\/(\d+)/);
-                    let procChance = 1.0; // по умолчанию 100%
-                    if (probMatch) {
-                        if (probMatch[1]) {
-                            procChance = parseInt(probMatch[1]) / 100;
-                        } else if (probMatch[2] && probMatch[3]) {
-                            procChance = parseInt(probMatch[2]) / (parseInt(probMatch[2]) + parseInt(probMatch[3]));
-                        }
-                    }
-
-                    // Проверка: если вариант требует жертву предмета, а предметов нет — пропустить
+                    // Проверка: вариант требует жертву предмета, а предметов нет
                     const requiresItem = variant.effects.some(e => e.type === 'lose_item');
                     if (requiresItem && state.itemsFound.length === 0) {
-                        // Нет предметов для жертвы — эффекты не применяются
                         this.advanceToNextNode();
                         return;
                     }
 
-                    // Бросок вероятности: если не повезло — эффекты не применяются
-                    const rollSuccess = rng() < procChance;
+                    // Вычислить шанс успеха для вероятностных вариантов
+                    // evt_trap.disarm: "50%" → 50% получить предмет, 50% ничего
+                    // evt_riddle.solve: "70%" → 70% получить сундук, 30% ничего
+                    // evt_merchant.buy: ВСЕГДА предмет, 80% tier1 / 20% tier2 (обработка отдельно)
+                    const isMerchantBuy = eventConfig.id === 'evt_merchant' && variant.id === 'buy';
+                    const probMatch = variant.description.match(/(\d+)%/);
+                    const procChance = probMatch ? parseInt(probMatch[1]) / 100 : 1.0;
+                    const rollSuccess = isMerchantBuy ? true : rng() < procChance; // торговец всегда даёт предмет
 
                     for (const effect of variant.effects) {
                         switch (effect.type) {
@@ -537,18 +530,42 @@ export class PveMapScene extends BaseScene {
                                 break;
                             }
                             case 'item': {
-                                // Получить предмет только при успешном броске
-                                if (rollSuccess) {
-                                    const allItems = [...config.equipment.catalog, ...config.equipment.starterItems];
-                                    if (allItems.length > 0) {
-                                        const picked = allItems[Math.floor(rng() * allItems.length)];
+                                if (!rollSuccess) break;
+                                if (isMerchantBuy) {
+                                    // Торговец: 80% tier 1, 20% tier 2
+                                    const isTier2 = rng() < 0.2;
+                                    if (isTier2) {
+                                        // Tier 2 — расходники tier 2 из каталога
+                                        const tier2Items = config.consumables.filter(c => c.tier === 2);
+                                        if (tier2Items.length > 0) {
+                                            const picked = tier2Items[Math.floor(rng() * tier2Items.length)];
+                                            state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                        }
+                                    } else {
+                                        // Tier 1 — снаряжение или расходники tier 1
+                                        const tier1Items = [
+                                            ...config.equipment.catalog.filter(e => e.tier === 1),
+                                            ...config.consumables.filter(c => c.tier === 1),
+                                        ];
+                                        if (tier1Items.length > 0) {
+                                            const picked = tier1Items[Math.floor(rng() * tier1Items.length)];
+                                            state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                        }
+                                    }
+                                } else {
+                                    // Обычный item: предмет tier 1
+                                    const tier1Items = [
+                                        ...config.equipment.catalog.filter(e => e.tier === 1),
+                                        ...config.consumables.filter(c => c.tier === 1),
+                                    ];
+                                    if (tier1Items.length > 0) {
+                                        const picked = tier1Items[Math.floor(rng() * tier1Items.length)];
                                         state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
                                     }
                                 }
                                 break;
                             }
                             case 'loot_chest': {
-                                // Получить лут только при успешном броске
                                 if (rollSuccess) {
                                     const loot = generateLoot('chest', config.pve.loot, config.equipment.catalog, config.consumables, state.pityCounter, rng);
                                     const ids = loot.drops.map(d => d.itemId);
@@ -557,7 +574,6 @@ export class PveMapScene extends BaseScene {
                                 break;
                             }
                             case 'lose_item': {
-                                // Потерять последний предмет (жертва)
                                 if (state.itemsFound.length > 0) {
                                     state = { ...state, itemsFound: state.itemsFound.slice(0, -1) };
                                 }
