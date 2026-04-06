@@ -643,9 +643,15 @@ export class BattleScene extends BaseScene {
                     },
                 });
             } else if (result.outcome === 'retreat') {
-                // Отступление — назад на перекрёсток (GDD: предыдущий узел, где можно выбрать другой путь)
-                const prevIndex = Math.max(0, newState.currentNodeIndex - 1);
-                const retreated = advanceToNode(newState, prevIndex);
+                // Отступление — найти ближайший перекрёсток (fork) перед текущим узлом (GDD: назад на перекрёсток)
+                let retreatIndex = newState.currentNodeIndex; // по умолчанию остаёмся (можно повторить бой)
+                for (let i = newState.currentNodeIndex - 1; i >= 0; i--) {
+                    if (newState.route.nodes[i].isFork) {
+                        retreatIndex = i;
+                        break;
+                    }
+                }
+                const retreated = advanceToNode(newState, retreatIndex);
                 this.gameState.updateExpeditionState(retreated);
                 void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
             } else {

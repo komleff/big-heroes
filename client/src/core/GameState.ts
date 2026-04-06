@@ -43,6 +43,7 @@ export class GameState {
     private _stash: IEquipmentItem[];
     private _activeRelics: IRelic[];
     private _arenaRelic: IRelic | null = null; // Реликвия для арены (extraction после босса)
+    private _collectedItemIds: string[] = []; // Предметы, собранные в экспедициях (id)
     private _expeditionState: IPveExpeditionState | null = null;
     private eventBus: EventBus;
 
@@ -168,6 +169,10 @@ export class GameState {
         return this._arenaRelic;
     }
 
+    get collectedItemIds(): ReadonlyArray<string> {
+        return this._collectedItemIds;
+    }
+
     get expeditionState(): Readonly<IPveExpeditionState> | null {
         return this._expeditionState;
     }
@@ -252,9 +257,12 @@ export class GameState {
         const exp = this._expeditionState;
         this.setMass(this._hero.mass + exp.massGained);
         this.setGold(this._resources.gold + exp.goldGained);
-        // Предметы из похода → рюкзак (пока добавляем id как заглушку, полная инвентарная система — Sprint 4)
-        this._expeditionState = null;
+        // Предметы из похода → постоянная коллекция (полная инвентарная система — Sprint 4)
+        for (const itemId of exp.itemsFound) {
+            this._collectedItemIds.push(itemId);
+        }
         this._activeRelics = []; // Реликвии не переносятся между экспедициями
+        this._expeditionState = null;
     }
 
     /** Установить расходник в слот пояса (0 или 1) */
