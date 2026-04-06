@@ -366,7 +366,12 @@ export class PveMapScene extends BaseScene {
                 relicPool: pool,
                 onSelect: (index: number) => {
                     const relic = configToRelic(pool[index]);
-                    this.gameState.addRelic(relic);
+                    if (this.gameState.isRelicsFull()) {
+                        // Лимит: заменить последнюю (GDD: выбор замены — Sprint 4 UI)
+                        this.gameState.addRelic(relic, this.gameState.activeRelics.length - 1);
+                    } else {
+                        this.gameState.addRelic(relic);
+                    }
                     this.advanceToNextNode();
                 },
             },
@@ -668,7 +673,11 @@ export class PveMapScene extends BaseScene {
                 relicPool: pool,
                 onSelect: (index: number) => {
                     const relic = configToRelic(pool[index]);
-                    this.gameState.addRelic(relic);
+                    if (this.gameState.isRelicsFull()) {
+                        this.gameState.addRelic(relic, this.gameState.activeRelics.length - 1);
+                    } else {
+                        this.gameState.addRelic(relic);
+                    }
                     this.advanceToNextNode();
                 },
             },

@@ -690,7 +690,12 @@ export class BattleScene extends BaseScene {
                         if (rng() < config.pve.loot.elite_relic_chance) {
                             const pool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
                             if (pool.length > 0) {
-                                this.gameState.addRelic(configToRelic(pool[0]));
+                                const eliteRelic = configToRelic(pool[0]);
+                                if (this.gameState.isRelicsFull()) {
+                                    this.gameState.addRelic(eliteRelic, this.gameState.activeRelics.length - 1);
+                                } else {
+                                    this.gameState.addRelic(eliteRelic);
+                                }
                             }
                         }
                     }
@@ -742,9 +747,9 @@ export class BattleScene extends BaseScene {
                         },
                     });
                 } else {
-                    // Продвигаем к следующему узлу
-                    const advanced = advanceToNode(newState, nextIndex);
-                    this.gameState.updateExpeditionState(advanced);
+                    // Только обновить currentNodeIndex — visitedNodes обновится в enterNode
+                    const updated: IPveExpeditionState = { ...newState, currentNodeIndex: nextIndex };
+                    this.gameState.updateExpeditionState(updated);
                     void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
                 }
             }
