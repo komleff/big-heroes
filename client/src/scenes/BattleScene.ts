@@ -7,7 +7,7 @@ import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
 import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState } from 'shared';
-import { applyBattleResult } from 'shared';
+import { applyBattleResult, advanceToNode } from 'shared';
 
 /** Данные, передаваемые в onEnter */
 interface BattleSceneData {
@@ -624,12 +624,51 @@ export class BattleScene extends BaseScene {
 
             this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
 
-            // Поражение → завершить экспедицию и вернуться в хаб, иначе → карта
             if (newState.status === 'defeat') {
+                // Поражение → итоги экспедиции
                 this.gameState.endExpedition();
-                void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                void this.sceneManager.goto('pveResult', {
+                    transition: TransitionType.FADE,
+                    data: {
+                        status: 'defeat',
+                        massGained: newState.massGained,
+                        goldGained: newState.goldGained,
+                        itemsFound: newState.itemsFound,
+                        nodesVisited: newState.visitedNodes.length,
+                        totalNodes: newState.route.totalNodes,
+                        onContinue: () => {
+                            void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                        },
+                    },
+                });
             } else {
-                void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+                // Победа/retreat/bypass/polymorph → продвинуть к следующему узлу
+                const nextIndex = newState.currentNodeIndex + 1;
+                if (nextIndex >= newState.route.totalNodes) {
+                    // Маршрут пройден — победа
+                    const finalState: IPveExpeditionState = { ...newState, status: 'victory' as const };
+                    this.gameState.updateExpeditionState(finalState);
+                    this.gameState.endExpedition();
+                    void this.sceneManager.goto('pveResult', {
+                        transition: TransitionType.FADE,
+                        data: {
+                            status: 'victory',
+                            massGained: finalState.massGained,
+                            goldGained: finalState.goldGained,
+                            itemsFound: finalState.itemsFound,
+                            nodesVisited: finalState.visitedNodes.length,
+                            totalNodes: finalState.route.totalNodes,
+                            onContinue: () => {
+                                void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                            },
+                        },
+                    });
+                } else {
+                    // Продвигаем к следующему узлу
+                    const advanced = advanceToNode(newState, nextIndex);
+                    this.gameState.updateExpeditionState(advanced);
+                    void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+                }
             }
         } else {
             // Вне экспедиции: старое поведение

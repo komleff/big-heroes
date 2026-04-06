@@ -98,18 +98,23 @@ function rollDrop(
     const isEquipment = rng() < equipmentDropChance;
 
     let itemId: string;
+    // Фактический тип: может отличаться от isEquipment при пустом массиве
+    let actualType: 'equipment' | 'consumable' = isEquipment ? 'equipment' : 'consumable';
+
     if (isEquipment && equipment.length > 0) {
         const item = randPick(rng, equipment);
         itemId = item.id;
     } else if (consumables.length > 0) {
         const item = randPick(rng, consumables);
         itemId = item.id;
+        actualType = 'consumable';
     } else {
         itemId = 'unknown';
+        actualType = 'consumable';
     }
 
     return {
-        item: { itemId, itemType: isEquipment ? 'equipment' : 'consumable', tierBoosted },
+        item: { itemId, itemType: actualType, tierBoosted },
         newCounter: tierBoosted ? 0 : newCounter,  // сбросить при срабатывании pity
     };
 }

@@ -6,8 +6,16 @@ import { SceneManager, TransitionType } from '../core/SceneManager';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { ResourceBar } from '../ui/ResourceBar';
-import { advanceToNode, exitExpedition } from 'shared';
-import type { IPveNode, PveNodeType, IPveExpeditionState, IBalanceConfig, IMobConfig } from 'shared';
+import {
+    advanceToNode, exitExpedition,
+    generateRelicPool, configToRelic,
+    generateLoot, generateShopInventory, calcShopRepairCost,
+    createRng, randInt,
+} from 'shared';
+import type {
+    IPveNode, PveNodeType, IPveExpeditionState,
+    IBalanceConfig, IMobConfig,
+} from 'shared';
 import balanceConfig from '@config/balance.json';
 
 /** Ширина и высота дизайна */
@@ -32,7 +40,7 @@ function getNodeDisplay(type: PveNodeType): { icon: string; name: string } {
 /**
  * Сцена карты PvE-похода — навигационный хаб экспедиции.
  * Показывает текущий узел маршрута и позволяет перейти к нему.
- * Для боевых узлов переходит в preBattle, для остальных — обрабатывает inline.
+ * Для боевых узлов переходит в preBattle, для остальных — в соответствующую сцену.
  */
 export class PveMapScene extends BaseScene {
     private readonly gameState: GameState;
@@ -181,7 +189,7 @@ export class PveMapScene extends BaseScene {
                     text: pathLabel,
                     variant: 'secondary',
                     onClick: () => {
-                        // Выбор пути: обновить тип текущего узла на выбранный
+                        // Выбор пути: обновить следующий узел и продвинуться
                         this.handleForkChoice(path.nodeType, path.enemyId, path.eventId);
                     },
                 });
@@ -229,15 +237,18 @@ export class PveMapScene extends BaseScene {
 
     /**
      * Обработка выбора пути на развилке.
-     * Обновляет тип текущего узла и входит в него.
+     * Обновляет тип СЛЕДУЮЩЕГО узла по выбранному пути и продвигает к нему.
      */
     private handleForkChoice(nodeType: PveNodeType, enemyId?: string, eventId?: string): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
-        const node = expedition.route.nodes[expedition.currentNodeIndex];
+        const nextIndex = expedition.currentNodeIndex + 1;
 
-        // Создаём временный узел с выбранным типом
-        const chosenNode: IPveNode = {
-            ...node,
+        if (nextIndex >= expedition.route.totalNodes) return;
+
+        // Обновить тип следующего узла по выбранному пути
+        const updatedNodes = [...expedition.route.nodes];
+        updatedNodes[nextIndex] = {
+            ...updatedNodes[nextIndex],
             type: nodeType,
             enemyId,
             eventId,
@@ -245,12 +256,21 @@ export class PveMapScene extends BaseScene {
             forkPaths: undefined,
         };
 
-        this.enterNode(chosenNode);
+        const updatedRoute = { ...expedition.route, nodes: updatedNodes };
+        const updatedState: IPveExpeditionState = { ...expedition, route: updatedRoute };
+        this.gameState.updateExpeditionState(updatedState);
+
+        // Продвинуться к выбранному узлу
+        const advanced = advanceToNode(updatedState, nextIndex);
+        this.gameState.updateExpeditionState(advanced);
+
+        // Перезагрузить карту для нового узла
+        void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
     }
 
     /**
      * Вход в узел — определяет действие по типу узла.
-     * Боевые узлы → preBattle, остальные → обработка inline с продвижением.
+     * Боевые узлы → preBattle, остальные → соответствующие сцены.
      */
     private enterNode(node: IPveNode): void {
         const { gameState, sceneManager, eventBus } = this;
@@ -285,14 +305,29 @@ export class PveMapScene extends BaseScene {
                 break;
             }
 
-            // Некомбатные узлы — пока обрабатываем inline (заглушка)
-            case 'sanctuary':
-            case 'shop':
-            case 'camp':
-            case 'event':
+            case 'sanctuary': {
+                this.handleSanctuary(config);
+                break;
+            }
+
+            case 'shop': {
+                this.handleShop(config);
+                break;
+            }
+
+            case 'camp': {
+                this.handleCamp(config);
+                break;
+            }
+
+            case 'event': {
+                this.handleEvent(config, node);
+                break;
+            }
+
             case 'chest':
             case 'ancient_chest': {
-                this.showInlineResult(node);
+                this.handleChest(config, node);
                 break;
             }
         }
@@ -306,93 +341,161 @@ export class PveMapScene extends BaseScene {
         return config.enemies.find(e => e.id === enemyId) ?? null;
     }
 
+    // ───────────────────────────── Обработчики некомбатных узлов ─────────
+
     /**
-     * Показать inline-результат для некомбатного узла.
-     * Временная заглушка — будет заменена отдельными сценами.
+     * Святилище — выбор реликвии из пула.
      */
-    private showInlineResult(node: IPveNode): void {
-        // Очищаем текущий UI
-        this.removeChildren();
+    private handleSanctuary(config: IBalanceConfig): void {
+        const activeRelics = [...this.gameState.activeRelics];
+        const rng = createRng(Date.now());
+        const pool = generateRelicPool(config.relics, activeRelics, 3, rng);
 
-        const display = getNodeDisplay(node.type);
-
-        // Фон
-        const bg = new Graphics();
-        bg.rect(0, 0, W, H).fill(THEME.colors.bg_primary);
-        this.addChild(bg);
-
-        // Полупрозрачная панель
-        const panel = new Graphics();
-        panel.roundRect(24, 200, W - 48, 300, THEME.layout.borderRadius.modal).fill({ color: THEME.colors.bg_secondary, alpha: 0.95 });
-        this.addChild(panel);
-
-        // Иконка
-        const icon = new Text({
-            text: display.icon,
-            style: new TextStyle({ fontSize: 48, fontFamily: THEME.font.family }),
-        });
-        icon.anchor.set(0.5, 0);
-        icon.x = W / 2;
-        icon.y = 220;
-        this.addChild(icon);
-
-        // Название
-        const title = new Text({
-            text: display.name,
-            style: new TextStyle({
-                fontSize: THEME.font.sizes.subheading,
-                fontFamily: THEME.font.family,
-                fontWeight: THEME.font.weights.bold,
-                fill: THEME.colors.text_primary,
-            }),
-        });
-        title.anchor.set(0.5, 0);
-        title.x = W / 2;
-        title.y = 280;
-        this.addChild(title);
-
-        // Описание-заглушка
-        const descriptions: Record<string, string> = {
-            sanctuary: 'Вы нашли святилище. Выберите реликвию. (Скоро)',
-            shop: 'Торговец предлагает товары. (Скоро)',
-            camp: 'Вы разбили лагерь. Отдых и ремонт. (Скоро)',
-            event: 'Случайное событие произошло. (Скоро)',
-            chest: 'Вы нашли сундук с добычей. (Скоро)',
-            ancient_chest: 'Древний сундук! Ценная находка. (Скоро)',
-        };
-
-        const desc = new Text({
-            text: descriptions[node.type] ?? 'Неизвестный узел.',
-            style: new TextStyle({
-                fontSize: THEME.font.sizes.small,
-                fontFamily: THEME.font.family,
-                fontWeight: THEME.font.weights.regular,
-                fill: THEME.colors.text_secondary,
-                wordWrap: true,
-                wordWrapWidth: W - 96,
-            }),
-        });
-        desc.anchor.set(0.5, 0);
-        desc.x = W / 2;
-        desc.y = 330;
-        this.addChild(desc);
-
-        // Кнопка «Продолжить»
-        const continueBtn = new Button({
-            text: 'Продолжить',
-            variant: 'primary',
-            onClick: () => {
-                this.eventBus.emit(GameEvents.PVE_NODE_COMPLETE, node);
-                this.advanceToNextNode();
+        void this.sceneManager.goto('sanctuary', {
+            transition: TransitionType.SLIDE_LEFT,
+            data: {
+                relicPool: pool,
+                onSelect: (index: number) => {
+                    const relic = configToRelic(pool[index]);
+                    this.gameState.addRelic(relic);
+                    this.advanceToNextNode();
+                },
             },
         });
-        continueBtn.position.set(39 + THEME.layout.buttonWidth / 2, 420);
-        this.addChild(continueBtn);
     }
 
     /**
+     * Магазин — покупка предметов и ремонт.
+     */
+    private handleShop(config: IBalanceConfig): void {
+        const expedition = this.gameState.expeditionState as IPveExpeditionState;
+        const rng = createRng(Date.now());
+        const shopItems = generateShopInventory(
+            config.pve.shop,
+            config.equipment.catalog,
+            config.consumables,
+            rng,
+        );
+        const repairCost = calcShopRepairCost(50, config.pve.shop);
+
+        void this.sceneManager.goto('shop', {
+            transition: TransitionType.SLIDE_LEFT,
+            data: {
+                shopItems,
+                gold: this.gameState.resources.gold + expedition.goldGained,
+                repairCost,
+                onBuy: (_itemIndex: number) => {
+                    // Покупка предмета — будет реализована в следующем спринте
+                },
+                onRepair: () => {
+                    // Ремонт снаряжения — будет реализован в следующем спринте
+                },
+                onLeave: () => {
+                    this.advanceToNextNode();
+                },
+            },
+        });
+    }
+
+    /**
+     * Лагерь — ремонт или тренировка.
+     */
+    private handleCamp(config: IBalanceConfig): void {
+        void this.sceneManager.goto('camp', {
+            transition: TransitionType.SLIDE_LEFT,
+            data: {
+                onRepair: () => {
+                    // Ремонт +1 прочность — будет реализован в следующем спринте
+                    this.advanceToNextNode();
+                },
+                onTrain: () => {
+                    // Тренировка — добавить массу
+                    const expedition = this.gameState.expeditionState as IPveExpeditionState;
+                    const rng = createRng(Date.now());
+                    const massGain = randInt(rng, config.pve.camp.train_mass_min, config.pve.camp.train_mass_max);
+                    const updated: IPveExpeditionState = { ...expedition, massGained: expedition.massGained + massGain };
+                    this.gameState.updateExpeditionState(updated);
+                    this.advanceToNextNode();
+                },
+                onLeave: () => {
+                    this.advanceToNextNode();
+                },
+                trainMassMin: config.pve.camp.train_mass_min,
+                trainMassMax: config.pve.camp.train_mass_max,
+            },
+        });
+    }
+
+    /**
+     * Случайное событие — выбор варианта.
+     */
+    private handleEvent(config: IBalanceConfig, node: IPveNode): void {
+        const eventConfig = config.events.find(e => e.id === node.eventId);
+        if (!eventConfig) {
+            this.advanceToNextNode();
+            return;
+        }
+
+        const expedition = this.gameState.expeditionState as IPveExpeditionState;
+
+        void this.sceneManager.goto('event', {
+            transition: TransitionType.SLIDE_LEFT,
+            data: {
+                event: eventConfig,
+                gold: this.gameState.resources.gold + expedition.goldGained,
+                onChoose: (variantIndex: number) => {
+                    // Применить эффекты варианта
+                    const variant = eventConfig.variants[variantIndex];
+                    let state = this.gameState.expeditionState as IPveExpeditionState;
+                    for (const effect of variant.effects) {
+                        if (effect.type === 'mass') {
+                            state = { ...state, massGained: state.massGained + effect.value };
+                        } else if (effect.type === 'gold') {
+                            state = { ...state, goldGained: state.goldGained + effect.value };
+                        }
+                    }
+                    this.gameState.updateExpeditionState(state);
+                    this.advanceToNextNode();
+                },
+            },
+        });
+    }
+
+    /**
+     * Сундук / древний сундук — генерация лута.
+     */
+    private handleChest(config: IBalanceConfig, node: IPveNode): void {
+        const expedition = this.gameState.expeditionState as IPveExpeditionState;
+        const rng = createRng(Date.now());
+        const lootResult = generateLoot(
+            node.type,
+            config.pve.loot,
+            config.equipment.catalog,
+            config.consumables,
+            expedition.pityCounter,
+            rng,
+        );
+
+        // Обновить pity-счётчик
+        const updatedExpedition: IPveExpeditionState = { ...expedition, pityCounter: lootResult.newPityCounter };
+        this.gameState.updateExpeditionState(updatedExpedition);
+
+        void this.sceneManager.goto('loot', {
+            transition: TransitionType.SLIDE_LEFT,
+            data: {
+                drops: lootResult.drops,
+                onComplete: () => {
+                    this.advanceToNextNode();
+                },
+            },
+        });
+    }
+
+    // ───────────────────────────── Навигация по маршруту ─────────────────
+
+    /**
      * Продвинуться к следующему узлу маршрута.
-     * Если узлы закончились — завершить экспедицию с победой.
+     * Если узлы закончились — завершить экспедицию с победой через PveResultScene.
      */
     private advanceToNextNode(): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
@@ -404,7 +507,20 @@ export class PveMapScene extends BaseScene {
             this.gameState.updateExpeditionState(finalState);
             this.gameState.endExpedition();
             this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, finalState);
-            void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+            void this.sceneManager.goto('pveResult', {
+                transition: TransitionType.FADE,
+                data: {
+                    status: 'victory',
+                    massGained: finalState.massGained,
+                    goldGained: finalState.goldGained,
+                    itemsFound: finalState.itemsFound,
+                    nodesVisited: finalState.visitedNodes.length,
+                    totalNodes: finalState.route.totalNodes,
+                    onContinue: () => {
+                        void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                    },
+                },
+            });
             return;
         }
 
@@ -412,9 +528,8 @@ export class PveMapScene extends BaseScene {
         const advanced = advanceToNode(expedition, nextIndex);
         this.gameState.updateExpeditionState(advanced);
 
-        // Перезагружаем сцену для отображения нового узла
-        this.removeChildren();
-        this.onEnter();
+        // Переход к свежей сцене карты
+        void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
     }
 
     onExit(): void {
