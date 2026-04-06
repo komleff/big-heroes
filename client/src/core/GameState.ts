@@ -10,7 +10,10 @@ import type {
     IEquipmentItem,
     IConsumable,
     IRelic,
+    IPveRoute,
+    IPveExpeditionState,
 } from 'shared';
+import { createExpeditionState } from 'shared';
 import { EventBus, GameEvents } from './EventBus';
 
 /**
@@ -39,6 +42,7 @@ export class GameState {
     private _backpack: Array<IEquipmentItem | IConsumable | null>;
     private _stash: IEquipmentItem[];
     private _activeRelics: IRelic[];
+    private _expeditionState: IPveExpeditionState | null = null;
     private eventBus: EventBus;
 
     constructor(config: IBalanceConfig, eventBus: EventBus) {
@@ -159,6 +163,10 @@ export class GameState {
         return this._activeRelics;
     }
 
+    get expeditionState(): Readonly<IPveExpeditionState> | null {
+        return this._expeditionState;
+    }
+
     // --- Сеттеры с уведомлениями ---
 
     /** Установить массу героя (клэмп 0..massCap) */
@@ -215,6 +223,25 @@ export class GameState {
     addRelic(relic: IRelic): void {
         if (this._activeRelics.length >= 3) return;
         this._activeRelics = [...this._activeRelics, relic];
+    }
+
+    /** Начать экспедицию */
+    startExpedition(route: IPveRoute): void {
+        this._expeditionState = createExpeditionState(route);
+    }
+
+    /** Обновить состояние экспедиции */
+    updateExpeditionState(state: IPveExpeditionState): void {
+        this._expeditionState = state;
+    }
+
+    /** Завершить экспедицию — перенести результаты в постоянное состояние */
+    endExpedition(): void {
+        if (!this._expeditionState) return;
+        const exp = this._expeditionState;
+        this.setMass(this._hero.mass + exp.massGained);
+        this.setGold(this._resources.gold + exp.goldGained);
+        this._expeditionState = null;
     }
 
     /** Установить расходник в слот пояса (0 или 1) */

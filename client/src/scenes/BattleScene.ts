@@ -6,7 +6,8 @@ import { SceneManager, TransitionType } from '../core/SceneManager';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
-import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig } from 'shared';
+import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState } from 'shared';
+import { applyBattleResult } from 'shared';
 
 /** Данные, передаваемые в onEnter */
 interface BattleSceneData {
@@ -607,23 +608,47 @@ export class BattleScene extends BaseScene {
     private onContinue(): void {
         const { result } = this.battleData;
 
-        // Применить награды при победе
-        if (result.outcome === 'victory') {
-            this.gameState.setMass(this.gameState.hero.mass + result.massReward);
-            this.gameState.setGold(this.gameState.resources.gold + result.goldReward);
+        if (this.gameState.expeditionState) {
+            // В экспедиции: обновить состояние экспедиции
+            const newState = applyBattleResult(
+                this.gameState.expeditionState as IPveExpeditionState,
+                result,
+                [...this.gameState.activeRelics],
+            );
+            this.gameState.updateExpeditionState(newState);
+
+            // Износ экипировки
+            if (result.durabilityTarget) {
+                this.gameState.wearItem(result.durabilityTarget);
+            }
+
+            this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
+
+            // Поражение → завершить экспедицию и вернуться в хаб, иначе → карта
+            if (newState.status === 'defeat') {
+                this.gameState.endExpedition();
+                void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+            } else {
+                void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+            }
+        } else {
+            // Вне экспедиции: старое поведение
+            if (result.outcome === 'victory') {
+                this.gameState.setMass(this.gameState.hero.mass + result.massReward);
+                this.gameState.setGold(this.gameState.resources.gold + result.goldReward);
+            }
+
+            // Износ экипировки
+            if (result.durabilityTarget) {
+                this.gameState.wearItem(result.durabilityTarget);
+            }
+
+            // Эмит события результата боя
+            this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
+
+            // Переход в хаб
+            void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
         }
-        // defeat / retreat / bypass / polymorph — ничего не меняем
-
-        // Износ экипировки
-        if (result.durabilityTarget) {
-            this.gameState.wearItem(result.durabilityTarget);
-        }
-
-        // Эмит события результата боя
-        this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
-
-        // Переход в хаб
-        void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
     }
 
     /**

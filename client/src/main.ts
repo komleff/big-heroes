@@ -12,6 +12,12 @@ import { InventoryScene } from './scenes/InventoryScene';
 import { DevPanelScene } from './scenes/DevPanelScene';
 import { PreBattleScene } from './scenes/PreBattleScene';
 import { BattleScene } from './scenes/BattleScene';
+import { SanctuaryScene } from './scenes/SanctuaryScene';
+import { LootScene } from './scenes/LootScene';
+import { ShopScene } from './scenes/ShopScene';
+import { CampScene } from './scenes/CampScene';
+import { EventScene } from './scenes/EventScene';
+import { PveResultScene } from './scenes/PveResultScene';
 import hubBgUrl from './assets/hub-bg.png';
 
 // Точка входа — инициализация PixiJS Application и игровых систем
@@ -40,12 +46,18 @@ async function main(): Promise<void> {
 
     // Регистрация сцен
     sceneManager.register('hub', () => new HubScene(gameState, eventBus, sceneManager));
-    sceneManager.register('pveMap', () => new PveMapScene(sceneManager));
+    sceneManager.register('pveMap', () => new PveMapScene(gameState, eventBus, sceneManager));
     sceneManager.register('pvpLobby', () => new PvpLobbyScene(sceneManager));
     sceneManager.register('inventory', () => new InventoryScene(sceneManager));
     sceneManager.register('devPanel', () => new DevPanelScene(sceneManager));
     sceneManager.register('preBattle', () => new PreBattleScene(gameState, eventBus, sceneManager));
     sceneManager.register('battle', () => new BattleScene(gameState, eventBus, sceneManager));
+    sceneManager.register('sanctuary', () => new SanctuaryScene());
+    sceneManager.register('loot', () => new LootScene());
+    sceneManager.register('shop', () => new ShopScene());
+    sceneManager.register('camp', () => new CampScene());
+    sceneManager.register('event', () => new EventScene());
+    sceneManager.register('pveResult', () => new PveResultScene());
 
     // Стартовая сцена
     await sceneManager.goto('hub', { transition: TransitionType.FADE });

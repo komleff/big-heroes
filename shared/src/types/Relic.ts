@@ -1,7 +1,10 @@
 // Реликвия (пассивный бонус на весь поход)
+export type RelicRarity = 'common' | 'uncommon' | 'rare';
+
 export interface IRelic {
     id: string;
     name: string;
-    effect: string;       // тип эффекта: 'strength_bonus', 'armor_bonus', 'luck_bonus', 'gold_bonus', 'mass_bonus', 'enemy_strength_reduction'
+    effect: string;       // тип эффекта
     value: number;        // числовое значение
+    rarity: RelicRarity;  // редкость
 }

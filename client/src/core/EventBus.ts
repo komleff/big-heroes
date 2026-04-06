@@ -48,4 +48,10 @@ export const GameEvents = {
     BATTLE_START: 'battle:start',
     BATTLE_RESULT: 'battle:result',
     BATTLE_ANIMATION_HIT: 'battle:animation:hit',
+
+    // Sprint 3: PvE-экспедиция
+    PVE_EXPEDITION_START: 'pve:expedition:start',
+    PVE_NODE_ENTER: 'pve:node:enter',
+    PVE_NODE_COMPLETE: 'pve:node:complete',
+    PVE_EXPEDITION_END: 'pve:expedition:end',
 } as const;

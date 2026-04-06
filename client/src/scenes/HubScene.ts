@@ -11,6 +11,7 @@ import { HeroPortrait } from '../ui/HeroPortrait';
 import { BottomNav } from '../ui/BottomNav';
 import balanceConfig from '@config/balance.json';
 import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig } from 'shared';
+import { generateRoute, createRng } from 'shared';
 import hubBgUrl from '../assets/hub-bg.png';
 
 /**
@@ -125,11 +126,17 @@ export class HubScene extends BaseScene {
             variant: 'primary',
             onClick: () => {
                 const config = balanceConfig as unknown as IBalanceConfig;
-                const firstEnemy = config.enemies[0];
-                if (!firstEnemy) return; // нет врагов — не переходим
-                void sceneManager.goto('preBattle', {
+                const seed = Date.now();
+                const rng = createRng(seed);
+                const route = generateRoute(
+                    config.pve,
+                    config.enemies,
+                    config.events,
+                    rng,
+                );
+                gameState.startExpedition(route);
+                void sceneManager.goto('pveMap', {
                     transition: TransitionType.SLIDE_LEFT,
-                    data: { enemy: firstEnemy },
                 });
             },
         });
