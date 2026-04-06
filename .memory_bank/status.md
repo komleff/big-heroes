@@ -23,16 +23,21 @@ Sprint 3 (PvE-поход со случайной генерацией маршр
 - GameState: expedition state, arenaRelic, collectedItemIds
 - 129 тестов (67 Sprint 2 + 62 новых)
 
-## Deferred issues
+## Deferred issues (11 open)
 
 | ID | Приоритет | Описание |
 |----|-----------|----------|
-| big-heroes-qnb | P1 | UI выбора замены реликвии при max_relics=3 |
 | big-heroes-h24 | P1 | arenaRelic интеграция в PvP flow |
+| big-heroes-qnb | P1 | UI выбора замены реликвии при max_relics=3 |
+| big-heroes-24s | P2 | tierBoosted → реальный tier+1 в LootSystem |
 | big-heroes-5yi | P2 | Клиентский seed (Date.now → expedition seed) |
 | big-heroes-7ix | P2 | setHp() бизнес-логика → shared/ |
+| big-heroes-8y2 | P2 | Block Draw (ничья 15% в PvE) |
+| big-heroes-ne5 | P2 | Event вероятности → поле в конфиге |
+| big-heroes-q6m | P2 | Бизнес-логика PvE → shared/ (рефакторинг) |
 | big-heroes-5sg | P3 | Layout хардкод в BattleScene/PreBattleScene |
 | big-heroes-70l | P3 | Graphics утечки в belt/command highlight |
+| big-heroes-y1o | P3 | applyBattleResult → RelicSystem функции |
 
 ## Ближайшие задачи
 
