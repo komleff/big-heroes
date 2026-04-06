@@ -260,9 +260,9 @@ export class PveMapScene extends BaseScene {
         const updatedState: IPveExpeditionState = { ...expedition, route: updatedRoute };
         this.gameState.updateExpeditionState(updatedState);
 
-        // Продвинуться к выбранному узлу
-        const advanced = advanceToNode(updatedState, nextIndex);
-        this.gameState.updateExpeditionState(advanced);
+        // Только обновить currentNodeIndex — visitedNodes обновится в enterNode
+        const navigated: IPveExpeditionState = { ...updatedState, currentNodeIndex: nextIndex };
+        this.gameState.updateExpeditionState(navigated);
 
         // Перезагрузить карту для нового узла
         void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
@@ -279,10 +279,11 @@ export class PveMapScene extends BaseScene {
         // Продвигаем экспедицию к текущему узлу
         const expedition = gameState.expeditionState as IPveExpeditionState;
 
-        // Проверка: если узел уже посещён — пропустить (защита от retreat exploit)
+        // Защита от retreat exploit: reward-узлы нельзя посещать повторно
+        // Combat-узлы можно: GDD разрешает «попробовать снова» после отступления
         const alreadyVisited = expedition.visitedNodes.includes(node.index);
-        if (alreadyVisited) {
-            // Узел уже пройден — продвинуться дальше (нет повторных наград/боёв)
+        const isRewardNode = ['sanctuary', 'shop', 'camp', 'event', 'chest', 'ancient_chest'].includes(node.type);
+        if (alreadyVisited && isRewardNode) {
             this.advanceToNextNode();
             return;
         }
@@ -708,9 +709,10 @@ export class PveMapScene extends BaseScene {
             return;
         }
 
-        // Продвигаем к следующему узлу
-        const advanced = advanceToNode(expedition, nextIndex);
-        this.gameState.updateExpeditionState(advanced);
+        // Только обновить currentNodeIndex — НЕ добавлять в visitedNodes
+        // visitedNodes обновляется в enterNode при фактическом входе игрока
+        const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
+        this.gameState.updateExpeditionState(updated);
 
         // Переход к свежей сцене карты
         void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });

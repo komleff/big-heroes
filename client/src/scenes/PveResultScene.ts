@@ -173,6 +173,12 @@ export class PveResultScene extends BaseScene {
             card.on('pointerdown', () => {
                 this.sceneData.onSelectBossRelic?.(relic);
                 this.bossRelicChosen = true;
+                // Обновить extraction-список: добавить выбранную boss relic
+                if (this.sceneData.relicsForExtraction) {
+                    this.sceneData.relicsForExtraction = [...this.sceneData.relicsForExtraction, relic];
+                } else {
+                    this.sceneData.relicsForExtraction = [relic];
+                }
                 this.buildLayout(); // Перестроить — перейти к extraction или кнопке
             });
 

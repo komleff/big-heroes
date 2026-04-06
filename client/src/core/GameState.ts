@@ -230,9 +230,16 @@ export class GameState {
     }
 
     /** Добавить реликвию в активные (максимум 3) */
+    /** Добавить реликвию. При лимите MAX_RELICS — заменить последнюю */
     addRelic(relic: IRelic): void {
-        if (this._activeRelics.length >= MAX_RELICS) return;
-        this._activeRelics = [...this._activeRelics, relic];
+        if (this._activeRelics.length >= MAX_RELICS) {
+            // Лимит: заменить последнюю реликвию (UI замены — Sprint 4)
+            const updated = [...this._activeRelics];
+            updated[updated.length - 1] = relic;
+            this._activeRelics = updated;
+        } else {
+            this._activeRelics = [...this._activeRelics, relic];
+        }
     }
 
     /** Сохранить реликвию для арены (extraction после босса, GDD: max 1) */
