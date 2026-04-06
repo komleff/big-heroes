@@ -627,6 +627,7 @@ export class BattleScene extends BaseScene {
 
             if (newState.status === 'defeat') {
                 // Поражение → итоги экспедиции
+                this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, newState);
                 this.gameState.endExpedition();
                 void this.sceneManager.goto('pveResult', {
                     transition: TransitionType.FADE,
@@ -688,14 +689,8 @@ export class BattleScene extends BaseScene {
                         }
                     }
 
-                    // Босс: гарантированная реликвия — выбор 1 из 3 (GDD: boss relic)
-                    if (result.outcome === 'victory' && currentNode.type === 'boss') {
-                        const relicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 3, rng);
-                        if (relicPool.length > 0) {
-                            // Авто-выбор первой (UI выбора — через extraction в PveResultScene)
-                            this.gameState.addRelic(configToRelic(relicPool[0]));
-                        }
-                    }
+                    // Босс: пул из 3 реликвий для выбора в PveResultScene (GDD: выбор 1 из 3)
+                    // НЕ авто-добавляем — выбор делает игрок на экране extraction
                 }
 
                 const nextIndex = newState.currentNodeIndex + 1;
@@ -706,6 +701,14 @@ export class BattleScene extends BaseScene {
                     this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, finalState);
                     // НЕ вызываем endExpedition сразу — PveResultScene покажет extraction экран
                     const relicsForExtraction = [...this.gameState.activeRelics];
+                    // Boss relic pool для выбора (GDD: 1 из 3)
+                    const currentNode2 = newState.route.nodes[newState.currentNodeIndex];
+                    let bossRelicPool: typeof relicsForExtraction = [];
+                    if (currentNode2.type === 'boss') {
+                        const bossRng = createRng(Date.now() + 1);
+                        bossRelicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 3, bossRng)
+                            .map(r => configToRelic(r));
+                    }
                     void this.sceneManager.goto('pveResult', {
                         transition: TransitionType.FADE,
                         data: {
@@ -716,6 +719,10 @@ export class BattleScene extends BaseScene {
                             nodesVisited: finalState.visitedNodes.length,
                             totalNodes: finalState.route.totalNodes,
                             relicsForExtraction,
+                            bossRelicPool,
+                            onSelectBossRelic: (relic: IRelic) => {
+                                this.gameState.addRelic(relic);
+                            },
                             onSaveRelic: (relic: IRelic) => {
                                 this.gameState.saveArenaRelic(relic);
                             },

@@ -22,6 +22,8 @@ interface PveResultSceneData {
     totalNodes: number;
     onContinue: () => void;
     relicsForExtraction?: RelicForExtraction[];     // Реликвии для сохранения (только при victory)
+    bossRelicPool?: RelicForExtraction[];            // Пул реликвий босса: выбор 1 из 3 (GDD)
+    onSelectBossRelic?: (relic: RelicForExtraction) => void; // Выбор реликвии босса
     onSaveRelic?: (relic: RelicForExtraction) => void; // Сохранить реликвию для арены
 }
 
@@ -34,6 +36,7 @@ const W = THEME.layout.designWidth;
  */
 export class PveResultScene extends BaseScene {
     private sceneData!: PveResultSceneData;
+    private bossRelicChosen = false;
     private extractionShown = false;
 
     constructor() {
@@ -109,8 +112,11 @@ export class PveResultScene extends BaseScene {
         this.addStatLine(`Золото: +${data.goldGained}`, THEME.colors.accent_yellow, lineX, lineStartY + lineSpacing * 2);
         this.addStatLine(`Предметов найдено: ${data.itemsFound.length}`, THEME.colors.text_primary, lineX, lineStartY + lineSpacing * 3);
 
-        // --- Extraction: сохранить реликвию для арены (только при victory + есть реликвии) ---
-        if (data.status === 'victory' && data.relicsForExtraction && data.relicsForExtraction.length > 0 && !this.extractionShown) {
+        // --- Шаг 1: Boss relic — выбор 1 из 3 (GDD: гарантированная награда босса) ---
+        if (data.status === 'victory' && data.bossRelicPool && data.bossRelicPool.length > 0 && !this.bossRelicChosen) {
+            this.buildBossRelicSection(data.bossRelicPool, panelY + panelH + 20);
+        // --- Шаг 2: Extraction — сохранить реликвию для арены ---
+        } else if (data.status === 'victory' && data.relicsForExtraction && data.relicsForExtraction.length > 0 && !this.extractionShown) {
             this.buildExtractionSection(data.relicsForExtraction, panelY + panelH + 20);
         } else {
             // Кнопка «В ХАБ»
@@ -121,6 +127,57 @@ export class PveResultScene extends BaseScene {
             });
             hubBtn.position.set(W / 2, panelY + panelH + 40);
             this.addChild(hubBtn);
+        }
+    }
+
+    // ─── Boss relic: выбор 1 из 3 (GDD: гарантированная награда босса) ──
+
+    private buildBossRelicSection(relics: RelicForExtraction[], startY: number): void {
+        const title = new Text({
+            text: 'Награда босса: выберите реликвию',
+            style: new TextStyle({
+                fontSize: THEME.font.sizes.subheading,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.bold,
+                fill: THEME.colors.accent_yellow,
+            }),
+        });
+        title.anchor.set(0.5, 0);
+        title.position.set(W / 2, startY);
+        this.addChild(title);
+
+        let cardY = startY + 36;
+        for (let i = 0; i < relics.length; i++) {
+            const relic = relics[i];
+            const card = new Container();
+            card.position.set(16, cardY);
+            card.eventMode = 'static';
+            card.cursor = 'pointer';
+
+            const cardBg = new Graphics();
+            cardBg.roundRect(0, 0, W - 32, 50, 10).fill(THEME.colors.bg_secondary);
+            card.addChild(cardBg);
+
+            const relicText = new Text({
+                text: `${relic.name} — ${relic.effect}`,
+                style: new TextStyle({
+                    fontSize: THEME.font.sizes.small,
+                    fontFamily: THEME.font.family,
+                    fontWeight: THEME.font.weights.regular,
+                    fill: THEME.colors.text_primary,
+                }),
+            });
+            relicText.position.set(12, 14);
+            card.addChild(relicText);
+
+            card.on('pointerdown', () => {
+                this.sceneData.onSelectBossRelic?.(relic);
+                this.bossRelicChosen = true;
+                this.buildLayout(); // Перестроить — перейти к extraction или кнопке
+            });
+
+            this.addChild(card);
+            cardY += 60;
         }
     }
 
