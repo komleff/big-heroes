@@ -58,13 +58,130 @@
     { "id": "boss_dragon", "name": "Дракон", "type": "boss", "mass": 150, "strength": 40, "armor": 8, "massReward": 25, "goldReward": 30 }
   ],
   "relics": [
-    { "id": "relic_strength", "name": "Амулет силы", "effect": "strength_bonus", "value": 2 },
-    { "id": "relic_armor", "name": "Оберег брони", "effect": "armor_bonus", "value": 3 },
-    { "id": "relic_gold_bonus", "name": "Монета удачи", "effect": "gold_bonus", "value": 0.3 },
-    { "id": "relic_mass_bonus", "name": "Талисман роста", "effect": "mass_bonus", "value": 0.2 },
-    { "id": "relic_thick_skin", "name": "Толстая кожа", "effect": "enemy_strength_reduction", "value": 0.15 },
-    { "id": "relic_luck", "name": "Клевер", "effect": "luck_bonus", "value": 2 }
+    { "id": "relic_gold_bonus", "name": "Жадный кошель", "effect": "gold_bonus", "value": 0.3, "rarity": "common" },
+    { "id": "relic_mass_bonus", "name": "Тяжёлая поступь", "effect": "mass_bonus", "value": 0.2, "rarity": "uncommon" },
+    { "id": "relic_extra_loot", "name": "Удача искателя", "effect": "extra_loot", "value": 1, "rarity": "uncommon" },
+    { "id": "relic_mass_on_win", "name": "Пожиратель", "effect": "mass_on_win", "value": 0.15, "rarity": "uncommon" },
+    { "id": "relic_strength", "name": "Перчатки силы", "effect": "strength_bonus", "value": 2, "rarity": "common" },
+    { "id": "relic_armor", "name": "Каменная кожа", "effect": "armor_bonus", "value": 3, "rarity": "common" },
+    { "id": "relic_luck", "name": "Звезда удачи", "effect": "luck_bonus", "value": 2, "rarity": "uncommon" },
+    { "id": "relic_first_strike", "name": "Инициатива", "effect": "first_strike", "value": 0.5, "rarity": "rare" },
+    { "id": "relic_thorns", "name": "Шипы", "effect": "thorns", "value": 0.15, "rarity": "uncommon" },
+    { "id": "relic_thick_skin", "name": "Толстая шкура", "effect": "enemy_strength_reduction", "value": 0.15, "rarity": "uncommon" },
+    { "id": "relic_boss_armor", "name": "Убийца драконов", "effect": "boss_armor", "value": 5, "rarity": "rare" },
+    { "id": "relic_reveal", "name": "Ясновидение", "effect": "reveal_all", "value": 1, "rarity": "uncommon" },
+    { "id": "relic_safe_retreat", "name": "Лёгкие ноги", "effect": "safe_retreat", "value": 1, "rarity": "rare" },
+    { "id": "relic_bypass_safe", "name": "Призрачная тень", "effect": "safe_bypass", "value": 1, "rarity": "rare" },
+    { "id": "relic_extra_backpack", "name": "Карманы вора", "effect": "extra_backpack", "value": 2, "rarity": "rare" },
+    { "id": "relic_no_durability", "name": "Нерушимость", "effect": "no_durability", "value": 1, "rarity": "rare" },
+    { "id": "relic_camp_repair", "name": "Походная кузница", "effect": "camp_repair_bonus", "value": 1, "rarity": "common" },
+    { "id": "relic_shop_discount", "name": "Торговый талант", "effect": "shop_discount", "value": 0.3, "rarity": "common" },
+    { "id": "relic_polymorph_bonus", "name": "Печать чародея", "effect": "polymorph_bonus", "value": 0.2, "rarity": "rare" }
   ],
   "starterBelt": ["torch_t1", "str_pot_t1"],
-  "starterBackpack": ["str_pot_t1", "str_pot_t1", "repair_t1", null]
+  "starterBackpack": ["str_pot_t1", "str_pot_t1", "repair_t1", null],
+  "pve": {
+    "total_nodes_min": 8,
+    "total_nodes_max": 10,
+    "fork_count_min": 3,
+    "fork_count_max": 4,
+    "paths_per_fork_min": 2,
+    "paths_per_fork_max": 3,
+    "hidden_path_chance": 0.3,
+    "ancient_chest_node_min": 5,
+    "ancient_chest_node_max": 6,
+    "node_weights": {
+        "combat": 0.40,
+        "elite": 0.12,
+        "shop": 0.12,
+        "camp": 0.12,
+        "event": 0.08,
+        "chest": 0.16
+    },
+    "constraints": {
+        "max_combats_in_row": 2,
+        "max_shops": 1,
+        "min_camps_before_boss": 1
+    },
+    "camp": {
+        "repair_amount": 1,
+        "train_mass_min": 3,
+        "train_mass_max": 5
+    },
+    "shop": {
+        "item_count_min": 3,
+        "item_count_max": 4,
+        "price_multiplier": 1.0,
+        "repair_price_multiplier": 1.75
+    },
+    "loot": {
+        "combat_loot_chance": 0.20,
+        "elite_loot_guaranteed": true,
+        "elite_relic_chance": 0.40,
+        "boss_loot_count": 2,
+        "chest_loot_count_min": 1,
+        "chest_loot_count_max": 2,
+        "pity_counter": 5,
+        "equipment_drop_chance": 0.5
+    }
+  },
+  "events": [
+    {
+        "id": "evt_trader",
+        "name": "Странник",
+        "description": "Бродячий торговец предлагает обмен.",
+        "variants": [
+            { "id": "buy", "label": "Купить предмет (50 Gold)", "description": "Получить предмет tier 1", "condition": { "type": "gold_min", "value": 50 }, "effects": [{ "type": "gold", "value": -50 }, { "type": "item", "value": 1 }] },
+            { "id": "trade", "label": "Обменять предмет на массу", "description": "Предмет из рюкзака → +30 кг", "effects": [{ "type": "lose_item", "value": 1 }, { "type": "mass", "value": 30 }] },
+            { "id": "decline", "label": "Отказаться", "description": "Пройти мимо", "effects": [] }
+        ]
+    },
+    {
+        "id": "evt_trap",
+        "name": "Ловушка",
+        "description": "Вы заметили ловушку на пути.",
+        "variants": [
+            { "id": "avoid", "label": "Обойти", "description": "Безопасный проход", "effects": [] },
+            { "id": "disarm", "label": "Разрядить (50/50)", "description": "50% → предмет, 50% → ничего", "effects": [{ "type": "item", "value": 1 }] }
+        ]
+    },
+    {
+        "id": "evt_altar",
+        "name": "Алтарь",
+        "description": "Древний алтарь светится магической энергией.",
+        "variants": [
+            { "id": "pray", "label": "Помолиться", "description": "+20 кг массы, −30 Gold", "condition": { "type": "gold_min", "value": 30 }, "effects": [{ "type": "mass", "value": 20 }, { "type": "gold", "value": -30 }] },
+            { "id": "loot", "label": "Обыскать", "description": "+50 Gold, −10 кг массы", "effects": [{ "type": "gold", "value": 50 }, { "type": "mass", "value": -10 }] },
+            { "id": "pass", "label": "Пройти мимо", "description": "Ничего не делать", "effects": [] }
+        ]
+    },
+    {
+        "id": "evt_fountain",
+        "name": "Источник",
+        "description": "Чистый источник бьёт из-под камней.",
+        "variants": [
+            { "id": "drink", "label": "Выпить", "description": "+10 кг массы", "effects": [{ "type": "mass", "value": 10 }] },
+            { "id": "repair", "label": "Омыть снаряжение", "description": "+1 прочность к предмету", "effects": [{ "type": "repair", "value": 1 }] }
+        ]
+    },
+    {
+        "id": "evt_riddle",
+        "name": "Загадка",
+        "description": "Каменная плита с загадкой преграждает путь.",
+        "variants": [
+            { "id": "solve", "label": "Разгадать (70/30)", "description": "70% → сундук, 30% → ничего", "effects": [{ "type": "loot_chest", "value": 1 }] },
+            { "id": "sacrifice", "label": "Пожертвовать предмет", "description": "Предмет → гарантированный сундук", "effects": [{ "type": "lose_item", "value": 1 }, { "type": "loot_chest", "value": 1 }] },
+            { "id": "leave", "label": "Уйти", "description": "Пройти мимо", "effects": [] }
+        ]
+    },
+    {
+        "id": "evt_merchant",
+        "name": "Торговец",
+        "description": "Странствующий торговец раскладывает товар.",
+        "variants": [
+            { "id": "buy", "label": "Купить (100 Gold)", "description": "80% tier 1, 20% tier 2", "condition": { "type": "gold_min", "value": 100 }, "effects": [{ "type": "gold", "value": -100 }, { "type": "item", "value": 1 }] },
+            { "id": "decline", "label": "Отказаться", "description": "Пройти мимо", "effects": [] }
+        ]
+    }
+  ]
 }

@@ -43,7 +43,7 @@ function makeItem(overrides: Partial<IEquipmentItem> & { slot: IEquipmentItem['s
 
 /** Создать реликвию */
 function makeRelic(effect: string, value: number): IRelic {
-    return { id: `relic_${effect}`, name: `Relic ${effect}`, effect, value };
+    return { id: `relic_${effect}`, name: `Relic ${effect}`, effect, value, rarity: 'common' as const };
 }
 
 /** Фиксированный RNG: возвращает значения из массива по порядку */

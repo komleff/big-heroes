@@ -10,7 +10,10 @@ import type {
     IEquipmentItem,
     IConsumable,
     IRelic,
+    IPveRoute,
+    IPveExpeditionState,
 } from 'shared';
+import { createExpeditionState, MAX_RELICS } from 'shared';
 import { EventBus, GameEvents } from './EventBus';
 
 /**
@@ -39,6 +42,9 @@ export class GameState {
     private _backpack: Array<IEquipmentItem | IConsumable | null>;
     private _stash: IEquipmentItem[];
     private _activeRelics: IRelic[];
+    private _arenaRelic: IRelic | null = null; // Реликвия для арены (extraction после босса)
+    private _collectedItemIds: string[] = []; // Предметы, собранные в экспедициях (id)
+    private _expeditionState: IPveExpeditionState | null = null;
     private eventBus: EventBus;
 
     constructor(config: IBalanceConfig, eventBus: EventBus) {
@@ -159,6 +165,18 @@ export class GameState {
         return this._activeRelics;
     }
 
+    get arenaRelic(): Readonly<IRelic> | null {
+        return this._arenaRelic;
+    }
+
+    get collectedItemIds(): ReadonlyArray<string> {
+        return this._collectedItemIds;
+    }
+
+    get expeditionState(): Readonly<IPveExpeditionState> | null {
+        return this._expeditionState;
+    }
+
     // --- Сеттеры с уведомлениями ---
 
     /** Установить массу героя (клэмп 0..massCap) */
@@ -212,9 +230,55 @@ export class GameState {
     }
 
     /** Добавить реликвию в активные (максимум 3) */
-    addRelic(relic: IRelic): void {
-        if (this._activeRelics.length >= 3) return;
+    /** Добавить реликвию. При лимите MAX_RELICS нужен replaceIndex */
+    addRelic(relic: IRelic, replaceIndex?: number): void {
+        if (this._activeRelics.length >= MAX_RELICS) {
+            if (replaceIndex !== undefined && replaceIndex >= 0 && replaceIndex < this._activeRelics.length) {
+                const updated = [...this._activeRelics];
+                updated[replaceIndex] = relic;
+                this._activeRelics = updated;
+            }
+            // Без replaceIndex при лимите — ничего не делаем (вызывающий должен показать UI)
+            return;
+        }
         this._activeRelics = [...this._activeRelics, relic];
+    }
+
+    /** Проверить, достигнут ли лимит реликвий */
+    isRelicsFull(): boolean {
+        return this._activeRelics.length >= MAX_RELICS;
+    }
+
+    /** Сохранить реликвию для арены (extraction после босса, GDD: max 1) */
+    saveArenaRelic(relic: IRelic): void {
+        this._arenaRelic = relic;
+    }
+
+    /** Начать экспедицию */
+    startExpedition(route: IPveRoute): void {
+        this._expeditionState = createExpeditionState(route);
+        this._activeRelics = []; // Очистить реликвии предыдущего похода
+    }
+
+    /** Обновить состояние экспедиции */
+    updateExpeditionState(state: IPveExpeditionState): void {
+        this._expeditionState = state;
+    }
+
+    /** Завершить экспедицию — перенести результаты в постоянное состояние */
+    endExpedition(): void {
+        if (!this._expeditionState) return;
+        const exp = this._expeditionState;
+        this.setMass(this._hero.mass + exp.massGained);
+        this.setGold(this._resources.gold + exp.goldGained);
+        // Предметы: только при victory/exited (GDD: при поражении лишний лут теряется)
+        if (exp.status === 'victory' || exp.status === 'exited') {
+            for (const itemId of exp.itemsFound) {
+                this._collectedItemIds.push(itemId);
+            }
+        }
+        this._activeRelics = []; // Реликвии не переносятся между экспедициями
+        this._expeditionState = null;
     }
 
     /** Установить расходник в слот пояса (0 или 1) */

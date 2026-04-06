@@ -6,7 +6,9 @@ import { SceneManager, TransitionType } from '../core/SceneManager';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
-import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig } from 'shared';
+import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic } from 'shared';
+import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng } from 'shared';
+import balanceConfig from '@config/balance.json';
 
 /** Данные, передаваемые в onEnter */
 interface BattleSceneData {
@@ -607,23 +609,172 @@ export class BattleScene extends BaseScene {
     private onContinue(): void {
         const { result } = this.battleData;
 
-        // Применить награды при победе
-        if (result.outcome === 'victory') {
-            this.gameState.setMass(this.gameState.hero.mass + result.massReward);
-            this.gameState.setGold(this.gameState.resources.gold + result.goldReward);
+        if (this.gameState.expeditionState) {
+            // В экспедиции: обновить состояние экспедиции
+            let newState = applyBattleResult(
+                this.gameState.expeditionState as IPveExpeditionState,
+                result,
+                [...this.gameState.activeRelics],
+            );
+            this.gameState.updateExpeditionState(newState);
+
+            // Износ экипировки
+            if (result.durabilityTarget) {
+                this.gameState.wearItem(result.durabilityTarget);
+            }
+
+            this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
+
+            if (newState.status === 'defeat') {
+                // Поражение → итоги экспедиции
+                this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, newState);
+                this.gameState.endExpedition();
+                void this.sceneManager.goto('pveResult', {
+                    transition: TransitionType.FADE,
+                    data: {
+                        status: 'defeat',
+                        massGained: newState.massGained,
+                        goldGained: newState.goldGained,
+                        itemsFound: newState.itemsFound,
+                        nodesVisited: newState.visitedNodes.length,
+                        totalNodes: newState.route.totalNodes,
+                        onContinue: () => {
+                            void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                        },
+                    },
+                });
+            } else if (result.outcome === 'retreat') {
+                // Отступление — назад на перекрёсток (GDD: путь к врагу остаётся открытым)
+                // Удалить текущий боевой узел из visitedNodes → можно retry
+                const currentIdx = newState.currentNodeIndex;
+                const filteredVisited = newState.visitedNodes.filter(idx => idx !== currentIdx);
+                let retreatState: IPveExpeditionState = { ...newState, visitedNodes: filteredVisited };
+
+                // Найти ближайший fork перед текущим узлом
+                let retreatIndex = currentIdx;
+                for (let i = currentIdx - 1; i >= 0; i--) {
+                    if (retreatState.route.nodes[i].isFork) {
+                        retreatIndex = i;
+                        break;
+                    }
+                }
+                retreatState = { ...retreatState, currentNodeIndex: retreatIndex };
+                this.gameState.updateExpeditionState(retreatState);
+                void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+            } else {
+                // Победа/bypass/polymorph → генерация лута + продвижение
+                const currentNode = newState.route.nodes[newState.currentNodeIndex];
+                const config = balanceConfig as unknown as IBalanceConfig;
+
+                if (result.outcome === 'victory' || result.outcome === 'polymorph') {
+                    const rng = createRng(Date.now());
+
+                    // Генерация лута для ВСЕХ боевых узлов (combat/elite/boss)
+                    const loot = generateLoot(
+                        currentNode.type, config.pve.loot,
+                        config.equipment.catalog, config.consumables,
+                        newState.pityCounter, rng,
+                    );
+                    if (loot.drops.length > 0) {
+                        const items = loot.drops.map(d => d.itemId);
+                        newState = {
+                            ...newState,
+                            itemsFound: [...newState.itemsFound, ...items],
+                            pityCounter: loot.newPityCounter,
+                        };
+                        this.gameState.updateExpeditionState(newState);
+                    }
+
+                    // Элита: шанс реликвии (только при victory, не polymorph)
+                    if (result.outcome === 'victory' && currentNode.type === 'elite') {
+                        if (rng() < config.pve.loot.elite_relic_chance) {
+                            const pool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
+                            if (pool.length > 0) {
+                                const eliteRelic = configToRelic(pool[0]);
+                                if (this.gameState.isRelicsFull()) {
+                                    this.gameState.addRelic(eliteRelic, this.gameState.activeRelics.length - 1);
+                                } else {
+                                    this.gameState.addRelic(eliteRelic);
+                                }
+                            }
+                        }
+                    }
+
+                    // Босс: пул из 3 реликвий для выбора в PveResultScene (GDD: выбор 1 из 3)
+                    // НЕ авто-добавляем — выбор делает игрок на экране extraction
+                }
+
+                const nextIndex = newState.currentNodeIndex + 1;
+                if (nextIndex >= newState.route.totalNodes) {
+                    // Маршрут пройден — победа
+                    const finalState: IPveExpeditionState = { ...newState, status: 'victory' as const };
+                    this.gameState.updateExpeditionState(finalState);
+                    this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, finalState);
+                    // НЕ вызываем endExpedition сразу — PveResultScene покажет extraction экран
+                    const relicsForExtraction = [...this.gameState.activeRelics];
+                    // Boss relic pool для выбора (GDD: 1 из 3)
+                    const currentNode2 = newState.route.nodes[newState.currentNodeIndex];
+                    let bossRelicPool: typeof relicsForExtraction = [];
+                    if (currentNode2.type === 'boss') {
+                        const bossRng = createRng(Date.now() + 1);
+                        bossRelicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 3, bossRng)
+                            .map(r => configToRelic(r));
+                    }
+                    void this.sceneManager.goto('pveResult', {
+                        transition: TransitionType.FADE,
+                        data: {
+                            status: 'victory',
+                            massGained: finalState.massGained,
+                            goldGained: finalState.goldGained,
+                            itemsFound: finalState.itemsFound,
+                            nodesVisited: finalState.visitedNodes.length,
+                            totalNodes: finalState.route.totalNodes,
+                            relicsForExtraction,
+                            bossRelicPool,
+                            onSelectBossRelic: (relic: IRelic) => {
+                                if (this.gameState.isRelicsFull()) {
+                                    this.gameState.addRelic(relic, this.gameState.activeRelics.length - 1);
+                                } else {
+                                    this.gameState.addRelic(relic);
+                                }
+                            },
+                            onGetActiveRelics: () => {
+                                return [...this.gameState.activeRelics] as IRelic[];
+                            },
+                            onSaveRelic: (relic: IRelic) => {
+                                this.gameState.saveArenaRelic(relic);
+                            },
+                            onContinue: () => {
+                                this.gameState.endExpedition();
+                                void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                            },
+                        },
+                    });
+                } else {
+                    // Только обновить currentNodeIndex — visitedNodes обновится в enterNode
+                    const updated: IPveExpeditionState = { ...newState, currentNodeIndex: nextIndex };
+                    this.gameState.updateExpeditionState(updated);
+                    void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+                }
+            }
+        } else {
+            // Вне экспедиции: старое поведение
+            if (result.outcome === 'victory') {
+                this.gameState.setMass(this.gameState.hero.mass + result.massReward);
+                this.gameState.setGold(this.gameState.resources.gold + result.goldReward);
+            }
+
+            // Износ экипировки
+            if (result.durabilityTarget) {
+                this.gameState.wearItem(result.durabilityTarget);
+            }
+
+            // Эмит события результата боя
+            this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
+
+            // Переход в хаб
+            void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
         }
-        // defeat / retreat / bypass / polymorph — ничего не меняем
-
-        // Износ экипировки
-        if (result.durabilityTarget) {
-            this.gameState.wearItem(result.durabilityTarget);
-        }
-
-        // Эмит события результата боя
-        this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
-
-        // Переход в хаб
-        void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
     }
 
     /**
