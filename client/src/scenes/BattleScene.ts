@@ -659,7 +659,7 @@ export class BattleScene extends BaseScene {
                 const currentNode = newState.route.nodes[newState.currentNodeIndex];
                 const config = balanceConfig as unknown as IBalanceConfig;
 
-                if (result.outcome === 'victory') {
+                if (result.outcome === 'victory' || result.outcome === 'polymorph') {
                     const rng = createRng(Date.now());
 
                     // Генерация лута для ВСЕХ боевых узлов (combat/elite/boss)
@@ -678,8 +678,8 @@ export class BattleScene extends BaseScene {
                         this.gameState.updateExpeditionState(newState);
                     }
 
-                    // Элита: шанс реликвии (elite_relic_chance)
-                    if (currentNode.type === 'elite') {
+                    // Элита: шанс реликвии (только при victory, не polymorph)
+                    if (result.outcome === 'victory' && currentNode.type === 'elite') {
                         if (rng() < config.pve.loot.elite_relic_chance) {
                             const pool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
                             if (pool.length > 0) {
@@ -688,10 +688,11 @@ export class BattleScene extends BaseScene {
                         }
                     }
 
-                    // Босс: гарантированная реликвия (сохраняется для extraction)
-                    if (currentNode.type === 'boss') {
-                        const relicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
+                    // Босс: гарантированная реликвия — выбор 1 из 3 (GDD: boss relic)
+                    if (result.outcome === 'victory' && currentNode.type === 'boss') {
+                        const relicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 3, rng);
                         if (relicPool.length > 0) {
+                            // Авто-выбор первой (UI выбора — через extraction в PveResultScene)
                             this.gameState.addRelic(configToRelic(relicPool[0]));
                         }
                     }
@@ -702,6 +703,7 @@ export class BattleScene extends BaseScene {
                     // Маршрут пройден — победа
                     const finalState: IPveExpeditionState = { ...newState, status: 'victory' as const };
                     this.gameState.updateExpeditionState(finalState);
+                    this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, finalState);
                     // НЕ вызываем endExpedition сразу — PveResultScene покажет extraction экран
                     const relicsForExtraction = [...this.gameState.activeRelics];
                     void this.sceneManager.goto('pveResult', {

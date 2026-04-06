@@ -278,6 +278,16 @@ export class PveMapScene extends BaseScene {
 
         // Продвигаем экспедицию к текущему узлу
         const expedition = gameState.expeditionState as IPveExpeditionState;
+
+        // Проверка: если reward-узел уже посещён — пропустить награды (защита от retreat exploit)
+        const alreadyVisited = expedition.visitedNodes.includes(node.index);
+        const isRewardNode = ['sanctuary', 'shop', 'camp', 'event', 'chest', 'ancient_chest'].includes(node.type);
+        if (alreadyVisited && isRewardNode) {
+            // Узел уже посещён — пропустить, продвинуться дальше
+            this.advanceToNextNode();
+            return;
+        }
+
         const advanced = advanceToNode(expedition, node.index);
         gameState.updateExpeditionState(advanced);
 
