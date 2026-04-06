@@ -24,6 +24,7 @@ interface PveResultSceneData {
     relicsForExtraction?: RelicForExtraction[];     // Реликвии для сохранения (только при victory)
     bossRelicPool?: RelicForExtraction[];            // Пул реликвий босса: выбор 1 из 3 (GDD)
     onSelectBossRelic?: (relic: RelicForExtraction) => void; // Выбор реликвии босса
+    onGetActiveRelics?: () => RelicForExtraction[];  // Получить актуальный список реликвий
     onSaveRelic?: (relic: RelicForExtraction) => void; // Сохранить реликвию для арены
 }
 
@@ -173,11 +174,9 @@ export class PveResultScene extends BaseScene {
             card.on('pointerdown', () => {
                 this.sceneData.onSelectBossRelic?.(relic);
                 this.bossRelicChosen = true;
-                // Обновить extraction-список: добавить выбранную boss relic
-                if (this.sceneData.relicsForExtraction) {
-                    this.sceneData.relicsForExtraction = [...this.sceneData.relicsForExtraction, relic];
-                } else {
-                    this.sceneData.relicsForExtraction = [relic];
+                // Перечитать актуальный список реликвий для extraction (после addRelic)
+                if (this.sceneData.onGetActiveRelics) {
+                    this.sceneData.relicsForExtraction = this.sceneData.onGetActiveRelics();
                 }
                 this.buildLayout(); // Перестроить — перейти к extraction или кнопке
             });

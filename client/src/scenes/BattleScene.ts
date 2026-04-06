@@ -644,16 +644,22 @@ export class BattleScene extends BaseScene {
                     },
                 });
             } else if (result.outcome === 'retreat') {
-                // Отступление — найти ближайший перекрёсток (fork) перед текущим узлом (GDD: назад на перекрёсток)
-                let retreatIndex = newState.currentNodeIndex; // по умолчанию остаёмся (можно повторить бой)
-                for (let i = newState.currentNodeIndex - 1; i >= 0; i--) {
-                    if (newState.route.nodes[i].isFork) {
+                // Отступление — назад на перекрёсток (GDD: путь к врагу остаётся открытым)
+                // Удалить текущий боевой узел из visitedNodes → можно retry
+                const currentIdx = newState.currentNodeIndex;
+                const filteredVisited = newState.visitedNodes.filter(idx => idx !== currentIdx);
+                let retreatState: IPveExpeditionState = { ...newState, visitedNodes: filteredVisited };
+
+                // Найти ближайший fork перед текущим узлом
+                let retreatIndex = currentIdx;
+                for (let i = currentIdx - 1; i >= 0; i--) {
+                    if (retreatState.route.nodes[i].isFork) {
                         retreatIndex = i;
                         break;
                     }
                 }
-                const retreated = advanceToNode(newState, retreatIndex);
-                this.gameState.updateExpeditionState(retreated);
+                retreatState = { ...retreatState, currentNodeIndex: retreatIndex };
+                this.gameState.updateExpeditionState(retreatState);
                 void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
             } else {
                 // Победа/bypass/polymorph → генерация лута + продвижение
@@ -722,6 +728,9 @@ export class BattleScene extends BaseScene {
                             bossRelicPool,
                             onSelectBossRelic: (relic: IRelic) => {
                                 this.gameState.addRelic(relic);
+                            },
+                            onGetActiveRelics: () => {
+                                return [...this.gameState.activeRelics] as IRelic[];
                             },
                             onSaveRelic: (relic: IRelic) => {
                                 this.gameState.saveArenaRelic(relic);

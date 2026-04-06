@@ -279,11 +279,10 @@ export class PveMapScene extends BaseScene {
         // Продвигаем экспедицию к текущему узлу
         const expedition = gameState.expeditionState as IPveExpeditionState;
 
-        // Защита от retreat exploit: reward-узлы нельзя посещать повторно
-        // Combat-узлы можно: GDD разрешает «попробовать снова» после отступления
+        // Защита: узлы, уже пройдённые (в visitedNodes), пропускаются
+        // При retreat текущий узел УДАЛЯЕТСЯ из visitedNodes → можно retry (GDD)
         const alreadyVisited = expedition.visitedNodes.includes(node.index);
-        const isRewardNode = ['sanctuary', 'shop', 'camp', 'event', 'chest', 'ancient_chest'].includes(node.type);
-        if (alreadyVisited && isRewardNode) {
+        if (alreadyVisited) {
             this.advanceToNextNode();
             return;
         }
