@@ -17,6 +17,7 @@ interface EventSceneData {
         }>;
     };
     gold: number;
+    itemCount: number;              // количество предметов в рюкзаке экспедиции
     onChoose: (variantIndex: number) => void;
 }
 
@@ -41,9 +42,14 @@ const VARIANTS_GAP = 16;
 function isConditionMet(
     condition: { type: string; value: number } | undefined,
     gold: number,
+    itemCount: number,
+    effects: Array<{ type: string; value: number }>,
 ): boolean {
-    if (!condition) return true;
-    if (condition.type === 'gold_min') return gold >= condition.value;
+    if (condition) {
+        if (condition.type === 'gold_min' && gold < condition.value) return false;
+    }
+    // Варианты с жертвой предмета (lose_item) требуют наличия предметов
+    if (effects.some(e => e.type === 'lose_item') && itemCount === 0) return false;
     return true;
 }
 
@@ -149,9 +155,10 @@ export class EventScene extends BaseScene {
     private buildVariants(): void {
         const variants = this.eventData!.event.variants;
         const gold = this.eventData!.gold;
+        const itemCount = this.eventData!.itemCount ?? 0;
 
         variants.forEach((variant, index) => {
-            const met = isConditionMet(variant.condition, gold);
+            const met = isConditionMet(variant.condition, gold, itemCount, variant.effects);
             const cardY = VARIANTS_START_Y + index * (CARD_H + VARIANTS_GAP);
             this.buildVariantCard(variant, index, cardY, met);
         });

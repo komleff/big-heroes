@@ -370,27 +370,39 @@ export class PveMapScene extends BaseScene {
     private handleShop(config: IBalanceConfig): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
         const rng = createRng(Date.now());
+
+        // Скидка реликвии «Торговый талант»
+        const discount = this.gameState.activeRelics.some(r => r.effect === 'shop_discount')
+            ? (this.gameState.activeRelics.find(r => r.effect === 'shop_discount')?.value ?? 0)
+            : 0;
+
         const shopItems = generateShopInventory(
             config.pve.shop,
             config.equipment.catalog,
             config.consumables,
             rng,
         );
-        const repairCost = calcShopRepairCost(50, config.pve.shop);
+        // Применить скидку к ценам
+        const discountedItems = shopItems.map(item => ({
+            ...item,
+            price: Math.round(item.price * (1 - discount)),
+        }));
+
+        const repairCost = Math.round(calcShopRepairCost(50, config.pve.shop) * (1 - discount));
 
         void this.sceneManager.goto('shop', {
             transition: TransitionType.SLIDE_LEFT,
             data: {
-                shopItems,
+                shopItems: discountedItems,
                 gold: this.gameState.resources.gold + expedition.goldGained,
                 repairCost,
                 onBuy: (itemIndex: number) => {
                     // Покупка предмета: списать золото, добавить в itemsFound
-                    const item = shopItems[itemIndex];
+                    const item = discountedItems[itemIndex];
                     if (!item) return;
                     const state = this.gameState.expeditionState as IPveExpeditionState;
                     const totalGold = this.gameState.resources.gold + state.goldGained;
-                    if (totalGold < item.price) return; // недостаточно золота
+                    if (totalGold < item.price) return;
                     this.gameState.updateExpeditionState({
                         ...state,
                         goldGained: state.goldGained - item.price,
@@ -398,17 +410,16 @@ export class PveMapScene extends BaseScene {
                     });
                 },
                 onRepair: () => {
-                    // Ремонт всего снаряжения: списать золото, +1 прочность ко всем предметам
+                    // Полный ремонт снаряжения (GDD: магазин = полный ремонт)
                     const state = this.gameState.expeditionState as IPveExpeditionState;
                     const totalGold = this.gameState.resources.gold + state.goldGained;
                     if (totalGold < repairCost) return;
                     this.gameState.updateExpeditionState({ ...state, goldGained: state.goldGained - repairCost });
-                    // Ремонт экипировки: +1 прочность ко всем слотам
                     const slots: Array<'weapon' | 'armor' | 'accessory'> = ['weapon', 'armor', 'accessory'];
                     for (const slot of slots) {
                         const item = this.gameState.equipment[slot];
                         if (item && item.currentDurability < item.maxDurability) {
-                            this.gameState.equipItem({ ...item, currentDurability: item.currentDurability + 1 });
+                            this.gameState.equipItem({ ...item, currentDurability: item.maxDurability });
                         }
                     }
                 },
@@ -427,10 +438,9 @@ export class PveMapScene extends BaseScene {
             transition: TransitionType.SLIDE_LEFT,
             data: {
                 onRepair: () => {
-                    // Ремонт +1 прочность к первому повреждённому предмету (бесплатно)
-                    const repairBonus = this.gameState.activeRelics.some(r => r.effect === 'camp_repair_bonus')
-                        ? config.pve.camp.repair_amount + 1 // реликвия +1
-                        : config.pve.camp.repair_amount;
+                    // Ремонт прочности к первому повреждённому предмету (бесплатно)
+                    const campRepairRelic = this.gameState.activeRelics.find(r => r.effect === 'camp_repair_bonus');
+                    const repairBonus = config.pve.camp.repair_amount + (campRepairRelic?.value ?? 0);
                     const slots: Array<'weapon' | 'armor' | 'accessory'> = ['weapon', 'armor', 'accessory'];
                     for (const slot of slots) {
                         const item = this.gameState.equipment[slot];
@@ -477,10 +487,35 @@ export class PveMapScene extends BaseScene {
             data: {
                 event: eventConfig,
                 gold: this.gameState.resources.gold + expedition.goldGained,
+                itemCount: expedition.itemsFound.length,
                 onChoose: (variantIndex: number) => {
-                    // Применить ВСЕ типы эффектов варианта
+                    // Применить эффекты варианта с учётом вероятностей из описаний
                     const variant = eventConfig.variants[variantIndex];
                     let state = this.gameState.expeditionState as IPveExpeditionState;
+                    const rng = createRng(Date.now());
+
+                    // Проверка вероятности: описания содержат "(50/50)", "(70/30)", "(80/20)"
+                    const probMatch = variant.description.match(/(\d+)%|(\d+)\/(\d+)/);
+                    let procChance = 1.0; // по умолчанию 100%
+                    if (probMatch) {
+                        if (probMatch[1]) {
+                            procChance = parseInt(probMatch[1]) / 100;
+                        } else if (probMatch[2] && probMatch[3]) {
+                            procChance = parseInt(probMatch[2]) / (parseInt(probMatch[2]) + parseInt(probMatch[3]));
+                        }
+                    }
+
+                    // Проверка: если вариант требует жертву предмета, а предметов нет — пропустить
+                    const requiresItem = variant.effects.some(e => e.type === 'lose_item');
+                    if (requiresItem && state.itemsFound.length === 0) {
+                        // Нет предметов для жертвы — эффекты не применяются
+                        this.advanceToNextNode();
+                        return;
+                    }
+
+                    // Бросок вероятности: если не повезло — эффекты не применяются
+                    const rollSuccess = rng() < procChance;
+
                     for (const effect of variant.effects) {
                         switch (effect.type) {
                             case 'mass':
@@ -490,7 +525,6 @@ export class PveMapScene extends BaseScene {
                                 state = { ...state, goldGained: state.goldGained + effect.value };
                                 break;
                             case 'repair': {
-                                // Ремонт: +value прочности к первому повреждённому предмету
                                 const slots: Array<'weapon' | 'armor' | 'accessory'> = ['weapon', 'armor', 'accessory'];
                                 for (const slot of slots) {
                                     const item = this.gameState.equipment[slot];
@@ -503,25 +537,27 @@ export class PveMapScene extends BaseScene {
                                 break;
                             }
                             case 'item': {
-                                // Получить случайный предмет tier 1
-                                const rng = createRng(Date.now());
-                                const allItems = [...config.equipment.catalog, ...config.equipment.starterItems];
-                                if (allItems.length > 0) {
-                                    const picked = allItems[Math.floor(rng() * allItems.length)];
-                                    state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                // Получить предмет только при успешном броске
+                                if (rollSuccess) {
+                                    const allItems = [...config.equipment.catalog, ...config.equipment.starterItems];
+                                    if (allItems.length > 0) {
+                                        const picked = allItems[Math.floor(rng() * allItems.length)];
+                                        state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                    }
                                 }
                                 break;
                             }
                             case 'loot_chest': {
-                                // Получить лут как из сундука
-                                const rng = createRng(Date.now());
-                                const loot = generateLoot('chest', config.pve.loot, config.equipment.catalog, config.consumables, state.pityCounter, rng);
-                                const ids = loot.drops.map(d => d.itemId);
-                                state = { ...state, itemsFound: [...state.itemsFound, ...ids], pityCounter: loot.newPityCounter };
+                                // Получить лут только при успешном броске
+                                if (rollSuccess) {
+                                    const loot = generateLoot('chest', config.pve.loot, config.equipment.catalog, config.consumables, state.pityCounter, rng);
+                                    const ids = loot.drops.map(d => d.itemId);
+                                    state = { ...state, itemsFound: [...state.itemsFound, ...ids], pityCounter: loot.newPityCounter };
+                                }
                                 break;
                             }
                             case 'lose_item': {
-                                // Потерять последний предмет из itemsFound
+                                // Потерять последний предмет (жертва)
                                 if (state.itemsFound.length > 0) {
                                     state = { ...state, itemsFound: state.itemsFound.slice(0, -1) };
                                 }
