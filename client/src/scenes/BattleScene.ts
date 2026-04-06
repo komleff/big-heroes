@@ -6,8 +6,9 @@ import { SceneManager, TransitionType } from '../core/SceneManager';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
-import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState } from 'shared';
-import { applyBattleResult, advanceToNode } from 'shared';
+import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig } from 'shared';
+import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng } from 'shared';
+import balanceConfig from '@config/balance.json';
 
 /** Данные, передаваемые в onEnter */
 interface BattleSceneData {
@@ -610,7 +611,7 @@ export class BattleScene extends BaseScene {
 
         if (this.gameState.expeditionState) {
             // В экспедиции: обновить состояние экспедиции
-            const newState = applyBattleResult(
+            let newState = applyBattleResult(
                 this.gameState.expeditionState as IPveExpeditionState,
                 result,
                 [...this.gameState.activeRelics],
@@ -641,8 +642,40 @@ export class BattleScene extends BaseScene {
                         },
                     },
                 });
+            } else if (result.outcome === 'retreat') {
+                // Отступление — остаёмся на текущем узле, возвращаемся на карту (GDD: назад на перекрёсток)
+                void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
             } else {
-                // Победа/retreat/bypass/polymorph → продвинуть к следующему узлу
+                // Победа/bypass/polymorph → продвинуть к следующему узлу
+                const currentNode = newState.route.nodes[newState.currentNodeIndex];
+                const config = balanceConfig as unknown as IBalanceConfig;
+
+                // Элита: шанс реликвии (elite_relic_chance)
+                if (result.outcome === 'victory' && currentNode.type === 'elite') {
+                    if (Math.random() < config.pve.loot.elite_relic_chance) {
+                        const rng = createRng(Date.now());
+                        const pool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
+                        if (pool.length > 0) {
+                            this.gameState.addRelic(configToRelic(pool[0]));
+                        }
+                    }
+                }
+
+                // Босс: обязательный лут + реликвия
+                if (result.outcome === 'victory' && currentNode.type === 'boss') {
+                    const rng = createRng(Date.now());
+                    const loot = generateLoot('boss', config.pve.loot, config.equipment.catalog, config.consumables, newState.pityCounter, rng);
+                    const items = loot.drops.map(d => d.itemId);
+                    newState = { ...newState, itemsFound: [...newState.itemsFound, ...items], pityCounter: loot.newPityCounter };
+                    this.gameState.updateExpeditionState(newState);
+
+                    // Реликвия за босса
+                    const relicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
+                    if (relicPool.length > 0) {
+                        this.gameState.addRelic(configToRelic(relicPool[0]));
+                    }
+                }
+
                 const nextIndex = newState.currentNodeIndex + 1;
                 if (nextIndex >= newState.route.totalNodes) {
                     // Маршрут пройден — победа

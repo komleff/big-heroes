@@ -228,6 +228,7 @@ export class GameState {
     /** Начать экспедицию */
     startExpedition(route: IPveRoute): void {
         this._expeditionState = createExpeditionState(route);
+        this._activeRelics = []; // Очистить реликвии предыдущего похода
     }
 
     /** Обновить состояние экспедиции */
@@ -241,6 +242,8 @@ export class GameState {
         const exp = this._expeditionState;
         this.setMass(this._hero.mass + exp.massGained);
         this.setGold(this._resources.gold + exp.goldGained);
+        // TODO: перенести itemsFound в инвентарь (инвентарная система — Sprint 4+)
+        this._activeRelics = []; // Реликвии не переносятся между экспедициями
         this._expeditionState = null;
     }
 

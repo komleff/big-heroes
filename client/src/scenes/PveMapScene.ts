@@ -463,6 +463,7 @@ export class PveMapScene extends BaseScene {
 
     /**
      * Сундук / древний сундук — генерация лута.
+     * Древний сундук: лут + выбор реликвии (1 из 2) по GDD.
      */
     private handleChest(config: IBalanceConfig, node: IPveNode): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
@@ -480,11 +481,58 @@ export class PveMapScene extends BaseScene {
         const updatedExpedition: IPveExpeditionState = { ...expedition, pityCounter: lootResult.newPityCounter };
         this.gameState.updateExpeditionState(updatedExpedition);
 
-        void this.sceneManager.goto('loot', {
+        const onTake = (drop: { itemId: string }) => {
+            const state = this.gameState.expeditionState as IPveExpeditionState;
+            this.gameState.updateExpeditionState({ ...state, itemsFound: [...state.itemsFound, drop.itemId] });
+        };
+
+        if (node.type === 'ancient_chest') {
+            // Древний сундук: лут + реликвия (1 из 2)
+            void this.sceneManager.goto('loot', {
+                transition: TransitionType.SLIDE_LEFT,
+                data: {
+                    drops: lootResult.drops,
+                    onTake,
+                    onComplete: () => {
+                        this.showRelicSelection(config, 2);
+                    },
+                },
+            });
+        } else {
+            // Обычный сундук: только лут
+            void this.sceneManager.goto('loot', {
+                transition: TransitionType.SLIDE_LEFT,
+                data: {
+                    drops: lootResult.drops,
+                    onTake,
+                    onComplete: () => {
+                        this.advanceToNextNode();
+                    },
+                },
+            });
+        }
+    }
+
+    /**
+     * Показать выбор реликвии из пула, после выбора — продвинуть.
+     */
+    private showRelicSelection(config: IBalanceConfig, count: number): void {
+        const activeRelics = [...this.gameState.activeRelics];
+        const rng = createRng(Date.now());
+        const pool = generateRelicPool(config.relics, activeRelics, count, rng);
+
+        if (pool.length === 0) {
+            this.advanceToNextNode();
+            return;
+        }
+
+        void this.sceneManager.goto('sanctuary', {
             transition: TransitionType.SLIDE_LEFT,
             data: {
-                drops: lootResult.drops,
-                onComplete: () => {
+                relicPool: pool,
+                onSelect: (index: number) => {
+                    const relic = configToRelic(pool[index]);
+                    this.gameState.addRelic(relic);
                     this.advanceToNextNode();
                 },
             },

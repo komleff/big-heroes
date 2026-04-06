@@ -3,13 +3,17 @@ import { BaseScene } from './BaseScene';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 
+/** Элемент лута */
+interface LootDrop {
+    itemId: string;
+    itemType: 'equipment' | 'consumable';
+    tierBoosted: boolean;
+}
+
 /** Данные, передаваемые в сцену через onEnter */
 interface LootSceneData {
-    drops: Array<{
-        itemId: string;
-        itemType: 'equipment' | 'consumable';
-        tierBoosted: boolean;
-    }>;
+    drops: LootDrop[];
+    onTake?: (drop: LootDrop) => void;
     onComplete: () => void;
 }
 
@@ -22,7 +26,9 @@ const W = THEME.layout.designWidth; // 390
  */
 export class LootScene extends BaseScene {
     /** Массив найденных предметов */
-    private drops: LootSceneData['drops'] = [];
+    private drops: LootDrop[] = [];
+    /** Callback при взятии предмета */
+    private onTakeCallback: ((drop: LootDrop) => void) | null = null;
     /** Callback завершения */
     private onComplete: (() => void) | null = null;
     /** Индекс текущего отображаемого предмета */
@@ -39,6 +45,7 @@ export class LootScene extends BaseScene {
             return;
         }
         this.drops = sceneData.drops;
+        this.onTakeCallback = sceneData.onTake ?? null;
         this.onComplete = sceneData.onComplete;
         this.currentIndex = 0;
         this.buildUI();
@@ -249,8 +256,10 @@ export class LootScene extends BaseScene {
 
     // ───────────────────────────── Обработчики ───────────────────────────
 
-    /** Игрок берёт предмет */
+    /** Игрок берёт предмет — сохранить в экспедицию */
     private onTake(): void {
+        const drop = this.drops[this.currentIndex];
+        this.onTakeCallback?.(drop);
         this.advance();
     }
 

@@ -76,18 +76,22 @@ export function generateRoute(
         nodes[i] = makeNode(i, type, enemyId, eventId);
     }
 
-    // Настраиваем развилки: развилка ставится на узел перед forkPos
+    // Постобработка: ограничения (ДО развилок, чтобы forkPaths отражали финальные типы)
+    const finalNodes = nodes as IPveNode[];
+    applyConstraints(finalNodes, config, anchorPositions, combatEnemies, eliteEnemies, events, rng);
+
+    // Настраиваем развилки ПОСЛЕ ограничений — forkPaths отражают финальные типы узлов
     for (const forkPos of forkPositions) {
         const forkNodeIndex = forkPos - 1;
         // Пропускаем если предыдущий узел — якорь
         if (anchorPositions.has(forkNodeIndex)) continue;
 
-        const forkNode = nodes[forkNodeIndex]!;
-        const targetNode = nodes[forkPos]!;
+        const forkNode = finalNodes[forkNodeIndex];
+        const targetNode = finalNodes[forkPos];
 
         const pathCount = randInt(rng, config.paths_per_fork_min, config.paths_per_fork_max);
 
-        // Основной путь — тип целевого узла
+        // Основной путь — тип целевого узла (уже после ограничений)
         const mainPath: IPveForkPath = {
             nodeType: targetNode.type,
             hidden: false,
@@ -118,10 +122,6 @@ export function generateRoute(
         forkNode.isFork = true;
         forkNode.forkPaths = paths;
     }
-
-    // Постобработка: ограничения
-    const finalNodes = nodes as IPveNode[];
-    applyConstraints(finalNodes, config, anchorPositions, combatEnemies, eliteEnemies, events, rng);
 
     return {
         seed,
