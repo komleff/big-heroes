@@ -191,7 +191,7 @@ export function applyBattleResult(
             ...state,
             massGained: state.massGained + massReward,
             goldGained: state.goldGained + goldReward,
-            pityCounter: state.pityCounter + 1,
+            // pityCounter управляется generateLoot, не здесь
         };
     }
 

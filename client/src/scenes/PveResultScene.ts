@@ -1,7 +1,16 @@
-import { Graphics, Text, TextStyle } from 'pixi.js';
+import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
+
+/** Реликвия для extraction */
+interface RelicForExtraction {
+    id: string;
+    name: string;
+    effect: string;
+    value: number;
+    rarity: string;
+}
 
 /** Данные, передаваемые в onEnter */
 interface PveResultSceneData {
@@ -12,26 +21,36 @@ interface PveResultSceneData {
     nodesVisited: number;
     totalNodes: number;
     onContinue: () => void;
+    relicsForExtraction?: RelicForExtraction[];     // Реликвии для сохранения (только при victory)
+    onSaveRelic?: (relic: RelicForExtraction) => void; // Сохранить реликвию для арены
 }
+
+/** Ширина дизайна */
+const W = THEME.layout.designWidth;
 
 /**
  * PveResultScene — экран итогов экспедиции.
- * Показывает статус похода, статистику и кнопку возврата в хаб.
+ * При победе показывает extraction: «Сохрани реликвию для арены» (GDD 13).
  */
 export class PveResultScene extends BaseScene {
+    private sceneData!: PveResultSceneData;
+    private extractionShown = false;
+
     constructor() {
         super();
     }
 
     onEnter(data?: unknown): void {
-        const d = data as PveResultSceneData;
-        this.buildLayout(d);
+        this.sceneData = data as PveResultSceneData;
+        this.extractionShown = false;
+        this.buildLayout();
     }
 
     // ─── Построение лэйаута ─────────────────────────────────────
 
-    private buildLayout(data: PveResultSceneData): void {
-        const W = THEME.layout.designWidth;
+    private buildLayout(): void {
+        this.removeChildren();
+        const data = this.sceneData;
         const H = THEME.layout.designHeight;
 
         // --- Фон ---
@@ -71,9 +90,9 @@ export class PveResultScene extends BaseScene {
         subheading.position.set(W / 2, 110);
         this.addChild(subheading);
 
-        // --- Панель статистики y=160, 358×260 ---
+        // --- Панель статистики y=160 ---
         const panelW = 358;
-        const panelH = 260;
+        const panelH = 200;
         const panelX = (W - panelW) / 2;
         const panelY = 160;
 
@@ -81,56 +100,97 @@ export class PveResultScene extends BaseScene {
         panel.roundRect(panelX, panelY, panelW, panelH, 14).fill(THEME.colors.bg_secondary);
         this.addChild(panel);
 
-        // Строки статистики внутри панели
         const lineX = panelX + 20;
-        const lineStartY = panelY + 30;
-        const lineSpacing = 40;
+        const lineStartY = panelY + 24;
+        const lineSpacing = 36;
 
-        // Узлов пройдено
-        this.addStatLine(
-            `Узлов пройдено: ${data.nodesVisited} / ${data.totalNodes}`,
-            THEME.colors.text_primary,
-            lineX,
-            lineStartY,
-        );
+        this.addStatLine(`Узлов пройдено: ${data.nodesVisited} / ${data.totalNodes}`, THEME.colors.text_primary, lineX, lineStartY);
+        this.addStatLine(`Масса набрана: +${data.massGained} кг`, THEME.colors.accent_cyan, lineX, lineStartY + lineSpacing);
+        this.addStatLine(`Золото: +${data.goldGained}`, THEME.colors.accent_yellow, lineX, lineStartY + lineSpacing * 2);
+        this.addStatLine(`Предметов найдено: ${data.itemsFound.length}`, THEME.colors.text_primary, lineX, lineStartY + lineSpacing * 3);
 
-        // Масса набрана
-        this.addStatLine(
-            `Масса набрана: +${data.massGained} кг`,
-            THEME.colors.accent_cyan,
-            lineX,
-            lineStartY + lineSpacing,
-        );
-
-        // Золото
-        this.addStatLine(
-            `Золото: +${data.goldGained}`,
-            THEME.colors.accent_yellow,
-            lineX,
-            lineStartY + lineSpacing * 2,
-        );
-
-        // Предметов найдено
-        this.addStatLine(
-            `Предметов найдено: ${data.itemsFound.length}`,
-            THEME.colors.text_primary,
-            lineX,
-            lineStartY + lineSpacing * 3,
-        );
-
-        // --- Кнопка «В ХАБ» y=500 ---
-        const hubBtn = new Button({
-            text: 'В ХАБ',
-            variant: 'primary',
-            onClick: () => data.onContinue(),
-        });
-        hubBtn.position.set(W / 2, 500);
-        this.addChild(hubBtn);
+        // --- Extraction: сохранить реликвию для арены (только при victory + есть реликвии) ---
+        if (data.status === 'victory' && data.relicsForExtraction && data.relicsForExtraction.length > 0 && !this.extractionShown) {
+            this.buildExtractionSection(data.relicsForExtraction, panelY + panelH + 20);
+        } else {
+            // Кнопка «В ХАБ»
+            const hubBtn = new Button({
+                text: 'В ХАБ',
+                variant: 'primary',
+                onClick: () => data.onContinue(),
+            });
+            hubBtn.position.set(W / 2, panelY + panelH + 40);
+            this.addChild(hubBtn);
+        }
     }
 
-    /**
-     * Добавляет строку статистики на сцену.
-     */
+    // ─── Extraction: сохранить реликвию для арены ──────────────
+
+    private buildExtractionSection(relics: RelicForExtraction[], startY: number): void {
+        // Заголовок
+        const title = new Text({
+            text: 'Сохранить реликвию для арены?',
+            style: new TextStyle({
+                fontSize: THEME.font.sizes.subheading,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.bold,
+                fill: THEME.colors.accent_yellow,
+            }),
+        });
+        title.anchor.set(0.5, 0);
+        title.position.set(W / 2, startY);
+        this.addChild(title);
+
+        // Карточки реликвий
+        let cardY = startY + 36;
+        for (let i = 0; i < relics.length; i++) {
+            const relic = relics[i];
+            const card = new Container();
+            card.position.set(16, cardY);
+            card.eventMode = 'static';
+            card.cursor = 'pointer';
+
+            const cardBg = new Graphics();
+            cardBg.roundRect(0, 0, W - 32, 50, 10).fill(THEME.colors.bg_secondary);
+            card.addChild(cardBg);
+
+            const relicText = new Text({
+                text: `${relic.name} — ${relic.effect}`,
+                style: new TextStyle({
+                    fontSize: THEME.font.sizes.small,
+                    fontFamily: THEME.font.family,
+                    fontWeight: THEME.font.weights.regular,
+                    fill: THEME.colors.text_primary,
+                }),
+            });
+            relicText.position.set(12, 14);
+            card.addChild(relicText);
+
+            card.on('pointerdown', () => {
+                this.sceneData.onSaveRelic?.(relic);
+                this.extractionShown = true;
+                this.buildLayout(); // Перестроить — показать кнопку «В ХАБ»
+            });
+
+            this.addChild(card);
+            cardY += 60;
+        }
+
+        // Кнопка «Пропустить»
+        const skipBtn = new Button({
+            text: 'Пропустить',
+            variant: 'danger',
+            onClick: () => {
+                this.extractionShown = true;
+                this.buildLayout();
+            },
+        });
+        skipBtn.position.set(W / 2, cardY + 10);
+        this.addChild(skipBtn);
+    }
+
+    // ─── Хелперы ────────────────────────────────────────────────
+
     private addStatLine(content: string, color: number, x: number, y: number): void {
         const line = new Text({
             text: content,
@@ -145,14 +205,8 @@ export class PveResultScene extends BaseScene {
         this.addChild(line);
     }
 
-    /**
-     * Конфигурация баннера по статусу экспедиции.
-     */
     private getBannerConfig(status: 'victory' | 'defeat' | 'exited'): {
-        text: string;
-        color: number;
-        fontSize: number;
-        shadow: boolean;
+        text: string; color: number; fontSize: number; shadow: boolean;
     } {
         switch (status) {
             case 'victory':

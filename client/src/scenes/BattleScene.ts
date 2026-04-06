@@ -6,7 +6,7 @@ import { SceneManager, TransitionType } from '../core/SceneManager';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
-import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig } from 'shared';
+import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic } from 'shared';
 import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng } from 'shared';
 import balanceConfig from '@config/balance.json';
 
@@ -643,36 +643,51 @@ export class BattleScene extends BaseScene {
                     },
                 });
             } else if (result.outcome === 'retreat') {
-                // Отступление — остаёмся на текущем узле, возвращаемся на карту (GDD: назад на перекрёсток)
+                // Отступление — назад на перекрёсток (GDD: предыдущий узел, где можно выбрать другой путь)
+                const prevIndex = Math.max(0, newState.currentNodeIndex - 1);
+                const retreated = advanceToNode(newState, prevIndex);
+                this.gameState.updateExpeditionState(retreated);
                 void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
             } else {
-                // Победа/bypass/polymorph → продвинуть к следующему узлу
+                // Победа/bypass/polymorph → генерация лута + продвижение
                 const currentNode = newState.route.nodes[newState.currentNodeIndex];
                 const config = balanceConfig as unknown as IBalanceConfig;
 
-                // Элита: шанс реликвии (elite_relic_chance)
-                if (result.outcome === 'victory' && currentNode.type === 'elite') {
-                    if (Math.random() < config.pve.loot.elite_relic_chance) {
-                        const rng = createRng(Date.now());
-                        const pool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
-                        if (pool.length > 0) {
-                            this.gameState.addRelic(configToRelic(pool[0]));
+                if (result.outcome === 'victory') {
+                    const rng = createRng(Date.now());
+
+                    // Генерация лута для ВСЕХ боевых узлов (combat/elite/boss)
+                    const loot = generateLoot(
+                        currentNode.type, config.pve.loot,
+                        config.equipment.catalog, config.consumables,
+                        newState.pityCounter, rng,
+                    );
+                    if (loot.drops.length > 0) {
+                        const items = loot.drops.map(d => d.itemId);
+                        newState = {
+                            ...newState,
+                            itemsFound: [...newState.itemsFound, ...items],
+                            pityCounter: loot.newPityCounter,
+                        };
+                        this.gameState.updateExpeditionState(newState);
+                    }
+
+                    // Элита: шанс реликвии (elite_relic_chance)
+                    if (currentNode.type === 'elite') {
+                        if (rng() < config.pve.loot.elite_relic_chance) {
+                            const pool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
+                            if (pool.length > 0) {
+                                this.gameState.addRelic(configToRelic(pool[0]));
+                            }
                         }
                     }
-                }
 
-                // Босс: обязательный лут + реликвия
-                if (result.outcome === 'victory' && currentNode.type === 'boss') {
-                    const rng = createRng(Date.now());
-                    const loot = generateLoot('boss', config.pve.loot, config.equipment.catalog, config.consumables, newState.pityCounter, rng);
-                    const items = loot.drops.map(d => d.itemId);
-                    newState = { ...newState, itemsFound: [...newState.itemsFound, ...items], pityCounter: loot.newPityCounter };
-                    this.gameState.updateExpeditionState(newState);
-
-                    // Реликвия за босса
-                    const relicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
-                    if (relicPool.length > 0) {
-                        this.gameState.addRelic(configToRelic(relicPool[0]));
+                    // Босс: гарантированная реликвия (сохраняется для extraction)
+                    if (currentNode.type === 'boss') {
+                        const relicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
+                        if (relicPool.length > 0) {
+                            this.gameState.addRelic(configToRelic(relicPool[0]));
+                        }
                     }
                 }
 
@@ -681,7 +696,8 @@ export class BattleScene extends BaseScene {
                     // Маршрут пройден — победа
                     const finalState: IPveExpeditionState = { ...newState, status: 'victory' as const };
                     this.gameState.updateExpeditionState(finalState);
-                    this.gameState.endExpedition();
+                    // НЕ вызываем endExpedition сразу — PveResultScene покажет extraction экран
+                    const relicsForExtraction = [...this.gameState.activeRelics];
                     void this.sceneManager.goto('pveResult', {
                         transition: TransitionType.FADE,
                         data: {
@@ -691,7 +707,12 @@ export class BattleScene extends BaseScene {
                             itemsFound: finalState.itemsFound,
                             nodesVisited: finalState.visitedNodes.length,
                             totalNodes: finalState.route.totalNodes,
+                            relicsForExtraction,
+                            onSaveRelic: (relic: IRelic) => {
+                                this.gameState.saveArenaRelic(relic);
+                            },
                             onContinue: () => {
+                                this.gameState.endExpedition();
                                 void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
                             },
                         },

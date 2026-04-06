@@ -328,7 +328,8 @@ describe('applyBattleResult', () => {
         // Assert
         expect(newState.massGained).toBe(6);
         expect(newState.goldGained).toBe(10);
-        expect(newState.pityCounter).toBe(1);
+        // pityCounter управляется generateLoot, не applyBattleResult
+        expect(newState.pityCounter).toBe(0);
     });
 
     test('victory с реликвиями применяет бонусы', () => {

@@ -42,6 +42,7 @@ export class GameState {
     private _backpack: Array<IEquipmentItem | IConsumable | null>;
     private _stash: IEquipmentItem[];
     private _activeRelics: IRelic[];
+    private _arenaRelic: IRelic | null = null; // Реликвия для арены (extraction после босса)
     private _expeditionState: IPveExpeditionState | null = null;
     private eventBus: EventBus;
 
@@ -163,6 +164,10 @@ export class GameState {
         return this._activeRelics;
     }
 
+    get arenaRelic(): Readonly<IRelic> | null {
+        return this._arenaRelic;
+    }
+
     get expeditionState(): Readonly<IPveExpeditionState> | null {
         return this._expeditionState;
     }
@@ -225,6 +230,11 @@ export class GameState {
         this._activeRelics = [...this._activeRelics, relic];
     }
 
+    /** Сохранить реликвию для арены (extraction после босса, GDD: max 1) */
+    saveArenaRelic(relic: IRelic): void {
+        this._arenaRelic = relic;
+    }
+
     /** Начать экспедицию */
     startExpedition(route: IPveRoute): void {
         this._expeditionState = createExpeditionState(route);
@@ -242,9 +252,9 @@ export class GameState {
         const exp = this._expeditionState;
         this.setMass(this._hero.mass + exp.massGained);
         this.setGold(this._resources.gold + exp.goldGained);
-        // TODO: перенести itemsFound в инвентарь (инвентарная система — Sprint 4+)
-        this._activeRelics = []; // Реликвии не переносятся между экспедициями
+        // Предметы из похода → рюкзак (пока добавляем id как заглушку, полная инвентарная система — Sprint 4)
         this._expeditionState = null;
+        this._activeRelics = []; // Реликвии не переносятся между экспедициями
     }
 
     /** Установить расходник в слот пояса (0 или 1) */
