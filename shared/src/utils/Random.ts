@@ -16,8 +16,9 @@ export function randInt(rng: () => number, min: number, max: number): number {
     return Math.floor(rng() * (max - min + 1)) + min;
 }
 
-/** Случайный элемент из массива */
+/** Случайный элемент из массива (массив не должен быть пустым) */
 export function randPick<T>(rng: () => number, arr: readonly T[]): T {
+    if (arr.length === 0) throw new Error('randPick: массив не может быть пустым');
     return arr[Math.floor(rng() * arr.length)];
 }
 

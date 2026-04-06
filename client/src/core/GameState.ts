@@ -271,9 +271,11 @@ export class GameState {
         const exp = this._expeditionState;
         this.setMass(this._hero.mass + exp.massGained);
         this.setGold(this._resources.gold + exp.goldGained);
-        // Предметы из похода → постоянная коллекция (полная инвентарная система — Sprint 4)
-        for (const itemId of exp.itemsFound) {
-            this._collectedItemIds.push(itemId);
+        // Предметы: только при victory/exited (GDD: при поражении лишний лут теряется)
+        if (exp.status === 'victory' || exp.status === 'exited') {
+            for (const itemId of exp.itemsFound) {
+                this._collectedItemIds.push(itemId);
+            }
         }
         this._activeRelics = []; // Реликвии не переносятся между экспедициями
         this._expeditionState = null;
