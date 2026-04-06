@@ -19,6 +19,7 @@ const lootConfig: IPveLootConfig = {
     chest_loot_count_min: 1,
     chest_loot_count_max: 2,
     pity_counter: 5,
+    equipment_drop_chance: 0.5,
 };
 
 /** Конфигурация магазина из balance.json */

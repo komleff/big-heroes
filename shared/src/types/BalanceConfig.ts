@@ -96,6 +96,7 @@ export interface IPveLootConfig {
     chest_loot_count_min: number;
     chest_loot_count_max: number;
     pity_counter: number;
+    equipment_drop_chance: number;
 }
 
 export interface IPveConfig {

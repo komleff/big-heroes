@@ -133,6 +133,7 @@ export class HubScene extends BaseScene {
                     config.enemies,
                     config.events,
                     rng,
+                    seed,
                 );
                 gameState.startExpedition(route);
                 void sceneManager.goto('pveMap', {

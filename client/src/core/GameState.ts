@@ -13,7 +13,7 @@ import type {
     IPveRoute,
     IPveExpeditionState,
 } from 'shared';
-import { createExpeditionState } from 'shared';
+import { createExpeditionState, MAX_RELICS } from 'shared';
 import { EventBus, GameEvents } from './EventBus';
 
 /**
@@ -221,7 +221,7 @@ export class GameState {
 
     /** Добавить реликвию в активные (максимум 3) */
     addRelic(relic: IRelic): void {
-        if (this._activeRelics.length >= 3) return;
+        if (this._activeRelics.length >= MAX_RELICS) return;
         this._activeRelics = [...this._activeRelics, relic];
     }
 

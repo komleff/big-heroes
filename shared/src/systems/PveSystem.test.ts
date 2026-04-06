@@ -22,7 +22,7 @@ const pveConfig: IPveConfig = {
     constraints: { max_combats_in_row: 2, max_shops: 1, min_camps_before_boss: 1 },
     camp: { repair_amount: 1, train_mass_min: 3, train_mass_max: 5 },
     shop: { item_count_min: 3, item_count_max: 4, price_multiplier: 1.0, repair_price_multiplier: 1.75 },
-    loot: { combat_loot_chance: 0.20, elite_loot_guaranteed: true, elite_relic_chance: 0.40, boss_loot_count: 2, chest_loot_count_min: 1, chest_loot_count_max: 2, pity_counter: 5 },
+    loot: { combat_loot_chance: 0.20, elite_loot_guaranteed: true, elite_relic_chance: 0.40, boss_loot_count: 2, chest_loot_count_min: 1, chest_loot_count_max: 2, pity_counter: 5, equipment_drop_chance: 0.5 },
 };
 
 /** Враги из balance.json */
@@ -279,10 +279,10 @@ describe('advanceToNode', () => {
 
         // Находим первый combat/elite узел
         const combatNode = route.nodes.find(n => n.type === 'combat' || n.type === 'elite');
-        if (!combatNode) return; // пропускаем если нет combat-узлов (маловероятно)
+        expect(combatNode).toBeDefined();
 
         // Act
-        const newState = advanceToNode(state, combatNode.index);
+        const newState = advanceToNode(state, combatNode!.index);
 
         // Assert
         expect(newState.combatsInRow).toBe(1);
@@ -299,13 +299,14 @@ describe('advanceToNode', () => {
             n.type !== 'combat' && n.type !== 'elite' && n.type !== 'boss' && n.index > 0,
         );
 
-        if (!combatNode || !nonCombatNode) return;
+        expect(combatNode).toBeDefined();
+        expect(nonCombatNode).toBeDefined();
 
         // Act — сначала идём на combat, потом на небоевой
-        state = advanceToNode(state, combatNode.index);
+        state = advanceToNode(state, combatNode!.index);
         expect(state.combatsInRow).toBe(1);
 
-        state = advanceToNode(state, nonCombatNode.index);
+        state = advanceToNode(state, nonCombatNode!.index);
 
         // Assert
         expect(state.combatsInRow).toBe(0);

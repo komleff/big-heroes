@@ -1,19 +1,11 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { THEME } from '../config/ThemeConfig';
-
-/** Данные реликвии для отображения */
-interface RelicInfo {
-    id: string;
-    name: string;
-    effect: string;
-    value: number;
-    rarity: string;
-}
+import type { IRelicConfig } from 'shared';
 
 /** Данные, передаваемые в onEnter */
 interface SanctuarySceneData {
-    relicPool: RelicInfo[];
+    relicPool: IRelicConfig[];
     onSelect: (selectedIndex: number) => void;
 }
 
@@ -159,7 +151,7 @@ export class SanctuaryScene extends BaseScene {
 
     // ───────────────────────────── Карточки реликвий ─────────────────────
 
-    private buildRelicCards(relicPool: RelicInfo[]): void {
+    private buildRelicCards(relicPool: IRelicConfig[]): void {
         const startY = 160;
         const padX = THEME.layout.spacing.screenPadding; // 16
 
@@ -174,7 +166,7 @@ export class SanctuaryScene extends BaseScene {
     }
 
     /** Построение одной карточки реликвии */
-    private buildRelicCard(relic: RelicInfo, index: number): Container {
+    private buildRelicCard(relic: IRelicConfig, index: number): Container {
         const card = new Container();
         card.eventMode = 'static';
         card.cursor = 'pointer';

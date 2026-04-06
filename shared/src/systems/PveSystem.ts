@@ -14,6 +14,7 @@ export function generateRoute(
     enemies: IMobConfig[],
     events: IEventConfig[],
     rng: () => number,
+    seed: number = 0,
 ): IPveRoute {
     const totalNodes = randInt(rng, config.total_nodes_min, config.total_nodes_max);
 
@@ -123,7 +124,7 @@ export function generateRoute(
     applyConstraints(finalNodes, config, anchorPositions, combatEnemies, eliteEnemies, events, rng);
 
     return {
-        seed: 0, // seed управляется внешне через rng
+        seed,
         nodes: finalNodes,
         totalNodes,
     };

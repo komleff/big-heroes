@@ -121,7 +121,8 @@
         "boss_loot_count": 2,
         "chest_loot_count_min": 1,
         "chest_loot_count_max": 2,
-        "pity_counter": 5
+        "pity_counter": 5,
+        "equipment_drop_chance": 0.5
     }
   },
   "events": [

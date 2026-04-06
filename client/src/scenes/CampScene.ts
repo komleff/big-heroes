@@ -28,9 +28,9 @@ export class CampScene extends BaseScene {
     /** Callback выхода */
     private onLeave: (() => void) | null = null;
     /** Минимальная масса тренировки */
-    private trainMassMin = 3;
+    private trainMassMin = 0;
     /** Максимальная масса тренировки */
-    private trainMassMax = 5;
+    private trainMassMax = 0;
 
     constructor() {
         super();

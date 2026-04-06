@@ -1,8 +1,6 @@
 import type { IStarterEquipmentConfigItem, IConsumableConfig, IPveLootConfig, IPveShopConfig } from '../types/BalanceConfig';
+import type { PveNodeType } from '../types/PveNode';
 import { randInt, randPick, shuffle } from '../utils/Random';
-
-// Тип узла (локальный, чтобы не зависеть от порядка создания файлов)
-type PveNodeType = 'sanctuary' | 'combat' | 'elite' | 'shop' | 'camp' | 'event' | 'chest' | 'ancient_chest' | 'boss';
 
 // Элемент лута
 export interface ILootDrop {
@@ -41,7 +39,7 @@ export function generateLoot(
         case 'combat': {
             // Шанс лута combat_loot_chance (20%)
             if (rng() < lootConfig.combat_loot_chance) {
-                const drop = rollDrop(equipmentCatalog, consumables, counter, lootConfig.pity_counter, rng);
+                const drop = rollDrop(equipmentCatalog, consumables, counter, lootConfig.pity_counter, rng, lootConfig.equipment_drop_chance);
                 drops.push(drop.item);
                 counter = drop.newCounter;
             }
@@ -50,7 +48,7 @@ export function generateLoot(
         case 'elite': {
             // Гарантированный лут
             if (lootConfig.elite_loot_guaranteed) {
-                const drop = rollDrop(equipmentCatalog, consumables, counter, lootConfig.pity_counter, rng);
+                const drop = rollDrop(equipmentCatalog, consumables, counter, lootConfig.pity_counter, rng, lootConfig.equipment_drop_chance);
                 drops.push(drop.item);
                 counter = drop.newCounter;
             }
@@ -59,7 +57,7 @@ export function generateLoot(
         case 'boss': {
             // Гарантированные предметы (boss_loot_count = 2)
             for (let i = 0; i < lootConfig.boss_loot_count; i++) {
-                const drop = rollDrop(equipmentCatalog, consumables, counter, lootConfig.pity_counter, rng);
+                const drop = rollDrop(equipmentCatalog, consumables, counter, lootConfig.pity_counter, rng, lootConfig.equipment_drop_chance);
                 drops.push(drop.item);
                 counter = drop.newCounter;
             }
@@ -70,7 +68,7 @@ export function generateLoot(
             // 1-2 предмета
             const count = randInt(rng, lootConfig.chest_loot_count_min, lootConfig.chest_loot_count_max);
             for (let i = 0; i < count; i++) {
-                const drop = rollDrop(equipmentCatalog, consumables, counter, lootConfig.pity_counter, rng);
+                const drop = rollDrop(equipmentCatalog, consumables, counter, lootConfig.pity_counter, rng, lootConfig.equipment_drop_chance);
                 drops.push(drop.item);
                 counter = drop.newCounter;
             }
@@ -91,12 +89,13 @@ function rollDrop(
     pityCounter: number,
     pityThreshold: number,
     rng: () => number,
+    equipmentDropChance: number = 0.5,
 ): { item: ILootDrop; newCounter: number } {
     const newCounter = pityCounter + 1;
     const tierBoosted = newCounter >= pityThreshold;
 
-    // 50/50 шанс снаряжение vs расходник
-    const isEquipment = rng() < 0.5;
+    // Шанс снаряжение vs расходник из конфига
+    const isEquipment = rng() < equipmentDropChance;
 
     let itemId: string;
     if (isEquipment && equipment.length > 0) {
