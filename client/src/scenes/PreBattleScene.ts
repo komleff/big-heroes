@@ -77,7 +77,8 @@ const ALL_COMMANDS: CommandDef[] = [
 /** Заглушка для заблокированного слота (нет аксессуара) */
 function createLockedCommand(): CommandDef {
     return {
-        id: 'cmd_fortune', // фиктивный id — кнопка будет disabled
+        // Placeholder id — кнопка всегда disabled, cmd_attack выбран как безопасный sentinel
+        id: 'cmd_attack',
         icon: '\uD83D\uDD12',
         label: 'Нет аксессуара',
         slot: 'accessory',

@@ -734,7 +734,30 @@ export class PveMapScene extends BaseScene {
         if (forkIndex >= 0) {
             // Очистить forward-узел из visitedNodes (позволяет пройти заново с другим типом)
             const filteredVisited = expedition.visitedNodes.filter(idx => idx !== nextIndex);
-            const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: forkIndex, visitedNodes: filteredVisited };
+
+            // Убрать использованный путь из развилки (защита от бесконечного фарма)
+            const updatedNodes = [...expedition.route.nodes];
+            const forkNode = updatedNodes[forkIndex];
+            if (forkNode.isFork && forkNode.forkPaths && forkNode.forkPaths.length > 1) {
+                const completedType = expedition.route.nodes[expedition.currentNodeIndex]?.type;
+                const remainingPaths = forkNode.forkPaths.filter(p => p.nodeType !== completedType);
+                updatedNodes[forkIndex] = {
+                    ...forkNode,
+                    forkPaths: remainingPaths.length > 0 ? remainingPaths : forkNode.forkPaths,
+                };
+            }
+            const updatedRoute = { ...expedition.route, nodes: updatedNodes };
+
+            // Если остался только 1 путь — пропустить развилку, автоматически войти
+            const finalFork = updatedNodes[forkIndex];
+            if (finalFork.isFork && finalFork.forkPaths && finalFork.forkPaths.length === 1) {
+                const updated: IPveExpeditionState = { ...expedition, route: updatedRoute, currentNodeIndex: nextIndex, visitedNodes: filteredVisited };
+                this.gameState.updateExpeditionState(updated);
+                void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+                return;
+            }
+
+            const updated: IPveExpeditionState = { ...expedition, route: updatedRoute, currentNodeIndex: forkIndex, visitedNodes: filteredVisited };
             this.gameState.updateExpeditionState(updated);
             void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
             return;

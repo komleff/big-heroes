@@ -8,8 +8,8 @@ import { ProgressBar } from '../ui/ProgressBar';
 import { BottomNav } from '../ui/BottomNav';
 import { DurabilityPips } from '../ui/DurabilityPips';
 import balanceConfig from '@config/balance.json';
-import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig, IEquipmentItem } from 'shared';
-import { generateRoute, createRng } from 'shared';
+import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig, IEquipmentItem, IRelic } from 'shared';
+import { generateRoute, createRng, calcHeroStats } from 'shared';
 
 // ─── Константы раскладки ──────────────────────────────────────────
 const W = 390;
@@ -83,8 +83,8 @@ export class HubScene extends BaseScene {
 
         this.onHeroChanged = (data: IHeroState): void => {
             this.massText.text = `${data.mass} kg`;
-            const strength = Math.floor(data.mass / 3);
-            this.statsText.text = `Сила: ${strength}, Здоровье: ${data.mass}`;
+            const stats = calcHeroStats(data.mass, this.gameState.equipment, [...this.gameState.activeRelics] as IRelic[]);
+            this.statsText.text = `Сила: ${stats.strength}, Здоровье: ${stats.hp}`;
             this.leagueBar.update(data.rating);
         };
 
@@ -125,7 +125,7 @@ export class HubScene extends BaseScene {
 
         // Полупрозрачный overlay для читаемости UI
         const overlay = new Graphics();
-        overlay.rect(0, 0, W, H).fill({ color: 0x000000, alpha: 0.15 });
+        overlay.rect(0, 0, W, H).fill({ color: THEME.colors.bg_overlay, alpha: 0.15 });
         this.addChild(overlay);
     }
 
@@ -168,13 +168,13 @@ export class HubScene extends BaseScene {
         const premiumPill = this.createCurrencyPill('⭐', '80', THEME.colors.accent_magenta);
         premiumPill.position.set(W - PAD - 80, y + 4);
         this.addChild(premiumPill);
-        this.premiumText = premiumPill.getChildAt(2) as Text;
+        this.premiumText = premiumPill.getChildByLabel('value') as Text;
 
         // Gold pill (левее premium)
         const goldPill = this.createCurrencyPill('🪙', String(this.gameState.resources.gold), THEME.colors.accent_yellow);
         goldPill.position.set(W - PAD - 170, y + 4);
         this.addChild(goldPill);
-        this.goldText = goldPill.getChildAt(2) as Text;
+        this.goldText = goldPill.getChildByLabel('value') as Text;
     }
 
     /** Создаёт пилюлю валюты: иконка + число + «+» */
@@ -206,6 +206,7 @@ export class HubScene extends BaseScene {
                 fill: THEME.colors.text_primary,
             }),
         });
+        valueText.label = 'value';
         valueText.position.set(px + 22, py + 2);
         pill.addChild(valueText);
 
@@ -297,7 +298,7 @@ export class HubScene extends BaseScene {
                 fontFamily: THEME.font.family,
                 fontWeight: THEME.font.weights.medium,
                 fill: THEME.colors.accent_cyan,
-                dropShadow: { distance: 2, alpha: 0.5, color: 0x000000 },
+                dropShadow: { distance: 2, alpha: 0.5, color: THEME.colors.bg_overlay },
             }),
         });
         this.massText.anchor.set(0.5, 0);
@@ -305,9 +306,9 @@ export class HubScene extends BaseScene {
         this.addChild(this.massText);
 
         // Статы: «Сила: N, Здоровье: N»
-        const strength = Math.floor(this.gameState.hero.mass / 3);
+        const heroStats = calcHeroStats(this.gameState.hero.mass, this.gameState.equipment, [...this.gameState.activeRelics] as IRelic[]);
         this.statsText = new Text({
-            text: `Сила: ${strength}, Здоровье: ${this.gameState.hero.mass}`,
+            text: `Сила: ${heroStats.strength}, Здоровье: ${heroStats.hp}`,
             style: new TextStyle({
                 fontSize: 12,
                 fontFamily: THEME.font.family,
@@ -655,11 +656,13 @@ export class HubScene extends BaseScene {
             btn.addChild(dot);
         }
 
-        // Интерактивность
-        btn.eventMode = 'static';
-        btn.cursor = 'pointer';
+        // Интерактивность — только при наличии обработчика
         if (onClick) {
+            btn.eventMode = 'static';
+            btn.cursor = 'pointer';
             btn.on('pointertap', onClick);
+        } else {
+            btn.eventMode = 'passive';
         }
 
         return btn;
