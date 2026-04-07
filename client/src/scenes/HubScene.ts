@@ -533,9 +533,9 @@ export class HubScene extends BaseScene {
     // ─── Action buttons ─────────────────────────────────────────────
 
     private buildActionButtons(): void {
-        const y = 510;
+        const y = 620; // ниже для удобства нажатия большим пальцем
         const sqSize = 56;
-        const bigBtnW = W - PAD * 2 - sqSize * 2 - 12 * 2; // ширина между квадратными кнопками
+        const bigBtnW = W - PAD * 2 - sqSize * 2 - 12 * 2;
 
         // Row 1: [Событие] + [Охота green] + [Рейтинг]
         const eventBtn = this.createSquareButton('📅', 'Событие', undefined, true);
@@ -572,20 +572,6 @@ export class HubScene extends BaseScene {
         );
         arenaBtn.position.set(PAD + sqSize + 12, row2Y);
         this.addChild(arenaBtn);
-
-        // Подсказка под ареной
-        const hint = new Text({
-            text: 'Вашей массы достаточно для Арены!',
-            style: new TextStyle({
-                fontSize: 11,
-                fontFamily: THEME.font.family,
-                fontWeight: THEME.font.weights.medium,
-                fill: THEME.colors.accent_green,
-            }),
-        });
-        hint.anchor.set(0.5, 0);
-        hint.position.set(W / 2, row2Y + sqSize + 6);
-        this.addChild(hint);
     }
 
     // ─── Bottom nav ─────────────────────────────────────────────────
