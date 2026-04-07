@@ -16,7 +16,7 @@ export { calcHeroStats, calcDamage, calcTTK, calcBaseWinChance, clamp,
 // Системы
 export { resolveBattle } from './systems/BattleSystem';
 export { generateRelicPool, selectRelic, configToRelic, calcRelicMassMultiplier, calcRelicGoldMultiplier, calcRelicShopDiscount, hasRelicEffect, calcRelicCampRepairBonus, MAX_RELICS } from './systems/RelicSystem';
-export { generateRoute, createExpeditionState, advanceToNode, applyBattleResult, exitExpedition } from './systems/PveSystem';
+export { generateRoute, createExpeditionState, advanceToNode, applyBattleResult, exitExpedition, generateForkPaths } from './systems/PveSystem';
 export { generateLoot, generateShopInventory, calcShopRepairCost } from './systems/LootSystem';
 export type { ILootDrop, ILootResult, IShopItem } from './systems/LootSystem';
 

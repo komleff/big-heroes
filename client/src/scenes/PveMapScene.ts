@@ -11,11 +11,12 @@ import {
     advanceToNode, exitExpedition,
     generateRelicPool, configToRelic,
     generateLoot, generateShopInventory, calcShopRepairCost,
+    generateForkPaths,
     createRng, randInt,
 } from 'shared';
 import type {
     IPveNode, PveNodeType, IPveExpeditionState,
-    IBalanceConfig, IMobConfig,
+    IBalanceConfig, IMobConfig, IPveForkPath,
 } from 'shared';
 import balanceConfig from '@config/balance.json';
 
@@ -714,57 +715,40 @@ export class PveMapScene extends BaseScene {
 
         const nextNode = expedition.route.nodes[nextIndex];
 
-        // Боссы, древние сундуки, развилки — переход как обычно
-        if (nextNode.type === 'boss' || nextNode.type === 'ancient_chest' || nextNode.isFork) {
+        // Боссы и древние сундуки — переход без выбора
+        if (nextNode.type === 'boss' || nextNode.type === 'ancient_chest') {
             const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
             this.gameState.updateExpeditionState(updated);
             void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
             return;
         }
 
-        // Найти ближайшую предыдущую развилку
-        let forkIndex = -1;
-        for (let i = expedition.currentNodeIndex - 1; i >= 0; i--) {
-            if (expedition.route.nodes[i].isFork) {
-                forkIndex = i;
-                break;
-            }
-        }
-
-        if (forkIndex >= 0) {
-            // Очистить forward-узел из visitedNodes (позволяет пройти заново с другим типом)
-            const filteredVisited = expedition.visitedNodes.filter(idx => idx !== nextIndex);
-
-            // Убрать использованный путь из развилки (защита от бесконечного фарма)
-            const updatedNodes = [...expedition.route.nodes];
-            const forkNode = updatedNodes[forkIndex];
-            if (forkNode.isFork && forkNode.forkPaths && forkNode.forkPaths.length > 1) {
-                const completedType = expedition.route.nodes[expedition.currentNodeIndex]?.type;
-                const remainingPaths = forkNode.forkPaths.filter(p => p.nodeType !== completedType);
-                updatedNodes[forkIndex] = {
-                    ...forkNode,
-                    forkPaths: remainingPaths.length > 0 ? remainingPaths : forkNode.forkPaths,
-                };
-            }
-            const updatedRoute = { ...expedition.route, nodes: updatedNodes };
-
-            // Если остался только 1 путь — пропустить развилку, автоматически войти
-            const finalFork = updatedNodes[forkIndex];
-            if (finalFork.isFork && finalFork.forkPaths && finalFork.forkPaths.length === 1) {
-                const updated: IPveExpeditionState = { ...expedition, route: updatedRoute, currentNodeIndex: nextIndex, visitedNodes: filteredVisited };
-                this.gameState.updateExpeditionState(updated);
-                void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
-                return;
-            }
-
-            const updated: IPveExpeditionState = { ...expedition, route: updatedRoute, currentNodeIndex: forkIndex, visitedNodes: filteredVisited };
+        // Если у следующего узла уже есть развилка — переход как обычно
+        if (nextNode.isFork) {
+            const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
             this.gameState.updateExpeditionState(updated);
             void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
             return;
         }
 
-        // Fallback: развилок нет — линейное продвижение как раньше
-        const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
+        // Динамическая генерация развилки: у следующего узла нет выбора — создаём его
+        const config = balanceConfig as unknown as IBalanceConfig;
+        const rng = createRng(Date.now());
+        const pathCount = randInt(rng, config.pve.paths_per_fork_min, config.pve.paths_per_fork_max);
+        const forkPaths = generateForkPaths(
+            nextNode, config.pve, config.enemies, config.events, pathCount, rng,
+        );
+
+        // Превращаем ТЕКУЩИЙ узел в развилку (перед следующим)
+        const updatedNodes = [...expedition.route.nodes];
+        const currentIdx = expedition.currentNodeIndex;
+        updatedNodes[currentIdx] = {
+            ...updatedNodes[currentIdx],
+            isFork: true,
+            forkPaths: forkPaths,
+        };
+        const updatedRoute = { ...expedition.route, nodes: updatedNodes };
+        const updated: IPveExpeditionState = { ...expedition, route: updatedRoute, currentNodeIndex: currentIdx };
         this.gameState.updateExpeditionState(updated);
         void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
     }
