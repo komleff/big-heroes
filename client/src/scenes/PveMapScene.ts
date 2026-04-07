@@ -1,5 +1,6 @@
-import { Graphics, Text, TextStyle } from 'pixi.js';
+import { Text, TextStyle } from 'pixi.js';
 import { BaseScene } from './BaseScene';
+import { createPveBackground } from '../ui/GradientBackground';
 import { GameState } from '../core/GameState';
 import { EventBus, GameEvents } from '../core/EventBus';
 import { SceneManager, TransitionType } from '../core/SceneManager';
@@ -68,10 +69,8 @@ export class PveMapScene extends BaseScene {
         const totalNodes = expedition.route.totalNodes;
         const display = getNodeDisplay(currentNode.type);
 
-        // --- Фон ---
-        const bg = new Graphics();
-        bg.rect(0, 0, W, H).fill(THEME.colors.bg_primary);
-        this.addChild(bg);
+        // --- Фон (градиент PvE) ---
+        this.addChild(createPveBackground(W, H));
 
         // --- Заголовок ---
         const heading = new Text({
@@ -260,12 +259,8 @@ export class PveMapScene extends BaseScene {
         const updatedState: IPveExpeditionState = { ...expedition, route: updatedRoute };
         this.gameState.updateExpeditionState(updatedState);
 
-        // Только обновить currentNodeIndex — visitedNodes обновится в enterNode
-        const navigated: IPveExpeditionState = { ...updatedState, currentNodeIndex: nextIndex };
-        this.gameState.updateExpeditionState(navigated);
-
-        // Перезагрузить карту для нового узла
-        void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+        // Сразу войти в узел без промежуточного экрана (enterNode сам обновит currentNodeIndex через advanceToNode)
+        this.enterNode(updatedNodes[nextIndex]);
     }
 
     /**
@@ -717,12 +712,37 @@ export class PveMapScene extends BaseScene {
             return;
         }
 
-        // Только обновить currentNodeIndex — НЕ добавлять в visitedNodes
-        // visitedNodes обновляется в enterNode при фактическом входе игрока
+        const nextNode = expedition.route.nodes[nextIndex];
+
+        // Боссы, древние сундуки, развилки — переход как обычно
+        if (nextNode.type === 'boss' || nextNode.type === 'ancient_chest' || nextNode.isFork) {
+            const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
+            this.gameState.updateExpeditionState(updated);
+            void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+            return;
+        }
+
+        // Найти ближайшую предыдущую развилку
+        let forkIndex = -1;
+        for (let i = expedition.currentNodeIndex - 1; i >= 0; i--) {
+            if (expedition.route.nodes[i].isFork) {
+                forkIndex = i;
+                break;
+            }
+        }
+
+        if (forkIndex >= 0) {
+            // Очистить forward-узел из visitedNodes (позволяет пройти заново с другим типом)
+            const filteredVisited = expedition.visitedNodes.filter(idx => idx !== nextIndex);
+            const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: forkIndex, visitedNodes: filteredVisited };
+            this.gameState.updateExpeditionState(updated);
+            void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+            return;
+        }
+
+        // Fallback: развилок нет — линейное продвижение как раньше
         const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
         this.gameState.updateExpeditionState(updated);
-
-        // Переход к свежей сцене карты
         void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
     }
 

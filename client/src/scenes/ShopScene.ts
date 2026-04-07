@@ -2,6 +2,7 @@ import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
+import { createPveBackground } from '../ui/GradientBackground';
 
 /** Данные, передаваемые в сцену через onEnter */
 interface ShopSceneData {
@@ -72,10 +73,7 @@ export class ShopScene extends BaseScene {
     // ───────────────────────────── Фон ───────────────────────────────────
 
     private buildBackground(): void {
-        const bg = new Graphics();
-        bg.rect(0, 0, W, THEME.layout.designHeight);
-        bg.fill(THEME.colors.bg_primary);
-        this.addChild(bg);
+        this.addChild(createPveBackground(W, THEME.layout.designHeight));
     }
 
     // ───────────────────────────── Заголовок ─────────────────────────────

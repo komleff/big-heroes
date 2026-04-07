@@ -5,6 +5,8 @@ import { THEME } from '../config/ThemeConfig';
 export interface NavItem {
   id: string;
   label: string;
+  /** Эмодзи-иконка над лейблом */
+  icon?: string;
 }
 
 /** Параметры конструктора BottomNav */
@@ -16,6 +18,7 @@ interface BottomNavOptions {
 
 /**
  * Нижняя навигационная панель с табами.
+ * Поддерживает эмодзи-иконки над текстом.
  * Активный таб подсвечивается цветом accent_yellow с подчёркиванием.
  */
 export class BottomNav extends Container {
@@ -86,19 +89,37 @@ export class BottomNav extends Container {
       const tabContainer = new Container();
       tabContainer.x = index * this.tabWidth;
 
+      const fillColor = isActive ? THEME.colors.accent_yellow : THEME.colors.text_primary;
+
+      // Иконка (эмодзи) — над лейблом
+      if (item.icon) {
+        const iconText = new Text({
+          text: item.icon,
+          style: new TextStyle({
+            fontSize: 18,
+            fontFamily: THEME.font.family,
+          }),
+        });
+        iconText.anchor.set(0.5);
+        iconText.x = this.tabWidth / 2;
+        iconText.y = height / 2 - 12;
+        tabContainer.addChild(iconText);
+      }
+
       // Текст лейбла
       const label = new Text({
         text: item.label,
         style: new TextStyle({
-          fontSize: THEME.font.sizes.navLabel,
+          fontSize: THEME.font.sizes.navLabel - 1,
           fontFamily: THEME.font.family,
           fontWeight: THEME.font.weights.medium,
-          fill: isActive ? THEME.colors.accent_yellow : THEME.colors.text_primary,
+          fill: fillColor,
         }),
       });
       label.anchor.set(0.5);
       label.x = this.tabWidth / 2;
-      label.y = height / 2;
+      // Если есть иконка — лейбл ниже, иначе по центру
+      label.y = item.icon ? height / 2 + 10 : height / 2;
       tabContainer.addChild(label);
 
       // Подчёркивание активного таба

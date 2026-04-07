@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { createPveBackground } from '../ui/GradientBackground';
 import { BaseScene } from './BaseScene';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
@@ -79,10 +80,7 @@ export class LootScene extends BaseScene {
     // ───────────────────────────── Фон ───────────────────────────────────
 
     private buildBackground(): void {
-        const bg = new Graphics();
-        bg.rect(0, 0, W, THEME.layout.designHeight);
-        bg.fill(THEME.colors.bg_primary);
-        this.addChild(bg);
+        this.addChild(createPveBackground(W, THEME.layout.designHeight));
     }
 
     // ───────────────────────────── Заголовок ─────────────────────────────

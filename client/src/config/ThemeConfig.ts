@@ -56,6 +56,22 @@ export const THEME = Object.freeze({
     button_danger_border: 0x5A6590,
     /** Фон ProgressBar */
     progress_track: 0x1A2030,
+
+    /** Градиент PvE — верхняя точка */
+    gradient_pve_top: 0x3A8EC2,
+    /** Градиент PvE — средняя точка (35%) */
+    gradient_pve_mid: 0x5A7EAA,
+    /** Градиент PvE — нижняя точка */
+    gradient_pve_bottom: 0x4A6A90,
+
+    /** Градиент Hub — верхняя точка (небо) */
+    gradient_hub_top: 0x3A8EC2,
+    /** Градиент Hub — средняя точка 1 (30%, светлое небо) */
+    gradient_hub_mid1: 0x7EC8E3,
+    /** Градиент Hub — средняя точка 2 (60%, переход к зелени) */
+    gradient_hub_mid2: 0xA8D8A8,
+    /** Градиент Hub — нижняя точка (трава) */
+    gradient_hub_bottom: 0x78B060,
   },
 
   // ─── Типографика ─────────────────────────────────────────────────

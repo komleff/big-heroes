@@ -1,4 +1,5 @@
 import { Graphics, Text, TextStyle, Container } from 'pixi.js';
+import { createPveBackground } from '../ui/GradientBackground';
 import type {
     IMobConfig, IBalanceConfig, IFormulaConfig,
     IBattleContext, CommandId,
@@ -39,8 +40,8 @@ interface CommandDef {
     ) => number;
 }
 
-/** Все 6 команд */
-const COMMANDS: CommandDef[] = [
+/** Справочник всех команд (используется для поиска по id) */
+const ALL_COMMANDS: CommandDef[] = [
     {
         id: 'cmd_attack', icon: '\u2694', label: 'Атака', slot: 'weapon',
         calcChance: (base, _atk, _sa, luck) =>
@@ -73,6 +74,31 @@ const COMMANDS: CommandDef[] = [
     },
 ];
 
+/** Заглушка для заблокированного слота (нет аксессуара) */
+function createLockedCommand(): CommandDef {
+    return {
+        id: 'cmd_fortune', // фиктивный id — кнопка будет disabled
+        icon: '\uD83D\uDD12',
+        label: 'Нет аксессуара',
+        slot: 'accessory',
+        calcChance: () => 0,
+    };
+}
+
+/** Получить 3 активные команды: Атака, Умение аксессуара, Блок */
+function getActiveCommands(accessory: IEquipmentItem | null): CommandDef[] {
+    const attack = ALL_COMMANDS.find(c => c.id === 'cmd_attack')!;
+    const block = ALL_COMMANDS.find(c => c.id === 'cmd_block')!;
+
+    // Аксессуар определяет среднюю команду
+    let accessoryCmd: CommandDef | null = null;
+    if (accessory && accessory.currentDurability > 0 && accessory.commandId) {
+        accessoryCmd = ALL_COMMANDS.find(c => c.id === accessory.commandId) ?? null;
+    }
+
+    return [attack, accessoryCmd ?? createLockedCommand(), block];
+}
+
 /**
  * Сцена предбоя — выбор команды, расходника, обзор матчапа.
  * Бизнес-логика делегирована FormulaEngine / BattleSystem.
@@ -94,6 +120,8 @@ export class PreBattleScene extends BaseScene {
     private beltSlotContainers: Container[] = [];
     /** Контейнеры кнопок команд для подсветки */
     private commandContainers: Container[] = [];
+    /** Активные команды текущего раунда (3 шт.) */
+    private activeCommands: CommandDef[] = [];
 
     /** Кнопка «В БОЙ!» */
     private goButton!: Button;
@@ -115,12 +143,10 @@ export class PreBattleScene extends BaseScene {
         this.selectedCommand = null;
         this.beltSlotContainers = [];
         this.commandContainers = [];
+        this.activeCommands = [];
 
-        // Фон
-        const bg = new Graphics();
-        bg.rect(0, 0, W, THEME.layout.designHeight);
-        bg.fill(THEME.colors.bg_primary);
-        this.addChild(bg);
+        // Фон (градиент PvE)
+        this.addChild(createPveBackground(W, THEME.layout.designHeight));
 
         // --- Заголовок ---
         this.buildHeading();
@@ -131,7 +157,7 @@ export class PreBattleScene extends BaseScene {
         // --- Секция «Расходник с пояса» ---
         this.buildBeltSection();
 
-        // --- 6 кнопок команд (3x2) ---
+        // --- 3 кнопки команд (1 ряд) ---
         this.buildCommandGrid();
 
         // --- Подсказка ---
@@ -145,9 +171,9 @@ export class PreBattleScene extends BaseScene {
 
     private buildHeading(): void {
         const heading = new Text({
-            text: 'ПРЕДБОЙ',
+            text: 'ПОДГОТОВКА К БОЮ',
             style: new TextStyle({
-                fontSize: 40,
+                fontSize: 28,
                 fontFamily: THEME.font.family,
                 fontWeight: THEME.font.weights.black,
                 fill: THEME.colors.text_primary,
@@ -409,7 +435,7 @@ export class PreBattleScene extends BaseScene {
         }
     }
 
-    // ──────────────────────── 6 кнопок команд (3x2) ─────────────────────
+    // ──────────────────────── 3 кнопки команд (1 ряд) ─────────────────────
 
     /** Пересобрать grid команд (при смене расходника — пересчёт шансов) */
     private rebuildCommandGrid(): void {
@@ -419,6 +445,7 @@ export class PreBattleScene extends BaseScene {
             container.destroy({ children: true });
         }
         this.commandContainers = [];
+        this.activeCommands = [];
 
         // Построить заново с актуальными шансами
         this.buildCommandGrid();
@@ -456,6 +483,10 @@ export class PreBattleScene extends BaseScene {
             formulaConfig.winChanceMin, formulaConfig.winChanceMax, formulaConfig.luckAttackCoeff,
         );
 
+        // 3 активные команды: Атака, Умение аксессуара, Блок
+        const accessory = (equipment as IEquipmentSlots).accessory;
+        this.activeCommands = getActiveCommands(accessory);
+
         const gridX = 14;
         const gridY = 380;
         const cols = 3;
@@ -463,12 +494,10 @@ export class PreBattleScene extends BaseScene {
         const btnW = Math.floor((W - 28 - (cols - 1) * gap) / cols); // ~116
         const btnH = 100;
 
-        for (let i = 0; i < COMMANDS.length; i++) {
-            const cmd = COMMANDS[i];
-            const col = i % cols;
-            const row = Math.floor(i / cols);
-            const x = gridX + col * (btnW + gap);
-            const y = gridY + row * (btnH + gap);
+        for (let i = 0; i < this.activeCommands.length; i++) {
+            const cmd = this.activeCommands[i];
+            const x = gridX + i * (btnW + gap);
+            const y = gridY;
 
             // Шанс победы для этой команды (с учётом расходника)
             // Для блока используем чистый бонус щита (без реликвий); сломанный щит = 0
@@ -483,12 +512,14 @@ export class PreBattleScene extends BaseScene {
             const maxDurability = item?.maxDurability ?? 0;
             const isBroken = durability === 0;
 
-            // Атака и Блок доступны ВСЕГДА (по GDD), остальные — блокируются при durability=0
+            // Атака и Блок доступны ВСЕГДА (по GDD), аксессуар — блокируется при durability=0
             const isAlwaysAvailable = cmd.id === 'cmd_attack' || cmd.id === 'cmd_block';
+            // Средний слот — заблокирован если нет аксессуара (label = 'Нет аксессуара')
+            const isLockedSlot = cmd.label === 'Нет аксессуара';
             // Retreat и Bypass запрещены против босса (по GDD)
             const isBossRestricted = this.enemy.type === 'boss'
                 && (cmd.id === 'cmd_retreat' || cmd.id === 'cmd_bypass');
-            const isDisabled = isBossRestricted || (isBroken && !isAlwaysAvailable);
+            const isDisabled = isLockedSlot || isBossRestricted || (isBroken && !isAlwaysAvailable);
 
             const container = new Container();
             container.x = x;
@@ -520,10 +551,14 @@ export class PreBattleScene extends BaseScene {
             container.addChild(iconText);
 
             // Название команды (при блокировке против босса — специальный текст)
+            const labelText = isLockedSlot
+                ? 'Нет аксессуара'
+                : isBossRestricted ? 'Запрещено vs босс' : cmd.label;
+            const labelFontSize = (isLockedSlot || isBossRestricted) ? 9 : 12;
             const nameText = new Text({
-                text: isBossRestricted ? 'Запрещено vs босс' : cmd.label,
+                text: labelText,
                 style: new TextStyle({
-                    fontSize: isBossRestricted ? 9 : 12,
+                    fontSize: labelFontSize,
                     fontFamily: THEME.font.family,
                     fontWeight: THEME.font.weights.bold,
                     fill: isDisabled ? THEME.colors.text_muted : THEME.colors.text_primary,
@@ -537,7 +572,7 @@ export class PreBattleScene extends BaseScene {
             // Шанс победы XX%
             const chanceColor = this.getChanceColor(pct);
             const chanceText = new Text({
-                text: `${pct}%`,
+                text: isLockedSlot ? '\u2014' : `${pct}%`,
                 style: new TextStyle({
                     fontSize: 13,
                     fontFamily: THEME.font.family,
@@ -550,8 +585,8 @@ export class PreBattleScene extends BaseScene {
             chanceText.y = 45;
             container.addChild(chanceText);
 
-            // Пипсы прочности
-            if (maxDurability > 0) {
+            // Пипсы прочности (не показываем для заблокированного слота)
+            if (maxDurability > 0 && !isLockedSlot) {
                 const pips = new DurabilityPips({ max: maxDurability, current: durability });
                 // Центрируем пипсы по X
                 const pipsWidth = maxDurability * 8 + (maxDurability - 1) * 4;
@@ -561,7 +596,7 @@ export class PreBattleScene extends BaseScene {
             }
 
             // Имя предмета
-            const itemName = item?.name ?? '\u2014';
+            const itemName = isLockedSlot ? '\u2014' : (item?.name ?? '\u2014');
             const itemLabel = new Text({
                 text: itemName,
                 style: new TextStyle({
@@ -576,7 +611,7 @@ export class PreBattleScene extends BaseScene {
             itemLabel.y = 74;
             container.addChild(itemLabel);
 
-            // Обработчик тапа (attack/block доступны всегда, остальные — только если не сломаны)
+            // Обработчик тапа
             if (!isDisabled) {
                 container.on('pointerdown', () => {
                     this.onCommandTap(cmd.id);
@@ -609,8 +644,8 @@ export class PreBattleScene extends BaseScene {
         const btnW = Math.floor((W - 28 - (cols - 1) * gap) / cols);
         const btnH = 100;
 
-        for (let i = 0; i < COMMANDS.length; i++) {
-            const cmd = COMMANDS[i];
+        for (let i = 0; i < this.activeCommands.length; i++) {
+            const cmd = this.activeCommands[i];
             const container = this.commandContainers[i];
 
             // Удалить старую обводку

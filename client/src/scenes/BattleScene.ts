@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, TextStyle, Ticker } from 'pixi.js';
+import { createPveBackground } from '../ui/GradientBackground';
 import { BaseScene } from './BaseScene';
 import { GameState } from '../core/GameState';
 import { EventBus, GameEvents } from '../core/EventBus';
@@ -149,10 +150,8 @@ export class BattleScene extends BaseScene {
         const W = THEME.layout.designWidth;
         const H = THEME.layout.designHeight;
 
-        // --- Фон ---
-        const bg = new Graphics();
-        bg.rect(0, 0, W, H).fill(THEME.colors.bg_primary);
-        this.addChild(bg);
+        // --- Фон (градиент PvE) ---
+        this.addChild(createPveBackground(W, H));
 
         // --- Заголовок y=48 ---
         const heading = new Text({
