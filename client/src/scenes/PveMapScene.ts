@@ -88,9 +88,13 @@ export class PveMapScene extends BaseScene {
         heading.y = THEME.layout.spacing.topOffset;
         this.addChild(heading);
 
-        // --- Подзаголовок: текущий узел ---
+        // --- Подзаголовок: шаг похода ---
+        // Для фиксированных узлов (босс, святилище, древний сундук) — показываем их номер;
+        // для развилки — показываем номер следующего шага (игрок выбирает, куда идти дальше)
+        const isFixedNode = currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary';
+        const displayStep = isFixedNode ? currentNode.index + 1 : Math.min(currentNode.index + 2, totalNodes);
         const subheading = new Text({
-            text: `Узел ${currentNode.index + 1} / ${totalNodes} \u2014 ${display.name}`,
+            text: `Шаг ${displayStep} / ${totalNodes}`,
             style: new TextStyle({
                 fontSize: THEME.font.sizes.subheading,
                 fontFamily: THEME.font.family,
@@ -135,36 +139,35 @@ export class PveMapScene extends BaseScene {
             this.addChild(relicsText);
         }
 
-        // --- Иконка узла (большая) ---
-        const nodeIcon = new Text({
-            text: display.icon,
-            style: new TextStyle({
-                fontSize: 64,
-                fontFamily: THEME.font.family,
-            }),
-        });
-        nodeIcon.anchor.set(0.5, 0);
-        nodeIcon.x = W / 2;
-        nodeIcon.y = 220;
-        this.addChild(nodeIcon);
+        // --- Иконка и название — только для фиксированных узлов (босс, святилище, древний сундук) ---
+        const isFixedEntry = currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary';
+        let actionY = 220;
 
-        // --- Название узла ---
-        const nodeName = new Text({
-            text: display.name,
-            style: new TextStyle({
-                fontSize: THEME.font.sizes.subheading,
-                fontFamily: THEME.font.family,
-                fontWeight: THEME.font.weights.bold,
-                fill: THEME.colors.text_primary,
-            }),
-        });
-        nodeName.anchor.set(0.5, 0);
-        nodeName.x = W / 2;
-        nodeName.y = 300;
-        this.addChild(nodeName);
+        if (isFixedEntry) {
+            const nodeIcon = new Text({
+                text: display.icon,
+                style: new TextStyle({ fontSize: 64, fontFamily: THEME.font.family }),
+            });
+            nodeIcon.anchor.set(0.5, 0);
+            nodeIcon.x = W / 2;
+            nodeIcon.y = 220;
+            this.addChild(nodeIcon);
 
-        // --- Выбор следующей точки интереса ---
-        let actionY = 360;
+            const nodeName = new Text({
+                text: display.name,
+                style: new TextStyle({
+                    fontSize: THEME.font.sizes.subheading,
+                    fontFamily: THEME.font.family,
+                    fontWeight: THEME.font.weights.bold,
+                    fill: THEME.colors.text_primary,
+                }),
+            });
+            nodeName.anchor.set(0.5, 0);
+            nodeName.x = W / 2;
+            nodeName.y = 300;
+            this.addChild(nodeName);
+            actionY = 360;
+        }
 
         // Босс, древний сундук, святилище — фиксированный вход без выбора
         if (currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary') {
@@ -248,12 +251,17 @@ export class PveMapScene extends BaseScene {
         const nextIndex = expedition.currentNodeIndex + 1;
 
         if (nextIndex >= expedition.route.totalNodes) {
-            // Следующий — последний узел (босс) → показать только босса
             const bossNode = expedition.route.nodes[expedition.route.totalNodes - 1];
             return [{ nodeType: bossNode.type, hidden: false, enemyId: bossNode.enemyId }];
         }
 
         const nextNode = expedition.route.nodes[nextIndex];
+
+        // Босс и древний сундук — обязательные, без альтернатив
+        if (nextNode.type === 'boss' || nextNode.type === 'ancient_chest') {
+            return [{ nodeType: nextNode.type, hidden: false, enemyId: nextNode.enemyId, eventId: nextNode.eventId }];
+        }
+
         const pathCount = randInt(rng, config.pve.paths_per_fork_min, config.pve.paths_per_fork_max);
         const forkPaths = generateForkPaths(
             nextNode, config.pve, config.enemies, config.events, pathCount, rng,
