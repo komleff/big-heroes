@@ -285,31 +285,23 @@ export class SceneManager {
     }
 
     /**
-     * Viewport-масштабирование через CSS (не контейнерный scale).
-     * Контейнерный scale растягивает Text-текстуры → размытые шрифты.
-     * CSS-масштабирование делается браузером нативно и чётко на любом устройстве.
+     * Viewport-масштабирование: canvas = реальный размер окна (resizeTo: window),
+     * сцены масштабируются container scale. Текст рендерится в нативном разрешении
+     * (resolution = DPR), поэтому container scale НЕ вызывает размытие —
+     * PixiJS перерисовывает Text-текстуры в реальных пикселях.
      */
-    resize(_width?: number, _height?: number): void {
+    resize(width?: number, height?: number): void {
+        const w = width ?? this.app.screen.width;
+        const h = height ?? this.app.screen.height;
         const { designWidth, designHeight } = THEME.layout;
-        const cssScale = Math.min(
-            window.innerWidth / designWidth,
-            window.innerHeight / designHeight,
+        const scaleFactor = Math.min(w / designWidth, h / designHeight);
+        this.sceneContainer.scale.set(scaleFactor);
+        this.sceneContainer.position.set(
+            (w - designWidth * scaleFactor) / 2,
+            (h - designHeight * scaleFactor) / 2,
         );
-        const canvas = this.app.canvas;
-        const cssW = designWidth * cssScale;
-        const cssH = designHeight * cssScale;
-        canvas.style.width = `${cssW}px`;
-        canvas.style.height = `${cssH}px`;
-        canvas.style.position = 'absolute';
-        canvas.style.left = `${(window.innerWidth - cssW) / 2}px`;
-        canvas.style.top = `${(window.innerHeight - cssH) / 2}px`;
 
-        // Контейнер сцен: без scale, координаты 390×844
-        this.sceneContainer.scale.set(1);
-        this.sceneContainer.position.set(0, 0);
-
-        // Уведомляем текущую сцену о ресайзе
-        this.currentScene?.onResize(designWidth, designHeight);
+        this.currentScene?.onResize(w, h);
     }
 
     /** Текущее имя активной сцены */

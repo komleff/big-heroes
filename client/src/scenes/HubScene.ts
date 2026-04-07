@@ -1,4 +1,4 @@
-import { Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Container, Graphics, Text, TextStyle, Sprite, Assets } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { GameState } from '../core/GameState';
 import { EventBus, GameEvents } from '../core/EventBus';
@@ -108,24 +108,27 @@ export class HubScene extends BaseScene {
     // ─── Фон — полосчатый градиент ──────────────────────────────────
 
     private buildGradientBackground(): void {
-        const colors = THEME.colors;
-        // Рисуем 3 полосы для аппроксимации 4-точечного градиента
-        const bands: Array<{ y: number; h: number; color: number }> = [
-            { y: 0, h: Math.round(H * 0.3), color: colors.gradient_hub_top },
-            { y: Math.round(H * 0.3), h: Math.round(H * 0.3), color: colors.gradient_hub_mid1 },
-            { y: Math.round(H * 0.6), h: H - Math.round(H * 0.6), color: colors.gradient_hub_mid2 },
-        ];
-        const bg = new Graphics();
-        for (const band of bands) {
-            bg.rect(0, band.y, W, band.h).fill(band.color);
+        // Фоновое изображение (cover-fit)
+        const texture = Assets.get('hub-bg-new');
+        if (texture) {
+            const sprite = new Sprite(texture);
+            const scaleX = W / sprite.texture.width;
+            const scaleY = H / sprite.texture.height;
+            const scale = Math.max(scaleX, scaleY);
+            sprite.scale.set(scale);
+            sprite.x = (W - sprite.texture.width * scale) / 2;
+            sprite.y = (H - sprite.texture.height * scale) / 2;
+            this.addChild(sprite);
+        } else {
+            // Fallback: однотонный фон
+            const bg = new Graphics();
+            bg.rect(0, 0, W, H).fill(THEME.colors.gradient_hub_top);
+            this.addChild(bg);
         }
-        // Нижняя полоса — трава
-        bg.rect(0, Math.round(H * 0.85), W, H - Math.round(H * 0.85)).fill(colors.gradient_hub_bottom);
-        this.addChild(bg);
 
         // Полупрозрачный overlay для читаемости UI
         const overlay = new Graphics();
-        overlay.rect(0, 0, W, H).fill({ color: THEME.colors.bg_overlay, alpha: 0.15 });
+        overlay.rect(0, 0, W, H).fill({ color: THEME.colors.bg_overlay, alpha: 0.35 });
         this.addChild(overlay);
     }
 

@@ -19,19 +19,22 @@ import { CampScene } from './scenes/CampScene';
 import { EventScene } from './scenes/EventScene';
 import { PveResultScene } from './scenes/PveResultScene';
 import hubBgUrl from './assets/hub-bg.png';
+import hubBgNewUrl from './assets/hub-bg-new.jpg';
 
 // Точка входа — инициализация PixiJS Application и игровых систем
 async function main(): Promise<void> {
     const app = new Application();
 
-    // Canvas рендерится в дизайн-координатах 390×844 с нативным DPR.
-    // Масштабирование под экран — через CSS (SceneManager.resize),
-    // НЕ через контейнерный scale. Это даёт чёткий текст на любом устройстве.
+    // Canvas = реальный размер окна, resolution = DPR для чётких пикселей.
+    // Сцены работают в дизайн-координатах 390×844, контейнер масштабируется.
+    // Текст рендерится в реальном разрешении → нет bitmap-растягивания.
     await app.init({
-        width: THEME.layout.designWidth,
-        height: THEME.layout.designHeight,
+        width: window.innerWidth,
+        height: window.innerHeight,
         backgroundColor: THEME.colors.bg_primary,
         resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
+        resizeTo: window,
     });
 
     document.body.appendChild(app.canvas);
@@ -39,8 +42,9 @@ async function main(): Promise<void> {
     // Дождаться загрузки шрифта Nunito
     await document.fonts.ready;
 
-    // Прелоад ассетов (фон хаба)
+    // Прелоад ассетов
     await Assets.load(hubBgUrl);
+    await Assets.load({ alias: 'hub-bg-new', src: hubBgNewUrl });
 
     // Инициализация ядра
     const eventBus = new EventBus();
@@ -65,9 +69,9 @@ async function main(): Promise<void> {
     // Стартовая сцена
     await sceneManager.goto('hub', { transition: TransitionType.FADE });
 
-    // Обработка ресайза — CSS-масштабирование canvas под окно
+    // Обработка ресайза
     window.addEventListener('resize', () => {
-        sceneManager.resize();
+        sceneManager.resize(app.screen.width, app.screen.height);
     });
 }
 
