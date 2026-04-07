@@ -163,10 +163,24 @@ export class PveMapScene extends BaseScene {
         nodeName.y = 300;
         this.addChild(nodeName);
 
-        // --- Развилка: кнопки выбора пути ---
+        // --- Выбор следующей точки интереса ---
         let actionY = 360;
 
-        if (currentNode.isFork && currentNode.forkPaths && currentNode.forkPaths.length > 0) {
+        // Босс и древний сундук — единственный путь, без выбора
+        if (currentNode.type === 'boss' || currentNode.type === 'ancient_chest') {
+            const isCombatNode = currentNode.type === 'boss';
+            const enterBtn = new Button({
+                text: isCombatNode ? 'ВСТУПИТЬ В БОЙ' : 'ВОЙТИ',
+                variant: isCombatNode ? 'primary' : 'secondary',
+                onClick: () => { this.enterNode(currentNode); },
+            });
+            enterBtn.position.set(39 + THEME.layout.buttonWidth / 2, actionY);
+            this.addChild(enterBtn);
+            actionY += 80;
+        } else {
+            // Всегда показываем 2-3 варианта; генерируем на лету если нет forkPaths
+            const forkPaths = this.ensureForkPaths(currentNode, expedition);
+
             const forkLabel = new Text({
                 text: 'Выберите путь:',
                 style: new TextStyle({
@@ -182,14 +196,13 @@ export class PveMapScene extends BaseScene {
             this.addChild(forkLabel);
             actionY += 40;
 
-            for (const path of currentNode.forkPaths) {
+            for (const path of forkPaths) {
                 const pathDisplay = getNodeDisplay(path.nodeType);
                 const pathLabel = path.hidden ? '???' : `${pathDisplay.icon} ${pathDisplay.name}`;
                 const pathBtn = new Button({
                     text: pathLabel,
                     variant: 'secondary',
                     onClick: () => {
-                        // Выбор пути: обновить следующий узел и продвинуться
                         this.handleForkChoice(path.nodeType, path.enemyId, path.eventId);
                     },
                 });
@@ -197,22 +210,6 @@ export class PveMapScene extends BaseScene {
                 this.addChild(pathBtn);
                 actionY += 70;
             }
-        } else {
-            // Нет развилки — кнопка входа в узел
-            const isCombatNode = currentNode.type === 'combat' || currentNode.type === 'elite' || currentNode.type === 'boss';
-            const enterLabel = isCombatNode ? 'ВСТУПИТЬ В БОЙ' : 'ВОЙТИ';
-            const enterVariant = isCombatNode ? 'primary' : 'secondary';
-
-            const enterBtn = new Button({
-                text: enterLabel,
-                variant: enterVariant,
-                onClick: () => {
-                    this.enterNode(currentNode);
-                },
-            });
-            enterBtn.position.set(39 + THEME.layout.buttonWidth / 2, actionY);
-            this.addChild(enterBtn);
-            actionY += 80;
         }
 
         // --- Кнопка «Выйти из похода» (скрыта на боссе) ---
@@ -233,6 +230,42 @@ export class PveMapScene extends BaseScene {
             exitBtn.position.set(39 + THEME.layout.buttonWidth / 2, actionY);
             this.addChild(exitBtn);
         }
+    }
+
+    /**
+     * Гарантировать наличие forkPaths у узла.
+     * Если развилка уже есть — вернуть её; иначе — сгенерировать динамически
+     * (аналог Slay the Spire: игрок всегда видит 2-3 варианта следующей точки).
+     */
+    private ensureForkPaths(node: IPveNode, expedition: IPveExpeditionState): IPveForkPath[] {
+        if (node.isFork && node.forkPaths && node.forkPaths.length > 0) {
+            return node.forkPaths;
+        }
+
+        // Генерируем развилку динамически
+        const config = balanceConfig as unknown as IBalanceConfig;
+        const rng = createRng(Date.now() + expedition.currentNodeIndex);
+        const nextIndex = expedition.currentNodeIndex + 1;
+
+        if (nextIndex >= expedition.route.totalNodes) {
+            // Следующий — последний узел (босс) → показать только босса
+            const bossNode = expedition.route.nodes[expedition.route.totalNodes - 1];
+            return [{ nodeType: bossNode.type, hidden: false, enemyId: bossNode.enemyId }];
+        }
+
+        const nextNode = expedition.route.nodes[nextIndex];
+        const pathCount = randInt(rng, config.pve.paths_per_fork_min, config.pve.paths_per_fork_max);
+        const forkPaths = generateForkPaths(
+            nextNode, config.pve, config.enemies, config.events, pathCount, rng,
+        );
+
+        // Сохранить сгенерированные пути в route (чтобы при перезагрузке сцены показать те же)
+        const updatedNodes = [...expedition.route.nodes];
+        updatedNodes[node.index] = { ...node, isFork: true, forkPaths };
+        const updatedRoute = { ...expedition.route, nodes: updatedNodes };
+        this.gameState.updateExpeditionState({ ...expedition, route: updatedRoute });
+
+        return forkPaths;
     }
 
     /**
@@ -713,42 +746,9 @@ export class PveMapScene extends BaseScene {
             return;
         }
 
-        const nextNode = expedition.route.nodes[nextIndex];
-
-        // Боссы и древние сундуки — переход без выбора
-        if (nextNode.type === 'boss' || nextNode.type === 'ancient_chest') {
-            const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
-            this.gameState.updateExpeditionState(updated);
-            void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
-            return;
-        }
-
-        // Если у следующего узла уже есть развилка — переход как обычно
-        if (nextNode.isFork) {
-            const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
-            this.gameState.updateExpeditionState(updated);
-            void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
-            return;
-        }
-
-        // Динамическая генерация развилки: у следующего узла нет выбора — создаём его
-        const config = balanceConfig as unknown as IBalanceConfig;
-        const rng = createRng(Date.now());
-        const pathCount = randInt(rng, config.pve.paths_per_fork_min, config.pve.paths_per_fork_max);
-        const forkPaths = generateForkPaths(
-            nextNode, config.pve, config.enemies, config.events, pathCount, rng,
-        );
-
-        // Превращаем ТЕКУЩИЙ узел в развилку (перед следующим)
-        const updatedNodes = [...expedition.route.nodes];
-        const currentIdx = expedition.currentNodeIndex;
-        updatedNodes[currentIdx] = {
-            ...updatedNodes[currentIdx],
-            isFork: true,
-            forkPaths: forkPaths,
-        };
-        const updatedRoute = { ...expedition.route, nodes: updatedNodes };
-        const updated: IPveExpeditionState = { ...expedition, route: updatedRoute, currentNodeIndex: currentIdx };
+        // Просто продвигаемся к следующему узлу — PveMapScene.onEnter() сама
+        // покажет выбор из 2-3 вариантов (ensureForkPaths генерирует на лету)
+        const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
         this.gameState.updateExpeditionState(updated);
         void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
     }
