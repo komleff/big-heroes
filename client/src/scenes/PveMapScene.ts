@@ -166,8 +166,8 @@ export class PveMapScene extends BaseScene {
         // --- Выбор следующей точки интереса ---
         let actionY = 360;
 
-        // Босс и древний сундук — единственный путь, без выбора
-        if (currentNode.type === 'boss' || currentNode.type === 'ancient_chest') {
+        // Босс, древний сундук, святилище — фиксированный вход без выбора
+        if (currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary') {
             const isCombatNode = currentNode.type === 'boss';
             const enterBtn = new Button({
                 text: isCombatNode ? 'ВСТУПИТЬ В БОЙ' : 'ВОЙТИ',
