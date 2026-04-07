@@ -480,7 +480,7 @@ export class PveMapScene extends BaseScene {
         void this.sceneManager.goto('camp', {
             transition: TransitionType.SLIDE_LEFT,
             data: {
-                onRepair: () => {
+                onRepair: (): string => {
                     // Ремонт прочности к первому повреждённому предмету (бесплатно)
                     const campRepairRelic = this.gameState.activeRelics.find(r => r.effect === 'camp_repair_bonus');
                     const repairBonus = config.pve.camp.repair_amount + (campRepairRelic?.value ?? 0);
@@ -490,21 +490,21 @@ export class PveMapScene extends BaseScene {
                         if (item && item.currentDurability < item.maxDurability) {
                             const newDur = Math.min(item.currentDurability + repairBonus, item.maxDurability);
                             this.gameState.equipItem({ ...item, currentDurability: newDur });
-                            break; // только один предмет за привал
+                            return `${item.name}: прочность +${repairBonus}`;
                         }
                     }
-                    this.advanceToNextNode();
+                    return 'Всё снаряжение в порядке';
                 },
-                onTrain: () => {
+                onTrain: (): string => {
                     // Тренировка — добавить массу
                     const expedition = this.gameState.expeditionState as IPveExpeditionState;
                     const rng = createRng(Date.now());
                     const massGain = randInt(rng, config.pve.camp.train_mass_min, config.pve.camp.train_mass_max);
                     const updated: IPveExpeditionState = { ...expedition, massGained: expedition.massGained + massGain };
                     this.gameState.updateExpeditionState(updated);
-                    this.advanceToNextNode();
+                    return `Масса +${massGain} кг`;
                 },
-                onLeave: () => {
+                onContinue: () => {
                     this.advanceToNextNode();
                 },
                 trainMassMin: config.pve.camp.train_mass_min,
@@ -531,34 +531,32 @@ export class PveMapScene extends BaseScene {
                 event: eventConfig,
                 gold: this.gameState.resources.gold + expedition.goldGained,
                 itemCount: expedition.itemsFound.length,
-                onChoose: (variantIndex: number) => {
+                onChoose: (variantIndex: number): string => {
                     const variant = eventConfig.variants[variantIndex];
                     let state = this.gameState.expeditionState as IPveExpeditionState;
                     const rng = createRng(Date.now());
+                    const results: string[] = [];
 
                     // Проверка: вариант требует жертву предмета, а предметов нет
                     const requiresItem = variant.effects.some(e => e.type === 'lose_item');
                     if (requiresItem && state.itemsFound.length === 0) {
-                        this.advanceToNextNode();
-                        return;
+                        return 'Недостаточно предметов';
                     }
 
-                    // Вычислить шанс успеха для вероятностных вариантов
-                    // evt_trap.disarm: "50%" → 50% получить предмет, 50% ничего
-                    // evt_riddle.solve: "70%" → 70% получить сундук, 30% ничего
-                    // evt_merchant.buy: ВСЕГДА предмет, 80% tier1 / 20% tier2 (обработка отдельно)
                     const isMerchantBuy = eventConfig.id === 'evt_merchant' && variant.id === 'buy';
                     const probMatch = variant.description.match(/(\d+)%/);
                     const procChance = probMatch ? parseInt(probMatch[1]) / 100 : 1.0;
-                    const rollSuccess = isMerchantBuy ? true : rng() < procChance; // торговец всегда даёт предмет
+                    const rollSuccess = isMerchantBuy ? true : rng() < procChance;
 
                     for (const effect of variant.effects) {
                         switch (effect.type) {
                             case 'mass':
                                 state = { ...state, massGained: state.massGained + effect.value };
+                                results.push(`Масса ${effect.value > 0 ? '+' : ''}${effect.value} кг`);
                                 break;
                             case 'gold':
                                 state = { ...state, goldGained: state.goldGained + effect.value };
+                                results.push(`Золото ${effect.value > 0 ? '+' : ''}${effect.value}`);
                                 break;
                             case 'repair': {
                                 const slots: Array<'weapon' | 'armor' | 'accessory'> = ['weapon', 'armor', 'accessory'];
@@ -567,25 +565,24 @@ export class PveMapScene extends BaseScene {
                                     if (item && item.currentDurability < item.maxDurability) {
                                         const newDur = Math.min(item.currentDurability + effect.value, item.maxDurability);
                                         this.gameState.equipItem({ ...item, currentDurability: newDur });
+                                        results.push(`${item.name}: прочность +${effect.value}`);
                                         break;
                                     }
                                 }
                                 break;
                             }
                             case 'item': {
-                                if (!rollSuccess) break;
+                                if (!rollSuccess) { results.push('Неудача...'); break; }
                                 if (isMerchantBuy) {
-                                    // Торговец: 80% tier 1, 20% tier 2
                                     const isTier2 = rng() < 0.2;
                                     if (isTier2) {
-                                        // Tier 2 — расходники tier 2 из каталога
                                         const tier2Items = config.consumables.filter(c => c.tier === 2);
                                         if (tier2Items.length > 0) {
                                             const picked = tier2Items[Math.floor(rng() * tier2Items.length)];
                                             state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                            results.push(`Получен предмет!`);
                                         }
                                     } else {
-                                        // Tier 1 — снаряжение или расходники tier 1
                                         const tier1Items = [
                                             ...config.equipment.catalog.filter(e => e.tier === 1),
                                             ...config.consumables.filter(c => c.tier === 1),
@@ -593,10 +590,10 @@ export class PveMapScene extends BaseScene {
                                         if (tier1Items.length > 0) {
                                             const picked = tier1Items[Math.floor(rng() * tier1Items.length)];
                                             state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                            results.push(`Получен предмет!`);
                                         }
                                     }
                                 } else {
-                                    // Обычный item: предмет tier 1
                                     const tier1Items = [
                                         ...config.equipment.catalog.filter(e => e.tier === 1),
                                         ...config.consumables.filter(c => c.tier === 1),
@@ -604,6 +601,7 @@ export class PveMapScene extends BaseScene {
                                     if (tier1Items.length > 0) {
                                         const picked = tier1Items[Math.floor(rng() * tier1Items.length)];
                                         state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                        results.push(`Получен предмет!`);
                                     }
                                 }
                                 break;
@@ -613,18 +611,25 @@ export class PveMapScene extends BaseScene {
                                     const loot = generateLoot('chest', config.pve.loot, config.equipment.catalog, config.consumables, state.pityCounter, rng);
                                     const ids = loot.drops.map(d => d.itemId);
                                     state = { ...state, itemsFound: [...state.itemsFound, ...ids], pityCounter: loot.newPityCounter };
+                                    results.push(`Найден сундук! (+${ids.length} предм.)`);
+                                } else {
+                                    results.push('Неудача...');
                                 }
                                 break;
                             }
                             case 'lose_item': {
                                 if (state.itemsFound.length > 0) {
                                     state = { ...state, itemsFound: state.itemsFound.slice(0, -1) };
+                                    results.push('Потерян предмет');
                                 }
                                 break;
                             }
                         }
                     }
                     this.gameState.updateExpeditionState(state);
+                    return results.length > 0 ? results.join('\n') : 'Ничего не произошло';
+                },
+                onContinue: () => {
                     this.advanceToNextNode();
                 },
             },

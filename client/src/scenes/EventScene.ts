@@ -2,6 +2,7 @@ import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { THEME } from '../config/ThemeConfig';
 import { createPveBackground } from '../ui/GradientBackground';
+import { Button } from '../ui/Button';
 
 /** Данные, передаваемые в сцену через onEnter */
 interface EventSceneData {
@@ -18,8 +19,9 @@ interface EventSceneData {
         }>;
     };
     gold: number;
-    itemCount: number;              // количество предметов в рюкзаке экспедиции
-    onChoose: (variantIndex: number) => void;
+    itemCount: number;
+    onChoose: (variantIndex: number) => string;  // возвращает описание результата
+    onContinue: () => void;                       // продолжить поход
 }
 
 /** Ширина дизайна */
@@ -38,7 +40,6 @@ const VARIANTS_GAP = 16;
 
 /**
  * Проверка выполнения условия варианта.
- * Чистая функция — без side-effects.
  */
 function isConditionMet(
     condition: { type: string; value: number } | undefined,
@@ -49,17 +50,15 @@ function isConditionMet(
     if (condition) {
         if (condition.type === 'gold_min' && gold < condition.value) return false;
     }
-    // Варианты с жертвой предмета (lose_item) требуют наличия предметов
     if (effects.some(e => e.type === 'lose_item') && itemCount === 0) return false;
     return true;
 }
 
 /**
  * Сцена случайного PvE-события — показывает описание события
- * и 2–3 варианта выбора. Игрок обязан выбрать один из вариантов.
+ * и 2–3 варианта выбора. После выбора — экран результата с «Продолжить».
  */
 export class EventScene extends BaseScene {
-    /** Данные текущего события */
     private eventData: EventSceneData | null = null;
 
     constructor() {
@@ -71,30 +70,17 @@ export class EventScene extends BaseScene {
         if (!sceneData?.event) return;
 
         this.eventData = sceneData;
-        this.buildUI();
+        this.buildChoiceUI();
     }
 
-    // ───────────────────────────── Построение UI ─────────────────────────
+    // ───────────────────────────── Экран выбора ──────────────────────────
 
-    private buildUI(): void {
+    private buildChoiceUI(): void {
         this.removeChildren();
 
-        this.buildBackground();
-        this.buildHeading();
-        this.buildEventName();
-        this.buildEventDescription();
-        this.buildVariants();
-    }
-
-    // ───────────────────────────── Фон ───────────────────────────────────
-
-    private buildBackground(): void {
         this.addChild(createPveBackground(W, THEME.layout.designHeight));
-    }
 
-    // ───────────────────────────── Заголовок ─────────────────────────────
-
-    private buildHeading(): void {
+        // Заголовок
         const heading = new Text({
             text: 'СОБЫТИЕ',
             style: new TextStyle({
@@ -108,11 +94,8 @@ export class EventScene extends BaseScene {
         heading.x = W / 2;
         heading.y = THEME.layout.spacing.topOffset;
         this.addChild(heading);
-    }
 
-    // ───────────────────────────── Название события ──────────────────────
-
-    private buildEventName(): void {
+        // Название события
         const name = new Text({
             text: this.eventData!.event.name,
             style: new TextStyle({
@@ -126,11 +109,8 @@ export class EventScene extends BaseScene {
         name.x = W / 2;
         name.y = 110;
         this.addChild(name);
-    }
 
-    // ───────────────────────────── Описание события ──────────────────────
-
-    private buildEventDescription(): void {
+        // Описание события
         const desc = new Text({
             text: this.eventData!.event.description,
             style: new TextStyle({
@@ -146,11 +126,8 @@ export class EventScene extends BaseScene {
         desc.x = W / 2;
         desc.y = 150;
         this.addChild(desc);
-    }
 
-    // ───────────────────────────── Варианты выбора ───────────────────────
-
-    private buildVariants(): void {
+        // Варианты
         const variants = this.eventData!.event.variants;
         const gold = this.eventData!.gold;
         const itemCount = this.eventData!.itemCount ?? 0;
@@ -173,13 +150,11 @@ export class EventScene extends BaseScene {
         card.x = (W - CARD_W) / 2;
         card.y = y;
 
-        // Фон карточки
         const cardBg = new Graphics();
         cardBg.roundRect(0, 0, CARD_W, CARD_H, CARD_R);
         cardBg.fill(THEME.colors.bg_secondary);
         card.addChild(cardBg);
 
-        // Название варианта
         const label = new Text({
             text: variant.label,
             style: new TextStyle({
@@ -193,7 +168,6 @@ export class EventScene extends BaseScene {
         label.y = THEME.layout.spacing.cardPadding;
         card.addChild(label);
 
-        // Описание варианта
         const desc = new Text({
             text: variant.description,
             style: new TextStyle({
@@ -209,19 +183,94 @@ export class EventScene extends BaseScene {
         desc.y = THEME.layout.spacing.cardPadding + label.height + 6;
         card.addChild(desc);
 
-        // Доступность варианта
         if (conditionMet) {
             card.eventMode = 'static';
             card.cursor = 'pointer';
             card.on('pointerdown', () => {
-                this.eventData!.onChoose(index);
+                const result = this.eventData!.onChoose(index);
+                this.buildResultUI(variant.label, result);
             });
         } else {
-            // Условие не выполнено — визуально затеняем
             card.alpha = 0.4;
             card.eventMode = 'none';
         }
 
         this.addChild(card);
+    }
+
+    // ───────────────────────────── Экран результата ──────────────────────
+
+    private buildResultUI(choiceName: string, description: string): void {
+        this.removeChildren();
+
+        this.addChild(createPveBackground(W, THEME.layout.designHeight));
+
+        // Заголовок
+        const heading = new Text({
+            text: 'СОБЫТИЕ',
+            style: new TextStyle({
+                fontSize: THEME.font.sizes.heading,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.black,
+                fill: THEME.colors.text_primary,
+            }),
+        });
+        heading.anchor.set(0.5, 0);
+        heading.x = W / 2;
+        heading.y = THEME.layout.spacing.topOffset;
+        this.addChild(heading);
+
+        // Иконка
+        const icon = new Text({
+            text: '\u2753',
+            style: new TextStyle({ fontSize: 64, fontFamily: THEME.font.family }),
+        });
+        icon.anchor.set(0.5, 0);
+        icon.x = W / 2;
+        icon.y = 140;
+        this.addChild(icon);
+
+        // Название выбора
+        const titleText = new Text({
+            text: choiceName,
+            style: new TextStyle({
+                fontSize: 24,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.bold,
+                fill: THEME.colors.accent_cyan,
+            }),
+        });
+        titleText.anchor.set(0.5, 0);
+        titleText.x = W / 2;
+        titleText.y = 230;
+        this.addChild(titleText);
+
+        // Описание результата
+        const descText = new Text({
+            text: description,
+            style: new TextStyle({
+                fontSize: THEME.font.sizes.subheading,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.medium,
+                fill: THEME.colors.text_primary,
+                wordWrap: true,
+                wordWrapWidth: W - 48,
+                align: 'center',
+            }),
+        });
+        descText.anchor.set(0.5, 0);
+        descText.x = W / 2;
+        descText.y = 280;
+        this.addChild(descText);
+
+        // Кнопка «ПРОДОЛЖИТЬ»
+        const continueBtn = new Button({
+            text: 'ПРОДОЛЖИТЬ',
+            variant: 'primary',
+            onClick: () => this.eventData!.onContinue(),
+        });
+        continueBtn.x = W / 2;
+        continueBtn.y = 420;
+        this.addChild(continueBtn);
     }
 }
