@@ -90,8 +90,8 @@ export class HubScene extends BaseScene {
 
         this.onEquipmentChanged = (data: IEquipmentSlots): void => {
             this.rebuildEquipmentCard(this.weaponCard, data.weapon, 'WEAPON');
-            this.rebuildEquipmentCard(this.armorCard, data.armor, 'ARMOR');
             this.rebuildEquipmentCard(this.accessoryCard, data.accessory, 'ACCESS.');
+            this.rebuildEquipmentCard(this.armorCard, data.armor, 'SHIELD');
         };
 
         this.eventBus.on(GameEvents.STATE_RESOURCES_CHANGED, this.onResourcesChanged);
@@ -339,17 +339,17 @@ export class HubScene extends BaseScene {
         this.weaponCard.position.set(PAD, y);
         this.addChild(this.weaponCard);
 
-        this.armorCard = this.createEquipCard(
-            this.gameState.equipment.armor, 'ARMOR', cardW, cardH, goToInventory,
-        );
-        this.armorCard.position.set(PAD + cardW + gap, y);
-        this.addChild(this.armorCard);
-
         this.accessoryCard = this.createEquipCard(
             this.gameState.equipment.accessory, 'ACCESS.', cardW, cardH, goToInventory,
         );
-        this.accessoryCard.position.set(PAD + (cardW + gap) * 2, y);
+        this.accessoryCard.position.set(PAD + cardW + gap, y);
         this.addChild(this.accessoryCard);
+
+        this.armorCard = this.createEquipCard(
+            this.gameState.equipment.armor, 'SHIELD', cardW, cardH, goToInventory,
+        );
+        this.armorCard.position.set(PAD + (cardW + gap) * 2, y);
+        this.addChild(this.armorCard);
     }
 
     /** Создаёт компактную карточку экипировки */
