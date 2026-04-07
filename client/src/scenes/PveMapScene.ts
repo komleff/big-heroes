@@ -92,7 +92,8 @@ export class PveMapScene extends BaseScene {
         // Для фиксированных узлов (босс, святилище, древний сундук) — показываем их номер;
         // для развилки — показываем номер следующего шага (игрок выбирает, куда идти дальше)
         const isFixedNode = currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary';
-        const displayStep = currentNode.index + 1;
+        // Шаг = количество посещённых узлов + 1 (текущий)
+        const displayStep = expedition.visitedNodes.length + 1;
         const subheading = new Text({
             text: `Шаг ${displayStep} / ${totalNodes}`,
             style: new TextStyle({
@@ -711,8 +712,9 @@ export class PveMapScene extends BaseScene {
     // ───────────────────────────── Навигация по маршруту ─────────────────
 
     /**
-     * Продвинуться к следующему узлу маршрута.
-     * Если узлы закончились — завершить экспедицию с победой через PveResultScene.
+     * Вернуться на карту после завершения точки интереса.
+     * enterNode() установил currentNodeIndex на текущий узел.
+     * Здесь инкрементируем на +1 (следующая точка принятия решений).
      */
     private advanceToNextNode(): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
@@ -741,8 +743,6 @@ export class PveMapScene extends BaseScene {
             return;
         }
 
-        // Просто продвигаемся к следующему узлу — PveMapScene.onEnter() сама
-        // покажет выбор из 2-3 вариантов (ensureForkPaths генерирует на лету)
         const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
         this.gameState.updateExpeditionState(updated);
         void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
