@@ -10,7 +10,7 @@ import { ResourceBar } from '../ui/ResourceBar';
 import {
     advanceToNode, exitExpedition,
     generateRelicPool, configToRelic,
-    generateLoot, generateShopInventory, calcShopRepairCost,
+    generateLoot, generateShopInventory,
     generateForkPaths,
     createRng, randInt,
 } from 'shared';
@@ -416,7 +416,7 @@ export class PveMapScene extends BaseScene {
     }
 
     /**
-     * Магазин — покупка предметов и ремонт.
+     * Магазин — покупка предметов.
      */
     private handleShop(config: IBalanceConfig): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
@@ -433,46 +433,28 @@ export class PveMapScene extends BaseScene {
             config.consumables,
             rng,
         );
-        // Применить скидку к ценам
         const discountedItems = shopItems.map(item => ({
             ...item,
             price: Math.round(item.price * (1 - discount)),
         }));
-
-        const repairCost = Math.round(calcShopRepairCost(50, config.pve.shop) * (1 - discount));
 
         void this.sceneManager.goto('shop', {
             transition: TransitionType.SLIDE_LEFT,
             data: {
                 shopItems: discountedItems,
                 gold: this.gameState.resources.gold + expedition.goldGained,
-                repairCost,
-                onBuy: (itemIndex: number) => {
-                    // Покупка предмета: списать золото, добавить в itemsFound
+                onBuy: (itemIndex: number): number => {
                     const item = discountedItems[itemIndex];
-                    if (!item) return;
+                    if (!item) return this.gameState.resources.gold + (this.gameState.expeditionState as IPveExpeditionState).goldGained;
                     const state = this.gameState.expeditionState as IPveExpeditionState;
                     const totalGold = this.gameState.resources.gold + state.goldGained;
-                    if (totalGold < item.price) return;
+                    if (totalGold < item.price) return totalGold;
                     this.gameState.updateExpeditionState({
                         ...state,
                         goldGained: state.goldGained - item.price,
                         itemsFound: [...state.itemsFound, item.itemId],
                     });
-                },
-                onRepair: () => {
-                    // Полный ремонт снаряжения (GDD: магазин = полный ремонт)
-                    const state = this.gameState.expeditionState as IPveExpeditionState;
-                    const totalGold = this.gameState.resources.gold + state.goldGained;
-                    if (totalGold < repairCost) return;
-                    this.gameState.updateExpeditionState({ ...state, goldGained: state.goldGained - repairCost });
-                    const slots: Array<'weapon' | 'armor' | 'accessory'> = ['weapon', 'armor', 'accessory'];
-                    for (const slot of slots) {
-                        const item = this.gameState.equipment[slot];
-                        if (item && item.currentDurability < item.maxDurability) {
-                            this.gameState.equipItem({ ...item, currentDurability: item.maxDurability });
-                        }
-                    }
+                    return this.gameState.resources.gold + state.goldGained - item.price;
                 },
                 onLeave: () => {
                     this.advanceToNextNode();
