@@ -40,7 +40,7 @@ const config: WebpackConfig = {
         }),
     ],
     devServer: {
-        port: 3000,
+        port: 5173,
         host: '0.0.0.0',
         open: true,
         allowedHosts: 'all',
