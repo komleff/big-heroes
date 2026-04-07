@@ -1,8 +1,8 @@
-import { generateRoute, createExpeditionState, advanceToNode, applyBattleResult, exitExpedition } from './PveSystem';
+import { generateRoute, generateForkPaths, createExpeditionState, advanceToNode, applyBattleResult, exitExpedition } from './PveSystem';
 import type { IPveConfig, IMobConfig, IEventConfig } from '../types/BalanceConfig';
 import type { IBattleResult } from '../types/Battle';
 import type { IRelic } from '../types/Relic';
-import type { IPveRoute } from '../types/PveNode';
+import type { IPveNode, IPveRoute } from '../types/PveNode';
 import { createRng } from '../utils/Random';
 
 // ─── Хелперы ──────────────────────────────────────────────────────────
@@ -392,5 +392,102 @@ describe('exitExpedition', () => {
 
         // Assert
         expect(newState.status).toBe('exited');
+    });
+});
+
+// ─── generateForkPaths ──────────────────────────────────────────────
+
+describe('generateForkPaths', () => {
+    /** Создаёт узел-заглушку для тестов */
+    function makeTargetNode(overrides: Partial<IPveNode> = {}): IPveNode {
+        return { index: 3, type: 'combat', enemyId: 'mob_slime', eventId: undefined, isFork: false, ...overrides };
+    }
+
+    test('возвращает pathCount путей', () => {
+        // Arrange
+        const target = makeTargetNode();
+
+        // Act — pathCount=1
+        const result1 = generateForkPaths(target, pveConfig, enemies, events, 1, createRng(42));
+        // Act — pathCount=3
+        const result3 = generateForkPaths(target, pveConfig, enemies, events, 3, createRng(42));
+
+        // Assert
+        expect(result1.length).toBe(1);
+        expect(result3.length).toBe(3);
+    });
+
+    test('первый путь совпадает с типом целевого узла', () => {
+        // Arrange — combat-узел с enemyId
+        const target = makeTargetNode({ type: 'combat', enemyId: 'mob_goblin' });
+
+        // Act
+        const paths = generateForkPaths(target, pveConfig, enemies, events, 2, createRng(99));
+
+        // Assert
+        expect(paths[0].nodeType).toBe('combat');
+        expect(paths[0].enemyId).toBe('mob_goblin');
+        expect(paths[0].hidden).toBe(false);
+    });
+
+    test('первый путь event содержит eventId', () => {
+        // Arrange — event-узел с eventId
+        const target = makeTargetNode({ type: 'event', enemyId: undefined, eventId: 'evt_trap' });
+
+        // Act
+        const paths = generateForkPaths(target, pveConfig, enemies, events, 2, createRng(55));
+
+        // Assert
+        expect(paths[0].nodeType).toBe('event');
+        expect(paths[0].eventId).toBe('evt_trap');
+        expect(paths[0].hidden).toBe(false);
+    });
+
+    test('pathCount=1 возвращает только основной путь', () => {
+        // Arrange
+        const target = makeTargetNode();
+
+        // Act
+        const paths = generateForkPaths(target, pveConfig, enemies, events, 1, createRng(10));
+
+        // Assert
+        expect(paths.length).toBe(1);
+        expect(paths[0].nodeType).toBe(target.type);
+    });
+
+    test('пустой enemies: combat без enemyId', () => {
+        // Arrange — пустой массив врагов, combat-узел без enemyId
+        const target = makeTargetNode({ type: 'combat', enemyId: undefined });
+
+        // Act — не должна падать
+        const paths = generateForkPaths(target, pveConfig, [], events, 3, createRng(42));
+
+        // Assert
+        expect(paths.length).toBe(3);
+        expect(paths[0].nodeType).toBe('combat');
+    });
+
+    test('пустой events: event без eventId', () => {
+        // Arrange — пустой массив событий, event-узел без eventId
+        const target = makeTargetNode({ type: 'event', enemyId: undefined, eventId: undefined });
+
+        // Act — не должна падать
+        const paths = generateForkPaths(target, pveConfig, enemies, [], 3, createRng(42));
+
+        // Assert
+        expect(paths.length).toBe(3);
+        expect(paths[0].nodeType).toBe('event');
+    });
+
+    test('детерминированный результат при одинаковом seed', () => {
+        // Arrange
+        const target = makeTargetNode();
+
+        // Act — два вызова с одинаковым seed
+        const paths1 = generateForkPaths(target, pveConfig, enemies, events, 3, createRng(42));
+        const paths2 = generateForkPaths(target, pveConfig, enemies, events, 3, createRng(42));
+
+        // Assert — глубокое сравнение
+        expect(paths1).toEqual(paths2);
     });
 });

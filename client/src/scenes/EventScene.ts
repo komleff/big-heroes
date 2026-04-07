@@ -76,7 +76,10 @@ export class EventScene extends BaseScene {
     // ───────────────────────────── Экран выбора ──────────────────────────
 
     private buildChoiceUI(): void {
-        this.removeChildren();
+        // Уничтожаем дочерние элементы для освобождения GPU-памяти
+        for (const child of this.removeChildren()) {
+            child.destroy({ children: true });
+        }
 
         this.addChild(createPveBackground(W, THEME.layout.designHeight));
 
@@ -201,7 +204,10 @@ export class EventScene extends BaseScene {
     // ───────────────────────────── Экран результата ──────────────────────
 
     private buildResultUI(choiceName: string, description: string): void {
-        this.removeChildren();
+        // Уничтожаем дочерние элементы для освобождения GPU-памяти
+        for (const child of this.removeChildren()) {
+            child.destroy({ children: true });
+        }
 
         this.addChild(createPveBackground(W, THEME.layout.designHeight));
 

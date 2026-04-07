@@ -36,7 +36,10 @@ export class CampScene extends BaseScene {
     // ───────────────────────────── Экран выбора действия ─────────────────
 
     private buildChoiceUI(): void {
-        this.removeChildren();
+        // Уничтожаем дочерние элементы для освобождения GPU-памяти
+        for (const child of this.removeChildren()) {
+            child.destroy({ children: true });
+        }
 
         // Фон
         this.addChild(createPveBackground(W, THEME.layout.designHeight));
@@ -139,7 +142,10 @@ export class CampScene extends BaseScene {
     // ───────────────────────────── Экран результата ──────────────────────
 
     private buildResultUI(icon: string, title: string, description: string): void {
-        this.removeChildren();
+        // Уничтожаем дочерние элементы для освобождения GPU-памяти
+        for (const child of this.removeChildren()) {
+            child.destroy({ children: true });
+        }
 
         // Фон
         this.addChild(createPveBackground(W, THEME.layout.designHeight));

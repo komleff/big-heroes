@@ -141,10 +141,10 @@ export class PveMapScene extends BaseScene {
         }
 
         // --- Иконка и название — только для фиксированных узлов (босс, святилище, древний сундук) ---
-        const isFixedEntry = currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary';
+        // Переиспользуем isFixedNode (определён выше) вместо дублирования
         let actionY = 220;
 
-        if (isFixedEntry) {
+        if (isFixedNode) {
             const nodeIcon = new Text({
                 text: display.icon,
                 style: new TextStyle({ fontSize: 64, fontFamily: THEME.font.family }),
@@ -248,7 +248,8 @@ export class PveMapScene extends BaseScene {
 
         // Генерируем развилку динамически
         const config = balanceConfig as unknown as IBalanceConfig;
-        const rng = createRng(Date.now() + expedition.currentNodeIndex);
+        // Детерминированный seed — воспроизводимые развилки при перезагрузке
+        const rng = createRng(expedition.route.seed + expedition.currentNodeIndex);
         const nextIndex = expedition.currentNodeIndex + 1;
 
         if (nextIndex >= expedition.route.totalNodes) {
@@ -258,8 +259,8 @@ export class PveMapScene extends BaseScene {
 
         const nextNode = expedition.route.nodes[nextIndex];
 
-        // Босс и древний сундук — обязательные, без альтернатив
-        if (nextNode.type === 'boss' || nextNode.type === 'ancient_chest') {
+        // Босс, древний сундук, святилище — обязательные, без альтернатив
+        if (nextNode.type === 'boss' || nextNode.type === 'ancient_chest' || nextNode.type === 'sanctuary') {
             return [{ nodeType: nextNode.type, hidden: false, enemyId: nextNode.enemyId, eventId: nextNode.eventId }];
         }
 

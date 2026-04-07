@@ -50,7 +50,10 @@ export class ShopScene extends BaseScene {
     // ───────────────────────────── Построение UI ─────────────────────────
 
     private buildUI(): void {
-        this.removeChildren();
+        // Уничтожаем дочерние элементы для освобождения GPU-памяти
+        for (const child of this.removeChildren()) {
+            child.destroy({ children: true });
+        }
 
         // Фон
         this.addChild(createPveBackground(W, THEME.layout.designHeight));
