@@ -28,6 +28,8 @@ async function main(): Promise<void> {
         width: THEME.layout.designWidth,
         height: THEME.layout.designHeight,
         backgroundColor: THEME.colors.bg_primary,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
         resizeTo: window,
     });
 
