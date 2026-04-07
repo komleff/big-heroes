@@ -59,6 +59,12 @@ export interface IFormulaConfig {
     winChanceMax: number;         // 0.95
 }
 
+export interface IHeroLeagueConfig {
+    name: string;
+    minRating: number;
+    maxRating: number;
+}
+
 // Конфигурация PvE-генерации маршрута
 export interface IPveNodeWeights {
     combat: number;
@@ -145,6 +151,7 @@ export interface IBalanceConfig {
         startMass: number;
         startRating: number;
         massCap: number;
+        leagues: IHeroLeagueConfig[];
     };
     resources: {
         startGold: number;

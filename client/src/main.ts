@@ -18,7 +18,6 @@ import { ShopScene } from './scenes/ShopScene';
 import { CampScene } from './scenes/CampScene';
 import { EventScene } from './scenes/EventScene';
 import { PveResultScene } from './scenes/PveResultScene';
-import hubBgUrl from './assets/hub-bg.png';
 import hubBgNewUrl from './assets/hub-bg-new.jpg';
 
 // Точка входа — инициализация PixiJS Application и игровых систем
@@ -34,7 +33,8 @@ async function main(): Promise<void> {
         window.innerWidth / THEME.layout.designWidth,
         window.innerHeight / THEME.layout.designHeight,
     );
-    const resolution = Math.max(dpr, Math.ceil(scaleFactor));
+    // Ограничиваем resolution сверху, чтобы 4K-экраны не раздували canvas до десятков мегапикселей.
+    const resolution = Math.min(2, Math.max(dpr, Math.ceil(scaleFactor)));
 
     await app.init({
         width: window.innerWidth,
@@ -51,7 +51,6 @@ async function main(): Promise<void> {
     await document.fonts.ready;
 
     // Прелоад ассетов
-    await Assets.load(hubBgUrl);
     await Assets.load({ alias: 'hub-bg-new', src: hubBgNewUrl });
 
     // Инициализация ядра

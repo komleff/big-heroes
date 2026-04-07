@@ -2,7 +2,10 @@
   "hero": {
     "startMass": 50,
     "startRating": 1000,
-    "massCap": 125
+    "massCap": 125,
+    "leagues": [
+      { "name": "Бронзовая лига", "minRating": 0, "maxRating": 1500 }
+    ]
   },
   "resources": {
     "startGold": 100

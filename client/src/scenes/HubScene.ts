@@ -8,13 +8,24 @@ import { ProgressBar } from '../ui/ProgressBar';
 import { BottomNav } from '../ui/BottomNav';
 import { DurabilityPips } from '../ui/DurabilityPips';
 import balanceConfig from '@config/balance.json';
-import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig, IEquipmentItem, IRelic } from 'shared';
+import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig, IEquipmentItem, IRelic, IHeroLeagueConfig } from 'shared';
 import { generateRoute, createRng, calcHeroStats } from 'shared';
 
 // ─── Константы раскладки ──────────────────────────────────────────
 const W = 390;
 const H = 844;
 const PAD = 12;
+const balance = balanceConfig as unknown as IBalanceConfig;
+
+function getLeagueConfig(rating: number): IHeroLeagueConfig {
+    const leagues = balance.hero.leagues;
+    if (leagues.length === 0) {
+        return { name: 'Лига', minRating: 0, maxRating: 0 };
+    }
+
+    const matchedLeague = leagues.find(league => rating >= league.minRating && rating <= league.maxRating);
+    return matchedLeague ?? leagues[leagues.length - 1];
+}
 
 /**
  * Центральный хаб — главный экран игры (v7).
@@ -29,6 +40,7 @@ export class HubScene extends BaseScene {
     // Ссылки на обновляемые UI-компоненты
     private goldText!: Text;
     private premiumText!: Text;
+    private leagueLabel!: Text;
     private leagueBar!: ProgressBar;
     private massText!: Text;
     private statsText!: Text;
@@ -83,15 +95,14 @@ export class HubScene extends BaseScene {
 
         this.onHeroChanged = (data: IHeroState): void => {
             this.massText.text = `${data.mass} kg`;
-            const stats = calcHeroStats(data.mass, this.gameState.equipment, [...this.gameState.activeRelics] as IRelic[]);
-            this.statsText.text = `Сила: ${stats.strength}, Здоровье: ${stats.hp}`;
-            this.leagueBar.update(data.rating);
+            this.updateDerivedHeroUi(data);
         };
 
         this.onEquipmentChanged = (data: IEquipmentSlots): void => {
             this.rebuildEquipmentCard(this.weaponCard, data.weapon, 'WEAPON');
             this.rebuildEquipmentCard(this.accessoryCard, data.accessory, 'ACCESS.');
             this.rebuildEquipmentCard(this.armorCard, data.armor, 'SHIELD');
+            this.updateDerivedHeroUi(this.gameState.hero);
         };
 
         this.eventBus.on(GameEvents.STATE_RESOURCES_CHANGED, this.onResourcesChanged);
@@ -233,10 +244,11 @@ export class HubScene extends BaseScene {
 
     private buildLeagueBar(): void {
         const y = 52;
+        const league = getLeagueConfig(this.gameState.hero.rating);
 
         // Лейбл лиги
-        const leagueLabel = new Text({
-            text: 'Бронзовая лига',
+        this.leagueLabel = new Text({
+            text: league.name,
             style: new TextStyle({
                 fontSize: 14,
                 fontFamily: THEME.font.family,
@@ -244,14 +256,14 @@ export class HubScene extends BaseScene {
                 fill: THEME.colors.text_primary,
             }),
         });
-        leagueLabel.position.set(PAD, y);
-        this.addChild(leagueLabel);
+        this.leagueLabel.position.set(PAD, y);
+        this.addChild(this.leagueLabel);
 
-        // Прогресс-бар рейтинга (бронзовая лига: 0-1500)
+        // Прогресс-бар рейтинга текущей лиги.
         const barWidth = W - PAD * 2;
         this.leagueBar = new ProgressBar({
             width: barWidth,
-            max: 1500,
+            max: league.maxRating,
             current: this.gameState.hero.rating,
         });
         this.leagueBar.position.set(PAD, y + 20);
@@ -385,7 +397,7 @@ export class HubScene extends BaseScene {
         while (card.children.length > 1) {
             const child = card.children[card.children.length - 1];
             card.removeChild(child);
-            child.destroy();
+            child.destroy({ children: true });
         }
 
         const pad = 6;
@@ -473,6 +485,15 @@ export class HubScene extends BaseScene {
     private rebuildEquipmentCard(card: Container, item: IEquipmentItem | null, slotLabel: string): void {
         const cardW = Math.floor((W - PAD * 2 - 12) / 3);
         this.fillEquipCard(card, item, slotLabel, cardW);
+    }
+
+    private updateDerivedHeroUi(hero: IHeroState): void {
+        const stats = calcHeroStats(hero.mass, this.gameState.equipment, [...this.gameState.activeRelics] as IRelic[]);
+        this.statsText.text = `Сила: ${stats.strength}, Здоровье: ${stats.hp}`;
+
+        const league = getLeagueConfig(hero.rating);
+        this.leagueLabel.text = league.name;
+        this.leagueBar.update(hero.rating, league.maxRating);
     }
 
     // ─── Belt slots ─────────────────────────────────────────────────

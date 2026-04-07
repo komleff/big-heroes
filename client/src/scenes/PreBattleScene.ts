@@ -28,7 +28,7 @@ const W = THEME.layout.designWidth; // 390
 
 /** Описание одной кнопки команды */
 interface CommandDef {
-    id: CommandId;
+    id: CommandId | null;
     icon: string;
     label: string;
     slot: 'weapon' | 'armor' | 'accessory';
@@ -77,8 +77,7 @@ const ALL_COMMANDS: CommandDef[] = [
 /** Заглушка для заблокированного слота (нет аксессуара) */
 function createLockedCommand(): CommandDef {
     return {
-        // Placeholder id — кнопка всегда disabled, cmd_attack выбран как безопасный sentinel
-        id: 'cmd_attack',
+        id: null,
         icon: '\uD83D\uDD12',
         label: 'Нет аксессуара',
         slot: 'accessory',
@@ -516,7 +515,7 @@ export class PreBattleScene extends BaseScene {
             // Атака и Блок доступны ВСЕГДА (по GDD), аксессуар — блокируется при durability=0
             const isAlwaysAvailable = cmd.id === 'cmd_attack' || cmd.id === 'cmd_block';
             // Средний слот — заблокирован если нет аксессуара (label = 'Нет аксессуара')
-            const isLockedSlot = cmd.label === 'Нет аксессуара';
+            const isLockedSlot = cmd.id === null;
             // Retreat и Bypass запрещены против босса (по GDD)
             const isBossRestricted = this.enemy.type === 'boss'
                 && (cmd.id === 'cmd_retreat' || cmd.id === 'cmd_bypass');
@@ -613,9 +612,10 @@ export class PreBattleScene extends BaseScene {
             container.addChild(itemLabel);
 
             // Обработчик тапа
-            if (!isDisabled) {
+            if (!isDisabled && cmd.id) {
+                const commandId = cmd.id;
                 container.on('pointerdown', () => {
-                    this.onCommandTap(cmd.id);
+                    this.onCommandTap(commandId);
                 });
             }
 
@@ -655,7 +655,7 @@ export class PreBattleScene extends BaseScene {
             const existingSelBg = container.getChildByLabel('sel-bg');
             if (existingSelBg) container.removeChild(existingSelBg);
 
-            if (cmd.id === this.selectedCommand) {
+            if (cmd.id && cmd.id === this.selectedCommand) {
                 // Зелёный полупрозрачный фон
                 const selBg = new Graphics();
                 selBg.roundRect(0, 0, btnW, btnH, 14);
