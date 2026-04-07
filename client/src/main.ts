@@ -1,4 +1,4 @@
-import { Application, Assets } from 'pixi.js';
+import { Application, Assets, AbstractRenderer } from 'pixi.js';
 import type { IBalanceConfig } from 'shared';
 import balanceConfig from '@config/balance.json';
 import { THEME } from './config/ThemeConfig';
@@ -19,6 +19,16 @@ import { CampScene } from './scenes/CampScene';
 import { EventScene } from './scenes/EventScene';
 import { PveResultScene } from './scenes/PveResultScene';
 import hubBgUrl from './assets/hub-bg.png';
+
+// Глобальная resolution для чёткого текста при viewport-масштабировании
+// SceneManager масштабирует sceneContainer (designWidth→экран), Text-текстуры
+// должны рендериться с запасом, иначе растягивание размывает шрифты
+const scaleFactor = Math.min(
+    window.innerWidth / THEME.layout.designWidth,
+    window.innerHeight / THEME.layout.designHeight,
+);
+const textResolution = Math.ceil(scaleFactor * (window.devicePixelRatio || 1));
+AbstractRenderer.defaultOptions.resolution = textResolution;
 
 // Точка входа — инициализация PixiJS Application и игровых систем
 async function main(): Promise<void> {
