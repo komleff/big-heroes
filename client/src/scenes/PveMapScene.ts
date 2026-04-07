@@ -92,7 +92,7 @@ export class PveMapScene extends BaseScene {
         // Для фиксированных узлов (босс, святилище, древний сундук) — показываем их номер;
         // для развилки — показываем номер следующего шага (игрок выбирает, куда идти дальше)
         const isFixedNode = currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary';
-        const displayStep = isFixedNode ? currentNode.index + 1 : Math.min(currentNode.index + 2, totalNodes);
+        const displayStep = currentNode.index + 1;
         const subheading = new Text({
             text: `Шаг ${displayStep} / ${totalNodes}`,
             style: new TextStyle({
