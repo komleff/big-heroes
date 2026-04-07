@@ -25,14 +25,22 @@ import hubBgNewUrl from './assets/hub-bg-new.jpg';
 async function main(): Promise<void> {
     const app = new Application();
 
-    // Canvas = реальный размер окна, resolution = DPR для чётких пикселей.
-    // Сцены работают в дизайн-координатах 390×844, контейнер масштабируется.
-    // Текст рендерится в реальном разрешении → нет bitmap-растягивания.
+    // Resolution = max(DPR, scaleFactor) — чтобы Text-текстуры рендерились
+    // с достаточной детализацией даже на десктопах с DPR=1.
+    // Container scale растягивает сцены из 390×844 → экран, и Text должен
+    // иметь достаточно пикселей для этого масштаба.
+    const dpr = window.devicePixelRatio || 1;
+    const scaleFactor = Math.min(
+        window.innerWidth / THEME.layout.designWidth,
+        window.innerHeight / THEME.layout.designHeight,
+    );
+    const resolution = Math.max(dpr, Math.ceil(scaleFactor));
+
     await app.init({
         width: window.innerWidth,
         height: window.innerHeight,
         backgroundColor: THEME.colors.bg_primary,
-        resolution: window.devicePixelRatio || 1,
+        resolution,
         autoDensity: true,
         resizeTo: window,
     });
