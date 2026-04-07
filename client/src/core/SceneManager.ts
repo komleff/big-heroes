@@ -284,18 +284,32 @@ export class SceneManager {
         this.history.pop();
     }
 
-    /** Обновление viewport-масштабирования при ресайзе */
-    resize(width: number, height: number): void {
+    /**
+     * Viewport-масштабирование через CSS (не контейнерный scale).
+     * Контейнерный scale растягивает Text-текстуры → размытые шрифты.
+     * CSS-масштабирование делается браузером нативно и чётко на любом устройстве.
+     */
+    resize(_width?: number, _height?: number): void {
         const { designWidth, designHeight } = THEME.layout;
-        const scaleFactor = Math.min(width / designWidth, height / designHeight);
-        this.sceneContainer.scale.set(scaleFactor);
-        this.sceneContainer.position.set(
-            (width - designWidth * scaleFactor) / 2,
-            (height - designHeight * scaleFactor) / 2,
+        const cssScale = Math.min(
+            window.innerWidth / designWidth,
+            window.innerHeight / designHeight,
         );
+        const canvas = this.app.canvas;
+        const cssW = designWidth * cssScale;
+        const cssH = designHeight * cssScale;
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${cssH}px`;
+        canvas.style.position = 'absolute';
+        canvas.style.left = `${(window.innerWidth - cssW) / 2}px`;
+        canvas.style.top = `${(window.innerHeight - cssH) / 2}px`;
+
+        // Контейнер сцен: без scale, координаты 390×844
+        this.sceneContainer.scale.set(1);
+        this.sceneContainer.position.set(0, 0);
 
         // Уведомляем текущую сцену о ресайзе
-        this.currentScene?.onResize(width, height);
+        this.currentScene?.onResize(designWidth, designHeight);
     }
 
     /** Текущее имя активной сцены */
