@@ -31,6 +31,7 @@
 | Rules | Правила | `.claude/rules/*.md` | Ограничения по типу кода |
 | Hooks | Хуки | `.claude/settings.json` | Тесты перед коммитом, PR-gate |
 | Memory Bank | Контекст | `.memory_bank/` | Состояние между сессиями |
+| external-review | Скилл | `.claude/skills/external-review/` | Кросс-модельное ревью через Codex CLI |
 | Beads | Задачи | `.beads/` | Issue tracking для ИИ |
 
 ---
@@ -54,7 +55,7 @@ PM → /sprint-pr-cycle → внутреннее ревью (4 аспекта)
        ↓
 CHANGES_REQUESTED? → Developer → fix → повтор
        ↓
-APPROVED → оператор передаёт в внешнее ревью (GPT / Copilot)
+APPROVED → PM → /external-review → кросс-модельное ревью (GPT-5.4 + GPT-5.3-Codex + Copilot)
        ↓
 APPROVED → оператор мержит PR
        ↓

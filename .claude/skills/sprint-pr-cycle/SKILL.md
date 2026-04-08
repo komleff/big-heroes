@@ -149,7 +149,14 @@ EOF
 
 ### Шаг 2.3: Исправление замечаний (если есть)
 
-Если хотя бы один аспект `CHANGES_REQUESTED` — запусти developer субагента на исправления, потом **атомарный финиш: `git push` + `gh pr comment`** (ОБА обязательны), затем повтори ревью.
+Если хотя бы один аспект `CHANGES_REQUESTED` — запусти developer субагента на исправления, потом **атомарный финиш: `git push` + `gh pr comment`** (ОБА обязательны), запроси Copilot re-review, затем повтори ревью.
+
+```bash
+# После git push — запроси Copilot re-review
+REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
+gh api "repos/$REPO/pulls/<NUMBER>/requested_reviewers" \
+  --method POST -f 'reviewers[]=copilot-pull-request-reviewer[bot]' 2>/dev/null
+```
 
 > ⛔ `git push` без `gh pr comment` = незавершённый цикл. Не останавливайся после push.
 > Только `gh pr comment` — не `gh pr review` (агенты работают под аккаунтом оператора).
@@ -157,23 +164,39 @@ EOF
 
 ## Фаза 3: Внешнее ревью (Sprint Final)
 
-> **ОБЯЗАТЕЛЬНО перед merge в master.** PM инициирует кросс-модельное ревью, передавая PR внешним моделям.
+> **ОБЯЗАТЕЛЬНО перед merge в master.** PM запускает `/external-review`, который автоматически вызывает GPT-5.4 и GPT-5.3-Codex через Codex CLI.
 
-### Шаг 3.1: Подготовка промптов для внешних моделей
+### Шаг 3.1: Запуск внешнего ревью
 
-Создай файл `docs/plans/sprint-N-review-prompts.md` с промптами для:
-- GPT-5.4 (архитектура + качество)
-- GPT-5.3-Codex (безопасность + тесты)
+Вызови скилл:
 
-### Шаг 3.2: Публикация результатов внешнего ревью
-
-После получения вердиктов от оператора — опубликуй в PR:
-
-```bash
-gh pr comment <NUMBER> --body-file external-review.md
+```
+/external-review <PR_NUMBER>
 ```
 
-После публикации внешнего ревью перед handoff оператору снова выполни Pre-Chat Gate.
+Скилл автоматически:
+
+- Запустит GPT-5.4 и GPT-5.3-Codex (оба по всем 4 аспектам)
+- Запросит Copilot re-review
+- Опубликует консолидированный отчёт в PR
+
+### Шаг 3.2: Обработка результатов
+
+Если вердикт `CHANGES_REQUESTED`:
+
+1. Исправь CRITICAL замечания через Developer-субагента
+2. `git push`
+3. Запроси Copilot re-review:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
+gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
+  --method POST -f 'reviewers[]=copilot-pull-request-reviewer[bot]' 2>/dev/null
+```
+
+4. Повтори `/external-review <PR_NUMBER>`
+
+Если вердикт `APPROVED` — переходи к Фазе 4.
 
 ## Фаза 4: Готовность к merge
 
