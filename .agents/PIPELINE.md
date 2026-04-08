@@ -55,7 +55,7 @@ PM → /sprint-pr-cycle → внутреннее ревью (4 аспекта)
        ↓
 CHANGES_REQUESTED? → Developer → fix → повтор
        ↓
-APPROVED → PM → /external-review → кросс-модельное ревью (GPT-5.4 + GPT-5.3-Codex + Copilot)
+APPROVED → PM → /external-review → кросс-модельное ревью (внешние модели + Copilot)
        ↓
 APPROVED → оператор мержит PR
        ↓
