@@ -10,7 +10,7 @@ import { ResourceBar } from '../ui/ResourceBar';
 import {
     advanceToNode, exitExpedition,
     generateRelicPool, configToRelic,
-    generateLoot, generateShopInventory, calcShopRepairCost,
+    generateLoot, generateShopInventory,
     generateForkPaths,
     createRng, randInt,
 } from 'shared';
@@ -105,17 +105,19 @@ export class PveMapScene extends BaseScene {
         subheading.y = 100;
         this.addChild(subheading);
 
-        // --- Ресурсы экспедиции ---
+        // --- Ресурсы (базовые + набранные в походе) ---
+        const totalMass = gameState.hero.mass + expedition.massGained;
+        const totalGold = gameState.resources.gold + expedition.goldGained;
         const massBar = new ResourceBar({
             label: 'Масса',
-            value: expedition.massGained,
+            value: totalMass,
         });
         massBar.position.set(16, 140);
         this.addChild(massBar);
 
         const goldBar = new ResourceBar({
-            label: 'Gold',
-            value: expedition.goldGained,
+            label: 'Золото',
+            value: totalGold,
         });
         goldBar.position.set(200, 140);
         this.addChild(goldBar);
@@ -137,79 +139,42 @@ export class PveMapScene extends BaseScene {
             this.addChild(relicsText);
         }
 
-        // --- Навигация: фиксированный вход ИЛИ выбор из 2-3 вариантов ---
+        // --- Развилка: 1-3 варианта точки интереса ---
         let actionY = 220;
 
-        // Фиксированные узлы (босс, древний сундук, святилище) — единственный путь
-        const isFixedNode = currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary';
+        // ensureForkPaths смотрит на ТЕКУЩИЙ узел:
+        // - Фиксированный (boss/ancient_chest/sanctuary) → 1 вариант
+        // - Обычный → 2-3 случайных варианта
+        const forkPaths = this.ensureForkPaths(currentNode, expedition);
 
-        if (isFixedNode) {
-            const nodeIcon = new Text({
-                text: display.icon,
-                style: new TextStyle({ fontSize: 64, fontFamily: THEME.font.family }),
+        const forkLabel = new Text({
+            text: 'Выберите путь:',
+            style: new TextStyle({
+                fontSize: THEME.font.sizes.subheading,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.medium,
+                fill: THEME.colors.text_secondary,
+            }),
+        });
+        forkLabel.anchor.set(0.5, 0);
+        forkLabel.x = W / 2;
+        forkLabel.y = actionY;
+        this.addChild(forkLabel);
+        actionY += 40;
+
+        for (const path of forkPaths) {
+            const pathDisplay = getNodeDisplay(path.nodeType);
+            const pathLabel = path.hidden ? '???' : `${pathDisplay.icon} ${pathDisplay.name}`;
+            const pathBtn = new Button({
+                text: pathLabel,
+                variant: 'secondary',
+                onClick: () => {
+                    this.handleForkChoice(path.nodeType, path.enemyId, path.eventId);
+                },
             });
-            nodeIcon.anchor.set(0.5, 0);
-            nodeIcon.x = W / 2;
-            nodeIcon.y = 220;
-            this.addChild(nodeIcon);
-
-            const nodeName = new Text({
-                text: display.name,
-                style: new TextStyle({
-                    fontSize: THEME.font.sizes.subheading,
-                    fontFamily: THEME.font.family,
-                    fontWeight: THEME.font.weights.bold,
-                    fill: THEME.colors.text_primary,
-                }),
-            });
-            nodeName.anchor.set(0.5, 0);
-            nodeName.x = W / 2;
-            nodeName.y = 300;
-            this.addChild(nodeName);
-            actionY = 360;
-
-            const isCombatNode = currentNode.type === 'boss';
-            const enterBtn = new Button({
-                text: isCombatNode ? 'ВСТУПИТЬ В БОЙ' : 'ВОЙТИ',
-                variant: isCombatNode ? 'primary' : 'secondary',
-                onClick: () => { this.enterNode(currentNode); },
-            });
-            enterBtn.position.set(39 + THEME.layout.buttonWidth / 2, actionY);
-            this.addChild(enterBtn);
-            actionY += 80;
-        } else {
-            // Все остальные — ВСЕГДА развилка с 2-3 вариантами (граф Slay the Spire)
-            const forkPaths = this.ensureForkPaths(currentNode, expedition);
-
-            const forkLabel = new Text({
-                text: 'Выберите путь:',
-                style: new TextStyle({
-                    fontSize: THEME.font.sizes.subheading,
-                    fontFamily: THEME.font.family,
-                    fontWeight: THEME.font.weights.medium,
-                    fill: THEME.colors.text_secondary,
-                }),
-            });
-            forkLabel.anchor.set(0.5, 0);
-            forkLabel.x = W / 2;
-            forkLabel.y = actionY;
-            this.addChild(forkLabel);
-            actionY += 40;
-
-            for (const path of forkPaths) {
-                const pathDisplay = getNodeDisplay(path.nodeType);
-                const pathLabel = path.hidden ? '???' : `${pathDisplay.icon} ${pathDisplay.name}`;
-                const pathBtn = new Button({
-                    text: pathLabel,
-                    variant: 'secondary',
-                    onClick: () => {
-                        this.handleForkChoice(path.nodeType, path.enemyId, path.eventId);
-                    },
-                });
-                pathBtn.position.set(39 + THEME.layout.buttonWidth / 2, actionY);
-                this.addChild(pathBtn);
-                actionY += 70;
-            }
+            pathBtn.position.set(39 + THEME.layout.buttonWidth / 2, actionY);
+            this.addChild(pathBtn);
+            actionY += 70;
         }
 
         // --- Кнопка «Выйти из похода» (скрыта на боссе) ---
@@ -237,35 +202,32 @@ export class PveMapScene extends BaseScene {
      * Если развилка уже есть — вернуть её; иначе — сгенерировать динамически
      * (аналог Slay the Spire: игрок всегда видит 2-3 варианта следующей точки).
      */
+    /**
+     * Генерирует варианты для развилки на ТЕКУЩЕМ узле.
+     * - Фиксированный (boss/ancient_chest/sanctuary) → 1 вариант (сам текущий тип)
+     * - Обычный → 2-3 случайных варианта (без дублей одного типа на развилке)
+     */
     private ensureForkPaths(node: IPveNode, expedition: IPveExpeditionState): IPveForkPath[] {
+        // Фиксированные узлы — единственный вариант (сам текущий тип)
+        const isFixed = node.type === 'boss' || node.type === 'ancient_chest' || node.type === 'sanctuary';
+        if (isFixed) {
+            return [{ nodeType: node.type, hidden: false, enemyId: node.enemyId, eventId: node.eventId }];
+        }
+
+        // Если развилка уже сгенерирована — вернуть её
         if (node.isFork && node.forkPaths && node.forkPaths.length > 0) {
             return node.forkPaths;
         }
 
-        // Генерируем развилку динамически
+        // Генерируем 2-3 случайных варианта
         const config = balanceConfig as unknown as IBalanceConfig;
-        // Детерминированный seed — воспроизводимые развилки при перезагрузке
         const rng = createRng(expedition.route.seed + expedition.currentNodeIndex);
-        const nextIndex = expedition.currentNodeIndex + 1;
-
-        if (nextIndex >= expedition.route.totalNodes) {
-            const bossNode = expedition.route.nodes[expedition.route.totalNodes - 1];
-            return [{ nodeType: bossNode.type, hidden: false, enemyId: bossNode.enemyId }];
-        }
-
-        const nextNode = expedition.route.nodes[nextIndex];
-
-        // Босс, древний сундук, святилище — обязательные, без альтернатив
-        if (nextNode.type === 'boss' || nextNode.type === 'ancient_chest' || nextNode.type === 'sanctuary') {
-            return [{ nodeType: nextNode.type, hidden: false, enemyId: nextNode.enemyId, eventId: nextNode.eventId }];
-        }
-
         const pathCount = randInt(rng, config.pve.paths_per_fork_min, config.pve.paths_per_fork_max);
         const forkPaths = generateForkPaths(
-            nextNode, config.pve, config.enemies, config.events, pathCount, rng,
+            node, config.pve, config.enemies, config.events, pathCount, rng,
         );
 
-        // Сохранить сгенерированные пути в route (чтобы при перезагрузке сцены показать те же)
+        // Сохранить в route (детерминированность при перезагрузке)
         const updatedNodes = [...expedition.route.nodes];
         updatedNodes[node.index] = { ...node, isFork: true, forkPaths };
         const updatedRoute = { ...expedition.route, nodes: updatedNodes };
@@ -282,27 +244,17 @@ export class PveMapScene extends BaseScene {
      * advanceToNextNode → idx=N+1. Карта: step=N+2.
      * Все индексы посещаются → visitedNodes.length = номер шага - 1.
      */
+    /**
+     * Обработка выбора на развилке.
+     * Записывает выбранный тип в текущий узел и сразу входит в него.
+     * Для фиксированных (boss/ancient_chest/sanctuary) — тип уже записан при генерации,
+     * запись идемпотентна.
+     */
     private handleForkChoice(nodeType: PveNodeType, enemyId?: string, eventId?: string): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
         const currentIdx = expedition.currentNodeIndex;
-        const nextIndex = currentIdx + 1;
 
-        // Фиксированные узлы (boss/ancient_chest/sanctuary) — якоря в route.
-        // Не перезаписываем текущий узел их типом (иначе дубликат).
-        // Переходим к фиксированному узлу на карте — onEnter покажет его с кнопкой ВОЙТИ.
-        const isFixedType = nodeType === 'boss' || nodeType === 'ancient_chest' || nodeType === 'sanctuary';
-        if (isFixedType && nextIndex < expedition.route.totalNodes) {
-            const updatedState: IPveExpeditionState = {
-                ...expedition,
-                currentNodeIndex: nextIndex,
-                visitedNodes: [...expedition.visitedNodes, currentIdx],
-            };
-            this.gameState.updateExpeditionState(updatedState);
-            void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
-            return;
-        }
-
-        // Обычные типы: обновить ТЕКУЩИЙ узел по выбранному типу
+        // Записать выбранный тип в текущий узел
         const updatedNodes = [...expedition.route.nodes];
         updatedNodes[currentIdx] = {
             ...updatedNodes[currentIdx],
@@ -316,6 +268,7 @@ export class PveMapScene extends BaseScene {
         const updatedRoute = { ...expedition.route, nodes: updatedNodes };
         this.gameState.updateExpeditionState({ ...expedition, route: updatedRoute });
 
+        // Сразу войти (без промежуточного экрана)
         this.enterNode(updatedNodes[currentIdx]);
     }
 
@@ -452,48 +405,22 @@ export class PveMapScene extends BaseScene {
             price: Math.round(item.price * (1 - discount)),
         }));
 
-        // Стоимость ремонта = суммарная нехватка прочности × цена за единицу × наценка магазина
-        const baseDamage = this.calcTotalDurabilityDamage();
-        const repairCost = baseDamage > 0
-            ? calcShopRepairCost(baseDamage * config.pve.shop.repair_gold_per_durability, config.pve.shop)
-            : 0;
-
         void this.sceneManager.goto('shop', {
             transition: TransitionType.SLIDE_LEFT,
             data: {
                 shopItems: discountedItems,
                 gold: this.gameState.resources.gold + expedition.goldGained,
-                repairCost,
                 onBuy: (itemIndex: number): number => {
                     const item = discountedItems[itemIndex];
                     if (!item) return this.gameState.resources.gold + (this.gameState.expeditionState as IPveExpeditionState).goldGained;
                     const state = this.gameState.expeditionState as IPveExpeditionState;
                     const totalGold = this.gameState.resources.gold + state.goldGained;
-                    if (totalGold < item.price) return totalGold;
+                    if (totalGold < item.price) return totalGold; // Защита от отрицательного золота
                     const newGoldGained = state.goldGained - item.price;
                     this.gameState.updateExpeditionState({
                         ...state,
                         goldGained: newGoldGained,
                         itemsFound: [...state.itemsFound, item.itemId],
-                    });
-                    return this.gameState.resources.gold + newGoldGained;
-                },
-                onRepair: (): number => {
-                    const state = this.gameState.expeditionState as IPveExpeditionState;
-                    const totalGold = this.gameState.resources.gold + state.goldGained;
-                    if (totalGold < repairCost) return totalGold;
-                    // Полный ремонт всего снаряжения
-                    const slots: Array<'weapon' | 'armor' | 'accessory'> = ['weapon', 'armor', 'accessory'];
-                    for (const slot of slots) {
-                        const item = this.gameState.equipment[slot];
-                        if (item && item.currentDurability < item.maxDurability) {
-                            this.gameState.equipItem({ ...item, currentDurability: item.maxDurability });
-                        }
-                    }
-                    const newGoldGained = state.goldGained - repairCost;
-                    this.gameState.updateExpeditionState({
-                        ...state,
-                        goldGained: newGoldGained,
                     });
                     return this.gameState.resources.gold + newGoldGained;
                 },
@@ -700,7 +627,7 @@ export class PveMapScene extends BaseScene {
                     drops: lootResult.drops,
                     onTake,
                     onComplete: () => {
-                        this.showRelicSelection(config, 2);
+                        this.showRelicSelection(config, 2, 'ВЫБОР РЕЛИКВИИ');
                     },
                 },
             });
@@ -722,7 +649,7 @@ export class PveMapScene extends BaseScene {
     /**
      * Показать выбор реликвии из пула, после выбора — продвинуть.
      */
-    private showRelicSelection(config: IBalanceConfig, count: number): void {
+    private showRelicSelection(config: IBalanceConfig, count: number, title?: string): void {
         const activeRelics = [...this.gameState.activeRelics];
         const rng = createRng(Date.now());
         const pool = generateRelicPool(config.relics, activeRelics, count, rng);
@@ -736,6 +663,7 @@ export class PveMapScene extends BaseScene {
             transition: TransitionType.SLIDE_LEFT,
             data: {
                 relicPool: pool,
+                title,
                 onSelect: (index: number) => {
                     const relic = configToRelic(pool[index]);
                     if (this.gameState.isRelicsFull()) {
@@ -786,19 +714,6 @@ export class PveMapScene extends BaseScene {
         const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
         this.gameState.updateExpeditionState(updated);
         void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
-    }
-
-    /** Суммарная нехватка прочности по всем слотам экипировки */
-    private calcTotalDurabilityDamage(): number {
-        const slots: Array<'weapon' | 'armor' | 'accessory'> = ['weapon', 'armor', 'accessory'];
-        let total = 0;
-        for (const slot of slots) {
-            const item = this.gameState.equipment[slot];
-            if (item && item.currentDurability < item.maxDurability) {
-                total += item.maxDurability - item.currentDurability;
-            }
-        }
-        return total;
     }
 
     onExit(): void {

@@ -247,9 +247,21 @@ export function generateForkPaths(
     };
     const paths: IPveForkPath[] = [mainPath];
 
-    // Альтернативные пути
+    // Альтернативные пути (без дублей одинаковых типов на одной развилке,
+    // кроме combat/elite — они допускают повторы с разными врагами)
+    const usedTypes = new Set<PveNodeType>([mainPath.nodeType]);
+    const combatTypes = new Set<PveNodeType>(['combat', 'elite']);
+
     for (let p = 1; p < pathCount; p++) {
-        const altType = weightedPick(rng, nodeTypes, nodeWeights);
+        let altType: PveNodeType;
+        let attempts = 0;
+        do {
+            altType = weightedPick(rng, nodeTypes, nodeWeights);
+            attempts++;
+        } while (usedTypes.has(altType) && !combatTypes.has(altType) && attempts < 20);
+
+        usedTypes.add(altType);
+
         let altEnemyId: string | undefined;
         let altEventId: string | undefined;
 

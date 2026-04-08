@@ -8,6 +8,7 @@ import type { IRelicConfig } from 'shared';
 interface SanctuarySceneData {
     relicPool: IRelicConfig[];
     onSelect: (selectedIndex: number) => void;
+    title?: string; // Заголовок экрана (по умолчанию "СВЯТИЛИЩЕ")
 }
 
 /** Ширина дизайна */
@@ -101,8 +102,8 @@ export class SanctuaryScene extends BaseScene {
         // Фон (градиент PvE)
         this.addChild(createPveBackground(W, THEME.layout.designHeight));
 
-        // Заголовок
-        this.buildHeading();
+        // Заголовок (настраиваемый)
+        this.buildHeading(enterData.title);
 
         // Подзаголовок
         this.buildSubheading();
@@ -113,9 +114,9 @@ export class SanctuaryScene extends BaseScene {
 
     // ───────────────────────────── Заголовок ─────────────────────────────
 
-    private buildHeading(): void {
+    private buildHeading(title?: string): void {
         const heading = new Text({
-            text: 'СВЯТИЛИЩЕ',
+            text: title ?? 'СВЯТИЛИЩЕ',
             style: new TextStyle({
                 fontSize: THEME.font.sizes.heading,
                 fontFamily: THEME.font.family,
