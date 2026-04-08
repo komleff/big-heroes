@@ -28,6 +28,7 @@ const shopConfig: IPveShopConfig = {
     item_count_max: 4,
     price_multiplier: 1.0,
     repair_price_multiplier: 1.75,
+    repair_gold_per_durability: 10,
 };
 
 /** Каталог снаряжения из balance.json */

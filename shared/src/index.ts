@@ -1,7 +1,7 @@
 // Публичный API shared-пакета
 export type { EquipmentSlotId, CommandId, IEquipmentItem } from './types/Equipment';
 export type { IHeroState, IHeroStats, IResources, IEquipmentSlots, IBeltSlot, IGameState } from './types/GameState';
-export type { IBalanceConfig, IStarterEquipmentConfigItem, IMobConfig, IConsumableConfig, IRelicConfig, IFormulaConfig, IPveConfig, IPveNodeWeights, IPveConstraints, IPveLootConfig, IPveCampConfig, IPveShopConfig, IEventConfig, IEventVariant, IEventEffect } from './types/BalanceConfig';
+export type { IBalanceConfig, IStarterEquipmentConfigItem, IMobConfig, IConsumableConfig, IRelicConfig, IFormulaConfig, IHeroLeagueConfig, IPveConfig, IPveNodeWeights, IPveConstraints, IPveLootConfig, IPveCampConfig, IPveShopConfig, IEventConfig, IEventVariant, IEventEffect } from './types/BalanceConfig';
 export type { IBattleContext, IHitAnimation, BattleOutcome, IBattleResult } from './types/Battle';
 export type { ConsumableType, IConsumable } from './types/Consumable';
 export type { IRelic, RelicRarity } from './types/Relic';
@@ -11,12 +11,12 @@ export { calcHeroStats, calcDamage, calcTTK, calcBaseWinChance, clamp,
     calcAttackWinChance, calcBlockWinChance, calcFortuneChance,
     calcRetreatChance, calcBypassChance, calcPolymorphChance,
     calcEloChange, generateHitAnimation,
-    applyConsumableEffect } from './formulas/FormulaEngine';
+    applyConsumableEffect, getLeagueConfig } from './formulas/FormulaEngine';
 
 // Системы
 export { resolveBattle } from './systems/BattleSystem';
 export { generateRelicPool, selectRelic, configToRelic, calcRelicMassMultiplier, calcRelicGoldMultiplier, calcRelicShopDiscount, hasRelicEffect, calcRelicCampRepairBonus, MAX_RELICS } from './systems/RelicSystem';
-export { generateRoute, createExpeditionState, advanceToNode, applyBattleResult, exitExpedition } from './systems/PveSystem';
+export { generateRoute, createExpeditionState, advanceToNode, applyBattleResult, exitExpedition, generateForkPaths } from './systems/PveSystem';
 export { generateLoot, generateShopInventory, calcShopRepairCost } from './systems/LootSystem';
 export type { ILootDrop, ILootResult, IShopItem } from './systems/LootSystem';
 

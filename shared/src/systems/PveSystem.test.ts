@@ -1,8 +1,8 @@
-import { generateRoute, createExpeditionState, advanceToNode, applyBattleResult, exitExpedition } from './PveSystem';
+import { generateRoute, generateForkPaths, createExpeditionState, advanceToNode, applyBattleResult, exitExpedition } from './PveSystem';
 import type { IPveConfig, IMobConfig, IEventConfig } from '../types/BalanceConfig';
 import type { IBattleResult } from '../types/Battle';
 import type { IRelic } from '../types/Relic';
-import type { IPveRoute } from '../types/PveNode';
+import type { IPveNode, IPveRoute } from '../types/PveNode';
 import { createRng } from '../utils/Random';
 
 // ─── Хелперы ──────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ const pveConfig: IPveConfig = {
     node_weights: { combat: 0.40, elite: 0.12, shop: 0.12, camp: 0.12, event: 0.08, chest: 0.16 },
     constraints: { max_combats_in_row: 2, max_shops: 1, min_camps_before_boss: 1 },
     camp: { repair_amount: 1, train_mass_min: 3, train_mass_max: 5 },
-    shop: { item_count_min: 3, item_count_max: 4, price_multiplier: 1.0, repair_price_multiplier: 1.75 },
+    shop: { item_count_min: 3, item_count_max: 4, price_multiplier: 1.0, repair_price_multiplier: 1.75, repair_gold_per_durability: 10 },
     loot: { combat_loot_chance: 0.20, elite_loot_guaranteed: true, elite_relic_chance: 0.40, boss_loot_count: 2, chest_loot_count_min: 1, chest_loot_count_max: 2, pity_counter: 5, equipment_drop_chance: 0.5 },
 };
 
@@ -392,5 +392,120 @@ describe('exitExpedition', () => {
 
         // Assert
         expect(newState.status).toBe('exited');
+    });
+});
+
+// ─── generateForkPaths ──────────────────────────────────────────────
+
+describe('generateForkPaths', () => {
+    /** Создаёт узел-заглушку для тестов */
+    function makeTargetNode(overrides: Partial<IPveNode> = {}): IPveNode {
+        return { index: 3, type: 'combat', enemyId: 'mob_slime', eventId: undefined, isFork: false, ...overrides };
+    }
+
+    test('возвращает pathCount путей', () => {
+        // Arrange
+        const target = makeTargetNode();
+
+        // Act — pathCount=1
+        const result1 = generateForkPaths(target, pveConfig, enemies, events, 1, createRng(42));
+        // Act — pathCount=3
+        const result3 = generateForkPaths(target, pveConfig, enemies, events, 3, createRng(42));
+
+        // Assert
+        expect(result1.length).toBe(1);
+        expect(result3.length).toBe(3);
+    });
+
+    test('первый путь совпадает с типом целевого узла', () => {
+        // Arrange — combat-узел с enemyId
+        const target = makeTargetNode({ type: 'combat', enemyId: 'mob_goblin' });
+
+        // Act
+        const paths = generateForkPaths(target, pveConfig, enemies, events, 2, createRng(99));
+
+        // Assert
+        expect(paths[0].nodeType).toBe('combat');
+        expect(paths[0].enemyId).toBe('mob_goblin');
+        expect(paths[0].hidden).toBe(false);
+    });
+
+    test('первый путь event содержит eventId', () => {
+        // Arrange — event-узел с eventId
+        const target = makeTargetNode({ type: 'event', enemyId: undefined, eventId: 'evt_trap' });
+
+        // Act
+        const paths = generateForkPaths(target, pveConfig, enemies, events, 2, createRng(55));
+
+        // Assert
+        expect(paths[0].nodeType).toBe('event');
+        expect(paths[0].eventId).toBe('evt_trap');
+        expect(paths[0].hidden).toBe(false);
+    });
+
+    test('pathCount=1 возвращает только основной путь', () => {
+        // Arrange
+        const target = makeTargetNode();
+
+        // Act
+        const paths = generateForkPaths(target, pveConfig, enemies, events, 1, createRng(10));
+
+        // Assert
+        expect(paths.length).toBe(1);
+        expect(paths[0].nodeType).toBe(target.type);
+    });
+
+    test('пустой enemies: combat без enemyId', () => {
+        // Arrange — пустой массив врагов, combat-узел без enemyId
+        const target = makeTargetNode({ type: 'combat', enemyId: undefined });
+
+        // Act — не должна падать
+        const paths = generateForkPaths(target, pveConfig, [], events, 3, createRng(42));
+
+        // Assert
+        expect(paths.length).toBe(3);
+        expect(paths[0].nodeType).toBe('combat');
+    });
+
+    test('пустой events: event без eventId', () => {
+        // Arrange — пустой массив событий, event-узел без eventId
+        const target = makeTargetNode({ type: 'event', enemyId: undefined, eventId: undefined });
+
+        // Act — не должна падать
+        const paths = generateForkPaths(target, pveConfig, enemies, [], 3, createRng(42));
+
+        // Assert
+        expect(paths.length).toBe(3);
+        expect(paths[0].nodeType).toBe('event');
+    });
+
+    test('детерминированный результат при одинаковом seed', () => {
+        // Arrange
+        const target = makeTargetNode();
+
+        // Act — два вызова с одинаковым seed
+        const paths1 = generateForkPaths(target, pveConfig, enemies, events, 3, createRng(42));
+        const paths2 = generateForkPaths(target, pveConfig, enemies, events, 3, createRng(42));
+
+        // Assert — глубокое сравнение
+        expect(paths1).toEqual(paths2);
+    });
+
+    test('нет дублей одинаковых типов на развилке (кроме combat/elite)', () => {
+        // Arrange — генерируем много развилок и проверяем дедупликацию
+        const target = makeTargetNode({ type: 'shop' });
+        const combatTypes = new Set(['combat', 'elite']);
+
+        // Act — 20 прогонов с разными seed
+        for (let seed = 0; seed < 20; seed++) {
+            const paths = generateForkPaths(target, pveConfig, enemies, events, 3, createRng(seed));
+            const nonCombatTypes = paths
+                .map(p => p.nodeType)
+                .filter(t => !combatTypes.has(t));
+
+            // Assert — среди некомбатных типов нет повторов
+            const unique = new Set(nonCombatTypes);
+            expect(unique.size).toBe(nonCombatTypes.length);
+        }
     });
 });

@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, TextStyle, Ticker } from 'pixi.js';
+import { createPveBackground } from '../ui/GradientBackground';
 import { BaseScene } from './BaseScene';
 import { GameState } from '../core/GameState';
 import { EventBus, GameEvents } from '../core/EventBus';
@@ -131,8 +132,9 @@ export class BattleScene extends BaseScene {
         this.battleData = data as BattleSceneData;
         const { result, enemy } = this.battleData;
 
-        // Рассчитываем начальные HP: масса = HP
-        this.heroMaxHp = this.gameState.hero.mass;
+        // Рассчитываем начальные HP: масса = HP (base + набранная в походе)
+        const expeditionMass = (this.gameState.expeditionState as IPveExpeditionState | null)?.massGained ?? 0;
+        this.heroMaxHp = this.gameState.hero.mass + expeditionMass;
         this.heroCurrentHp = this.heroMaxHp;
         this.enemyMaxHp = enemy.mass;
         this.enemyCurrentHp = this.enemyMaxHp;
@@ -149,10 +151,8 @@ export class BattleScene extends BaseScene {
         const W = THEME.layout.designWidth;
         const H = THEME.layout.designHeight;
 
-        // --- Фон ---
-        const bg = new Graphics();
-        bg.rect(0, 0, W, H).fill(THEME.colors.bg_primary);
-        this.addChild(bg);
+        // --- Фон (градиент PvE) ---
+        this.addChild(createPveBackground(W, H));
 
         // --- Заголовок y=48 ---
         const heading = new Text({
@@ -184,7 +184,7 @@ export class BattleScene extends BaseScene {
 
         // --- Аватары y=120 ---
         this.heroAvatar = this.buildAvatar(
-            this.gameState.hero.mass.toString() + ' кг',
+            this.heroMaxHp.toString() + ' кг',
             'Герой',
             THEME.colors.accent_cyan,
         );
@@ -644,21 +644,22 @@ export class BattleScene extends BaseScene {
                     },
                 });
             } else if (result.outcome === 'retreat') {
-                // Отступление — назад на перекрёсток (GDD: путь к врагу остаётся открытым)
-                // Удалить текущий боевой узел из visitedNodes → можно retry
+                // Отступление — остаёмся на текущем узле (GDD: путь к врагу остаётся открытым).
+                // Удаляем узел из visitedNodes → enterNode не пропустит его.
+                // Очищаем forkPaths → ensureForkPaths сгенерирует новую развилку.
                 const currentIdx = newState.currentNodeIndex;
                 const filteredVisited = newState.visitedNodes.filter(idx => idx !== currentIdx);
-                let retreatState: IPveExpeditionState = { ...newState, visitedNodes: filteredVisited };
-
-                // Найти ближайший fork перед текущим узлом
-                let retreatIndex = currentIdx;
-                for (let i = currentIdx - 1; i >= 0; i--) {
-                    if (retreatState.route.nodes[i].isFork) {
-                        retreatIndex = i;
-                        break;
-                    }
-                }
-                retreatState = { ...retreatState, currentNodeIndex: retreatIndex };
+                const updatedNodes = [...newState.route.nodes];
+                updatedNodes[currentIdx] = {
+                    ...updatedNodes[currentIdx],
+                    isFork: false,
+                    forkPaths: undefined,
+                };
+                const retreatState: IPveExpeditionState = {
+                    ...newState,
+                    visitedNodes: filteredVisited,
+                    route: { ...newState.route, nodes: updatedNodes },
+                };
                 this.gameState.updateExpeditionState(retreatState);
                 void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
             } else {
@@ -751,7 +752,7 @@ export class BattleScene extends BaseScene {
                         },
                     });
                 } else {
-                    // Только обновить currentNodeIndex — visitedNodes обновится в enterNode
+                    // Продвинуть idx на +1 (enterNode установил на текущий боевой узел)
                     const updated: IPveExpeditionState = { ...newState, currentNodeIndex: nextIndex };
                     this.gameState.updateExpeditionState(updated);
                     void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });

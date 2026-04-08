@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { createPveBackground } from '../ui/GradientBackground';
 import { BaseScene } from './BaseScene';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
@@ -55,8 +56,10 @@ export class LootScene extends BaseScene {
 
     /** Пересобрать весь интерфейс для текущего предмета */
     private buildUI(): void {
-        // Очистка предыдущего содержимого
-        this.removeChildren();
+        // Очистка предыдущего содержимого (освобождение GPU-памяти)
+        for (const child of this.removeChildren()) {
+            child.destroy({ children: true });
+        }
 
         const item = this.drops[this.currentIndex];
 
@@ -79,10 +82,7 @@ export class LootScene extends BaseScene {
     // ───────────────────────────── Фон ───────────────────────────────────
 
     private buildBackground(): void {
-        const bg = new Graphics();
-        bg.rect(0, 0, W, THEME.layout.designHeight);
-        bg.fill(THEME.colors.bg_primary);
-        this.addChild(bg);
+        this.addChild(createPveBackground(W, THEME.layout.designHeight));
     }
 
     // ───────────────────────────── Заголовок ─────────────────────────────

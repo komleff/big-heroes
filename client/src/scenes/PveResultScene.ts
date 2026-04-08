@@ -2,6 +2,7 @@ import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
+import { createPveBackground } from '../ui/GradientBackground';
 
 /** Реликвия для extraction */
 interface RelicForExtraction {
@@ -57,10 +58,8 @@ export class PveResultScene extends BaseScene {
         const data = this.sceneData;
         const H = THEME.layout.designHeight;
 
-        // --- Фон ---
-        const bg = new Graphics();
-        bg.rect(0, 0, W, H).fill(THEME.colors.bg_primary);
-        this.addChild(bg);
+        // --- Фон (градиент PvE) ---
+        this.addChild(createPveBackground(W, H));
 
         // --- Баннер статуса y=48 ---
         const bannerCfg = this.getBannerConfig(data.status);

@@ -2,6 +2,7 @@ import type { IEquipmentSlots, IHeroStats } from '../types/GameState';
 import type { IRelic } from '../types/Relic';
 import type { IHitAnimation } from '../types/Battle';
 import type { IConsumable } from '../types/Consumable';
+import type { IHeroLeagueConfig } from '../types/BalanceConfig';
 
 /**
  * Вычисление боевых характеристик героя.
@@ -44,9 +45,9 @@ export function calcTTK(hp: number, damagePerHit: number): number {
     return hp / Math.max(1, damagePerHit);
 }
 
-/** Базовый шанс победы (TTK-метод) */
+/** Базовый шанс победы (TTK-метод): чем дольше герой выживает, тем выше шанс */
 export function calcBaseWinChance(ttkHero: number, ttkEnemy: number): number {
-    return ttkEnemy / (ttkHero + ttkEnemy);
+    return ttkHero / (ttkHero + ttkEnemy);
 }
 
 /** Ограничение значения в диапазоне [min, max] */
@@ -199,4 +200,19 @@ export function generateHitAnimation(
         return [...loserHits, ...winnerHits];
     }
     return [...winnerHits, ...loserHits];
+}
+
+/**
+ * Определяет текущую лигу героя по рейтингу из балансовой таблицы.
+ * Возвращает конфиг лиги, в диапазон которой попадает рейтинг,
+ * или последнюю лигу как fallback.
+ */
+export function getLeagueConfig(rating: number, leagues: IHeroLeagueConfig[]): IHeroLeagueConfig {
+    if (leagues.length === 0) {
+        return { name: 'Лига', minRating: 0, maxRating: 0 };
+    }
+    // Clamp рейтинга снизу — отрицательный рейтинг → первая лига
+    const safeRating = Math.max(0, rating);
+    const matched = leagues.find(l => safeRating >= l.minRating && safeRating <= l.maxRating);
+    return matched ?? leagues[leagues.length - 1];
 }

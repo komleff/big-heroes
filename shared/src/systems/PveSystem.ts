@@ -217,6 +217,69 @@ export function applyBattleResult(
     return { ...state };
 }
 
+/**
+ * Генерирует альтернативные пути для узла, у которого нет развилки.
+ * Основной путь — тип целевого узла, остальные — случайные по весам.
+ */
+export function generateForkPaths(
+    targetNode: IPveNode,
+    config: IPveConfig,
+    enemies: IMobConfig[],
+    events: IEventConfig[],
+    pathCount: number,
+    rng: () => number,
+): IPveForkPath[] {
+    const nodeTypes: PveNodeType[] = ['combat', 'elite', 'shop', 'camp', 'event', 'chest'];
+    const nodeWeights = [
+        config.node_weights.combat, config.node_weights.elite,
+        config.node_weights.shop, config.node_weights.camp,
+        config.node_weights.event, config.node_weights.chest,
+    ];
+    const combatEnemies = enemies.filter(e => e.type === 'combat');
+    const eliteEnemies = enemies.filter(e => e.type === 'elite');
+
+    // Основной путь — тип целевого узла
+    const mainPath: IPveForkPath = {
+        nodeType: targetNode.type,
+        hidden: false,
+        enemyId: targetNode.enemyId,
+        eventId: targetNode.eventId,
+    };
+    const paths: IPveForkPath[] = [mainPath];
+
+    // Альтернативные пути (без дублей одинаковых типов на одной развилке,
+    // кроме combat/elite — они допускают повторы с разными врагами)
+    const usedTypes = new Set<PveNodeType>([mainPath.nodeType]);
+    const combatTypes = new Set<PveNodeType>(['combat', 'elite']);
+
+    for (let p = 1; p < pathCount; p++) {
+        let altType: PveNodeType;
+        let attempts = 0;
+        do {
+            altType = weightedPick(rng, nodeTypes, nodeWeights);
+            attempts++;
+        } while (usedTypes.has(altType) && !combatTypes.has(altType) && attempts < 20);
+
+        usedTypes.add(altType);
+
+        let altEnemyId: string | undefined;
+        let altEventId: string | undefined;
+
+        if (altType === 'combat' && combatEnemies.length > 0) {
+            altEnemyId = randPick(rng, combatEnemies).id;
+        } else if (altType === 'elite' && eliteEnemies.length > 0) {
+            altEnemyId = randPick(rng, eliteEnemies).id;
+        } else if (altType === 'event' && events.length > 0) {
+            altEventId = randPick(rng, events).id;
+        }
+
+        const hidden = rng() < config.hidden_path_chance;
+        paths.push({ nodeType: altType, hidden, enemyId: altEnemyId, eventId: altEventId });
+    }
+
+    return paths;
+}
+
 /** Завершает экспедицию (выход) */
 export function exitExpedition(state: IPveExpeditionState): IPveExpeditionState {
     return { ...state, status: 'exited' };

@@ -18,16 +18,30 @@ import { ShopScene } from './scenes/ShopScene';
 import { CampScene } from './scenes/CampScene';
 import { EventScene } from './scenes/EventScene';
 import { PveResultScene } from './scenes/PveResultScene';
-import hubBgUrl from './assets/hub-bg.png';
+import hubBgNewUrl from './assets/hub-bg-new.jpg';
 
 // Точка входа — инициализация PixiJS Application и игровых систем
 async function main(): Promise<void> {
     const app = new Application();
 
+    // Resolution = max(DPR, scaleFactor) — чтобы Text-текстуры рендерились
+    // с достаточной детализацией даже на десктопах с DPR=1.
+    // Container scale растягивает сцены из 390×844 → экран, и Text должен
+    // иметь достаточно пикселей для этого масштаба.
+    const dpr = window.devicePixelRatio || 1;
+    const scaleFactor = Math.min(
+        window.innerWidth / THEME.layout.designWidth,
+        window.innerHeight / THEME.layout.designHeight,
+    );
+    // Ограничиваем resolution сверху, чтобы 4K-экраны не раздували canvas до десятков мегапикселей.
+    const resolution = Math.min(2, Math.max(dpr, Math.ceil(scaleFactor)));
+
     await app.init({
-        width: THEME.layout.designWidth,
-        height: THEME.layout.designHeight,
+        width: window.innerWidth,
+        height: window.innerHeight,
         backgroundColor: THEME.colors.bg_primary,
+        resolution,
+        autoDensity: true,
         resizeTo: window,
     });
 
@@ -36,8 +50,8 @@ async function main(): Promise<void> {
     // Дождаться загрузки шрифта Nunito
     await document.fonts.ready;
 
-    // Прелоад ассетов (фон хаба)
-    await Assets.load(hubBgUrl);
+    // Прелоад ассетов
+    await Assets.load({ alias: 'hub-bg-new', src: hubBgNewUrl });
 
     // Инициализация ядра
     const eventBus = new EventBus();

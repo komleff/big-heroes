@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { createPveBackground } from '../ui/GradientBackground';
 import { BaseScene } from './BaseScene';
 import { THEME } from '../config/ThemeConfig';
 import type { IRelicConfig } from 'shared';
@@ -7,6 +8,7 @@ import type { IRelicConfig } from 'shared';
 interface SanctuarySceneData {
     relicPool: IRelicConfig[];
     onSelect: (selectedIndex: number) => void;
+    title?: string; // Заголовок экрана (по умолчанию "СВЯТИЛИЩЕ")
 }
 
 /** Ширина дизайна */
@@ -97,14 +99,11 @@ export class SanctuaryScene extends BaseScene {
         this.selectionMade = false;
         this.cardContainers = [];
 
-        // Фон
-        const bg = new Graphics();
-        bg.rect(0, 0, W, THEME.layout.designHeight);
-        bg.fill(THEME.colors.bg_primary);
-        this.addChild(bg);
+        // Фон (градиент PvE)
+        this.addChild(createPveBackground(W, THEME.layout.designHeight));
 
-        // Заголовок
-        this.buildHeading();
+        // Заголовок (настраиваемый)
+        this.buildHeading(enterData.title);
 
         // Подзаголовок
         this.buildSubheading();
@@ -115,9 +114,9 @@ export class SanctuaryScene extends BaseScene {
 
     // ───────────────────────────── Заголовок ─────────────────────────────
 
-    private buildHeading(): void {
+    private buildHeading(title?: string): void {
         const heading = new Text({
-            text: 'СВЯТИЛИЩЕ',
+            text: title ?? 'СВЯТИЛИЩЕ',
             style: new TextStyle({
                 fontSize: THEME.font.sizes.heading,
                 fontFamily: THEME.font.family,

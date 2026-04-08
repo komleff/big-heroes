@@ -284,18 +284,24 @@ export class SceneManager {
         this.history.pop();
     }
 
-    /** Обновление viewport-масштабирования при ресайзе */
-    resize(width: number, height: number): void {
+    /**
+     * Viewport-масштабирование: canvas = реальный размер окна (resizeTo: window),
+     * сцены масштабируются через container scale. Чёткость текста зависит от
+     * внутреннего разрешения рендера (resolution), которое настраивается
+     * отдельно в main.ts.
+     */
+    resize(width?: number, height?: number): void {
+        const w = width ?? this.app.screen.width;
+        const h = height ?? this.app.screen.height;
         const { designWidth, designHeight } = THEME.layout;
-        const scaleFactor = Math.min(width / designWidth, height / designHeight);
+        const scaleFactor = Math.min(w / designWidth, h / designHeight);
         this.sceneContainer.scale.set(scaleFactor);
         this.sceneContainer.position.set(
-            (width - designWidth * scaleFactor) / 2,
-            (height - designHeight * scaleFactor) / 2,
+            (w - designWidth * scaleFactor) / 2,
+            (h - designHeight * scaleFactor) / 2,
         );
 
-        // Уведомляем текущую сцену о ресайзе
-        this.currentScene?.onResize(width, height);
+        this.currentScene?.onResize(w, h);
     }
 
     /** Текущее имя активной сцены */
