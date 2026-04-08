@@ -175,9 +175,9 @@ Opus → Человек-оператор *(для прототипа; для pro
 | **Light** | Документация, конфиги | Claude Reviewer (один проход) |
 | **Standard** | Фичи, рефакторинг | Claude Reviewer (все четыре аспекта) |
 | **Critical** | `shared/`, баланс, игровая логика | Claude Reviewer (два прохода, четыре аспекта) |
-| **Sprint Final** | Конец спринта, перед merge | GPT-5.4 + GPT-5.3-Codex (автоматически через `/external-review`, оба по всем 4 аспектам) |
+| **Sprint Final** | Конец спринта, перед merge | Внешние модели через `/external-review` (оба ревьюера по всем 4 аспектам). В API key режиме: GPT-5.4 + GPT-5.3-Codex. В ChatGPT режиме: дефолтная модель, два прохода. |
 
-> Sprint Final обязателен перед merge в master. PM запускает `/external-review`, который автоматически вызывает GPT-5.4 и GPT-5.3-Codex через Codex CLI.
+> Sprint Final обязателен перед merge в master. PM запускает `/external-review`, который вызывает внешних ревьюеров через Codex CLI. Атрибуция в отчёте соответствует фактически использованным моделям.
 
 ### Промпт активации
 
