@@ -480,6 +480,7 @@ export class HubScene extends BaseScene {
 
         const league = getLeagueConfig(hero.rating, balance.hero.leagues);
         this.leagueLabel.text = league.name;
+        // Прогресс внутри лиги: (rating - min) / (max - min)
         this.leagueBar.update(hero.rating - league.minRating, league.maxRating - league.minRating);
     }
 

@@ -211,6 +211,8 @@ export function getLeagueConfig(rating: number, leagues: IHeroLeagueConfig[]): I
     if (leagues.length === 0) {
         return { name: 'Лига', minRating: 0, maxRating: 0 };
     }
-    const matched = leagues.find(l => rating >= l.minRating && rating <= l.maxRating);
+    // Clamp рейтинга снизу — отрицательный рейтинг → первая лига
+    const safeRating = Math.max(0, rating);
+    const matched = leagues.find(l => safeRating >= l.minRating && safeRating <= l.maxRating);
     return matched ?? leagues[leagues.length - 1];
 }

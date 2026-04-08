@@ -562,4 +562,9 @@ describe('getLeagueConfig', () => {
         expect(getLeagueConfig(499, leagues).name).toBe('Бронза');
         expect(getLeagueConfig(1500, leagues).name).toBe('Золото');
     });
+
+    it('возвращает первую лигу при отрицательном рейтинге', () => {
+        expect(getLeagueConfig(-1, leagues).name).toBe('Бронза');
+        expect(getLeagueConfig(-100, leagues).name).toBe('Бронза');
+    });
 });
