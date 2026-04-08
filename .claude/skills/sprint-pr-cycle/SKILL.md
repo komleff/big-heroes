@@ -149,16 +149,22 @@ EOF
 
 ### Шаг 2.3: Исправление замечаний (если есть)
 
-Если хотя бы один аспект `CHANGES_REQUESTED` — запусти developer субагента на исправления, потом **атомарный финиш: `git push` + `gh pr comment`** (ОБА обязательны), запроси Copilot re-review, затем повтори ревью.
+Если хотя бы один аспект `CHANGES_REQUESTED`:
+
+1. Запусти developer субагента на исправления
+2. `git push`
+3. `gh pr comment` с отчётом об исправлениях
+4. Запроси Copilot re-review:
 
 ```bash
-# После git push — запроси Copilot re-review
 REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
 gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
   --method POST -f 'reviewers[]=copilot-pull-request-reviewer[bot]' \
   && echo "Copilot: re-review requested" \
   || echo "Copilot: request failed — может потребоваться ручной запуск"
 ```
+
+5. Повтори ревью
 
 > ⛔ `git push` без `gh pr comment` = незавершённый цикл. Не останавливайся после push.
 > Только `gh pr comment` — не `gh pr review` (агенты работают под аккаунтом оператора).
@@ -193,7 +199,9 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
 gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
-  --method POST -f 'reviewers[]=copilot-pull-request-reviewer[bot]' 2>/dev/null
+  --method POST -f 'reviewers[]=copilot-pull-request-reviewer[bot]' \
+  && echo "Copilot: re-review requested" \
+  || echo "Copilot: request failed — может потребоваться ручной запуск"
 ```
 
 4. Повтори `/external-review <PR_NUMBER>`

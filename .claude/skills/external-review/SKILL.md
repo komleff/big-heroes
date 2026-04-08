@@ -6,7 +6,7 @@ user-invocable: true
 
 # External Review — кросс-модельное ревью через Codex CLI
 
-Автоматизация Sprint Final (Фаза 3 sprint-pr-cycle). Два внешних ревьюера (GPT-5.4 и GPT-5.3-Codex) работают параллельно по **всем 4 аспектам**, максимизируя adversarial diversity.
+Автоматизация Sprint Final (Фаза 3 sprint-pr-cycle). Два внешних ревьюера (GPT-5.4 и GPT-5.3-Codex) работают последовательно по **всем 4 аспектам**, максимизируя adversarial diversity.
 
 > Источник: [Adversarial Code Review для Claude Code](https://habr.com/ru/articles/1019588/)
 
@@ -26,10 +26,9 @@ user-invocable: true
 ### 1.1 Проверка PR и переключение на head-ветку
 
 ```bash
-# Получить метаданные PR
-PR_DATA=$(gh pr view <PR_NUMBER> --json number,title,baseRefName,headRefName,state)
-HEAD_BRANCH=$(echo "$PR_DATA" | jq -r '.headRefName')
-STATE=$(echo "$PR_DATA" | jq -r '.state')
+# Получить метаданные PR (без внешнего jq — используем встроенный --jq)
+HEAD_BRANCH=$(gh pr view <PR_NUMBER> --json headRefName --jq '.headRefName')
+STATE=$(gh pr view <PR_NUMBER> --json state --jq '.state')
 
 # PR должен быть открыт
 if [ "$STATE" != "OPEN" ]; then echo "СТОП: PR не открыт"; exit 1; fi
@@ -44,17 +43,25 @@ git pull origin "$HEAD_BRANCH"
 ### 1.2 Проверка что ветка запушена
 
 ```bash
-# Проверить наличие upstream и незапушенных коммитов
-if git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
-  git log @{u}..HEAD --oneline
-else
-  echo "Upstream не настроен. Выполни: git push -u origin $(git branch --show-current)"
+# Проверить наличие upstream
+if ! git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+  echo "СТОП: upstream не настроен. Выполни: git push -u origin $(git branch --show-current)"
+  exit 1
 fi
-# Чистота рабочего дерева
-git diff --stat HEAD
-```
 
-Если есть незапушенные коммиты — выполни `git push -u origin <branch>` перед продолжением.
+# Проверить незапушенные коммиты
+UNPUSHED=$(git log @{u}..HEAD --oneline)
+if [ -n "$UNPUSHED" ]; then
+  echo "СТОП: есть незапушенные коммиты. Выполни git push."
+  exit 1
+fi
+
+# Проверить чистоту рабочего дерева (включая untracked)
+if [ -n "$(git status --porcelain)" ]; then
+  echo "СТОП: рабочее дерево не чистое. Закоммить или stash изменения."
+  exit 1
+fi
+```
 
 ### 1.3 Проверка Codex CLI
 
