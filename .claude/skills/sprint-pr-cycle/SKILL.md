@@ -81,7 +81,7 @@ EOF
 **Архитектура:**
 ```
 Ты Reviewer. Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
-Задача: проверь PR #<NUMBER> — аспект АРХИТЕКТУРА.
+Задача: проверь PR #<PR_NUMBER> — аспект АРХИТЕКТУРА.
 Фокус: разделение слоёв (client/shared), чистота shared-пакета, паттерны сцен.
 Результат: вердикт APPROVED / CHANGES_REQUESTED с обоснованием.
 ```
@@ -89,7 +89,7 @@ EOF
 **Безопасность:**
 ```
 Ты Reviewer. Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
-Задача: проверь PR #<NUMBER> — аспект БЕЗОПАСНОСТЬ.
+Задача: проверь PR #<PR_NUMBER> — аспект БЕЗОПАСНОСТЬ.
 Фокус: XSS, утечка данных, OWASP top-10.
 Результат: вердикт APPROVED / CHANGES_REQUESTED с обоснованием.
 ```
@@ -97,7 +97,7 @@ EOF
 **Качество:**
 ```
 Ты Reviewer. Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
-Задача: проверь PR #<NUMBER> — аспект КАЧЕСТВО.
+Задача: проверь PR #<PR_NUMBER> — аспект КАЧЕСТВО.
 Фокус: покрытие тестами, edge-cases, производительность < 16мс/кадр.
 Результат: вердикт APPROVED / CHANGES_REQUESTED с обоснованием.
 ```
@@ -105,7 +105,7 @@ EOF
 **Гигиена кода:**
 ```
 Ты Reviewer. Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
-Задача: проверь PR #<NUMBER> — аспект ГИГИЕНА КОДА.
+Задача: проверь PR #<PR_NUMBER> — аспект ГИГИЕНА КОДА.
 Фокус: мёртвый код, дублирование типов, захардкоженные константы, закомментированный код.
 Результат: вердикт APPROVED / CHANGES_REQUESTED с обоснованием.
 ```
@@ -113,7 +113,7 @@ EOF
 ### Шаг 2.2: Публикация отчёта
 
 ```bash
-gh pr comment <NUMBER> --body "$(cat <<'EOF'
+gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
 ## Внутреннее ревью (Claude)
 
 ### Архитектура
@@ -217,7 +217,7 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 - [ ] Все review-pass опубликованы в PR
 
 ```bash
-gh pr comment <NUMBER> --body "## ✅ Готов к merge
+gh pr comment <PR_NUMBER> --body "## ✅ Готов к merge
 
 Все проверки пройдены. Merge — на усмотрение оператора.
 

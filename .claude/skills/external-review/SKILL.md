@@ -40,15 +40,24 @@ fi
 ```bash
 # Получить метаданные PR (без внешнего jq — используем встроенный --jq)
 HEAD_BRANCH=$(gh pr view <PR_NUMBER> --json headRefName --jq '.headRefName')
+BASE_BRANCH=$(gh pr view <PR_NUMBER> --json baseRefName --jq '.baseRefName')
 STATE=$(gh pr view <PR_NUMBER> --json state --jq '.state')
 
 # PR должен быть открыт
 if [ "$STATE" != "OPEN" ]; then echo "СТОП: PR не открыт"; exit 1; fi
 
+# Валидация имени ветки (защита от option injection)
+if ! git check-ref-format --allow-onelevel "refs/heads/$HEAD_BRANCH" >/dev/null 2>&1; then
+  echo "СТОП: невалидное имя ветки: $HEAD_BRANCH"
+  exit 1
+fi
+
 # Переключиться на head-ветку PR (гарантирует ревью именно того diff)
-git checkout "$HEAD_BRANCH"
+git checkout -- "$HEAD_BRANCH"
 git pull origin "$HEAD_BRANCH"
 ```
+
+> `BASE_BRANCH` используется далее в `codex review --base "$BASE_BRANCH"` вместо захардкоженного `master`.
 
 Если PR не найден или закрыт — **СТОП**.
 
@@ -69,7 +78,7 @@ if [ -n "$UNPUSHED" ]; then
 fi
 ```
 
-### 1.3 Проверка Codex CLI
+### 1.4 Проверка Codex CLI
 
 ```bash
 npx @openai/codex login status
@@ -109,10 +118,10 @@ Codex CLI поддерживает два режима авторизации с
 
 ```bash
 # Режим A (API key) — GPT-5.4:
-npx @openai/codex review --base master -c model='"gpt-5.4"' -c model_reasoning_effort='"high"'
+npx @openai/codex review --base "$BASE_BRANCH" -c model='"gpt-5.4"' -c model_reasoning_effort='"high"'
 
 # Режим B (ChatGPT) — дефолтная модель:
-npx @openai/codex review --base master
+npx @openai/codex review --base "$BASE_BRANCH"
 ```
 
 **Альтернатива — кастомный adversarial-промпт** (без `--base`, ревьюит uncommitted):
@@ -212,10 +221,10 @@ PROMPT
 
 ```bash
 # Режим A (API key) — GPT-5.3-Codex:
-npx @openai/codex review --base master -c model='"gpt-5.3-codex"' -c model_reasoning_effort='"high"'
+npx @openai/codex review --base "$BASE_BRANCH" -c model='"gpt-5.3-codex"' -c model_reasoning_effort='"high"'
 
 # Режим B (ChatGPT) — дефолтная модель, второй проход:
-npx @openai/codex review --base master
+npx @openai/codex review --base "$BASE_BRANCH"
 ```
 
 **Альтернатива — кастомный adversarial-промпт** (без `--base`):
