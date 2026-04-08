@@ -182,17 +182,17 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 /external-review <PR_NUMBER>
 ```
 
-Скилл автоматически:
+Скилл выполнит:
 
-- Запустит двух внешних ревьюеров (оба по всем 4 аспектам)
-- Запросит Copilot re-review
-- Опубликует консолидированный отчёт в PR с честной атрибуцией моделей
+- Запуск внешних ревьюеров через Codex CLI (по всем 4 аспектам)
+- Запрос Copilot re-review
+- PM консолидирует вывод и публикует отчёт в PR через `gh pr comment` (ручной шаг в скилле)
 
 ### Шаг 3.2: Обработка результатов
 
 Если вердикт `CHANGES_REQUESTED`:
 
-1. Исправь CRITICAL замечания через Developer-субагента
+1. Исправь CRITICAL и WARNING замечания через Developer-субагента
 2. `git push`
 3. Запроси Copilot re-review:
 

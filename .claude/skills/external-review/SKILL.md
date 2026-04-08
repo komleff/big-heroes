@@ -39,7 +39,6 @@ fi
 
 ```bash
 # Получить метаданные PR (без внешнего jq — используем встроенный --jq)
-HEAD_BRANCH=$(gh pr view <PR_NUMBER> --json headRefName --jq '.headRefName')
 BASE_BRANCH=$(gh pr view <PR_NUMBER> --json baseRefName --jq '.baseRefName')
 STATE=$(gh pr view <PR_NUMBER> --json state --jq '.state')
 
