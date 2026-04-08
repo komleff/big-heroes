@@ -92,8 +92,10 @@ export class PveMapScene extends BaseScene {
         // Для фиксированных узлов (босс, святилище, древний сундук) — показываем их номер;
         // для развилки — показываем номер следующего шага (игрок выбирает, куда идти дальше)
         const isFixedNode = currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary';
-        // Шаг = количество посещённых узлов + 1 (текущий)
-        const displayStep = expedition.visitedNodes.length + 1;
+        // Шаг = позиция в маршруте + 1 (1-based).
+        // Нельзя использовать visitedNodes.length — развилочные узлы пропускаются в visitedNodes,
+        // что приводит к занижению номера шага (баг: босс показывался как шаг 7 вместо 12).
+        const displayStep = expedition.currentNodeIndex + 1;
         const subheading = new Text({
             text: `Шаг ${displayStep} / ${totalNodes}`,
             style: new TextStyle({
