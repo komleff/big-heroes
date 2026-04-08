@@ -1,6 +1,6 @@
 ---
 name: external-review
-description: Кросс-модельное внешнее ревью PR через GPT-5.4 и GPT-5.3-Codex (Codex CLI). Оба ревьюера последовательно по всем 4 аспектам. Используй: /external-review <PR_NUMBER>
+description: Внешнее ревью PR через Codex CLI. API key: GPT-5.4 + GPT-5.3-Codex (2 ревьюера). ChatGPT login: 1 проход дефолтной модели. Используй: /external-review <PR_NUMBER>
 user-invocable: true
 ---
 
@@ -150,7 +150,7 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 Собери результаты обоих ревьюеров в единый комментарий. Подставь реальные имена моделей из шага 2 (не захардкоженные):
 
 - **Режим A:** `MODEL_A_NAME = "GPT-5.4"`, `MODEL_B_NAME = "GPT-5.3-Codex"`
-- **Режим B:** `MODEL_A_NAME = "дефолтная модель, проход 1"`, `MODEL_B_NAME = "дефолтная модель, проход 2"`
+- **Режим B:** `MODEL_A_NAME = "дефолтная модель"` (ревьюер B не запускается, секция B в отчёте не публикуется)
 
 ```bash
 gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
