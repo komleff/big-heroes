@@ -2,6 +2,8 @@
 
 Асинхронный hybrid RPG battler с PvE-походами и PvP-ареной. PixiJS v8 + TypeScript.
 
+**Demo:** [komleff.github.io/big-heroes](https://komleff.github.io/big-heroes/)
+
 ## Концепция
 
 Игрок ведёт героя через roguelike-поход с развилками, боями, событиями, лагерями и магазинами. Добывает массу, снаряжение и валюту. Затем проверяет силу подготовки на PvP-арене.
