@@ -174,7 +174,7 @@
 **Обоснование:**
 
 - До этого Sprint Final был ручным: PM готовил промпты в `docs/plans/sprint-N-review-prompts.md`, оператор копировал в ChatGPT/Codex, результаты возвращал PM. Bottleneck и источник ошибок.
-- Codex CLI (`npx @openai/codex review --base master`) позволяет вызвать внешние модели из CLI с diff-awareness — модель видит полный контекст файлов, а не только diff.
+- Codex CLI (`npx @openai/codex review --base "$BASE_BRANCH"`, где base берётся из PR) позволяет вызвать внешние модели из CLI с diff-awareness — модель видит полный контекст файлов, а не только diff.
 - Оба ревьюера проверяют все 4 аспекта (а не делят между собой) — максимизирует adversarial diversity. Практика Sprint 2 и Sprint 3 показала: GPT-5.4 и GPT-5.3-Codex находят разные проблемы в одних аспектах.
 - Формат вердикта един для внутреннего и внешнего ревью (4 аспекта) — предотвращает drift.
 - Adversarial-промпты (attack_surface, finding_bar, scope_exclusions) из [статьи](https://habr.com/ru/articles/1019588/) снижают noise и фокусируют ревью на реальных проблемах.

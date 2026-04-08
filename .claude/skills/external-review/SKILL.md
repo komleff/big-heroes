@@ -46,16 +46,9 @@ STATE=$(gh pr view <PR_NUMBER> --json state --jq '.state')
 # PR должен быть открыт
 if [ "$STATE" != "OPEN" ]; then echo "СТОП: PR не открыт"; exit 1; fi
 
-# Валидация имени ветки (защита от option injection)
-if ! git check-ref-format --allow-onelevel "refs/heads/$HEAD_BRANCH" >/dev/null 2>&1; then
-  echo "СТОП: невалидное имя ветки: $HEAD_BRANCH"
-  exit 1
-fi
-
 # Переключиться на head-ветку PR (гарантирует ревью именно того diff)
-git fetch origin "$HEAD_BRANCH"
-git switch "$HEAD_BRANCH"
-git pull origin "$HEAD_BRANCH"
+# gh pr checkout работает и для локальных веток, и для fork-ов
+gh pr checkout <PR_NUMBER>
 ```
 
 > `BASE_BRANCH` используется далее в `codex review --base "$BASE_BRANCH"` вместо захардкоженного `master`.
