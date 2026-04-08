@@ -286,9 +286,9 @@ export class SceneManager {
 
     /**
      * Viewport-масштабирование: canvas = реальный размер окна (resizeTo: window),
-     * сцены масштабируются container scale. Текст рендерится в нативном разрешении
-     * (resolution = DPR), поэтому container scale НЕ вызывает размытие —
-     * PixiJS перерисовывает Text-текстуры в реальных пикселях.
+     * сцены масштабируются через container scale. Чёткость текста зависит от
+     * внутреннего разрешения рендера (resolution), которое настраивается
+     * отдельно в main.ts.
      */
     resize(width?: number, height?: number): void {
         const w = width ?? this.app.screen.width;

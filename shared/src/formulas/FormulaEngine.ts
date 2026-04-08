@@ -2,6 +2,7 @@ import type { IEquipmentSlots, IHeroStats } from '../types/GameState';
 import type { IRelic } from '../types/Relic';
 import type { IHitAnimation } from '../types/Battle';
 import type { IConsumable } from '../types/Consumable';
+import type { IHeroLeagueConfig } from '../types/BalanceConfig';
 
 /**
  * Вычисление боевых характеристик героя.
@@ -199,4 +200,17 @@ export function generateHitAnimation(
         return [...loserHits, ...winnerHits];
     }
     return [...winnerHits, ...loserHits];
+}
+
+/**
+ * Определяет текущую лигу героя по рейтингу из балансовой таблицы.
+ * Возвращает конфиг лиги, в диапазон которой попадает рейтинг,
+ * или последнюю лигу как fallback.
+ */
+export function getLeagueConfig(rating: number, leagues: IHeroLeagueConfig[]): IHeroLeagueConfig {
+    if (leagues.length === 0) {
+        return { name: 'Лига', minRating: 0, maxRating: 0 };
+    }
+    const matched = leagues.find(l => rating >= l.minRating && rating <= l.maxRating);
+    return matched ?? leagues[leagues.length - 1];
 }

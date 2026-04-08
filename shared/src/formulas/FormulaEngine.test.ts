@@ -12,6 +12,7 @@ import {
     calcPolymorphChance,
     calcEloChange,
     generateHitAnimation,
+    getLeagueConfig,
 } from './FormulaEngine';
 import type { IEquipmentSlots } from '../types/GameState';
 import type { IRelic } from '../types/Relic';
@@ -528,5 +529,37 @@ describe('generateHitAnimation', () => {
         expect(hits[1].damage).toBe(10);
         // Ответный удар: enemyDamage=5, mult=1.0 → round(5*1.0)=5
         expect(hits[2].damage).toBe(5);
+    });
+});
+
+// ─── getLeagueConfig ────────────────────────────────────────────────
+describe('getLeagueConfig', () => {
+    const leagues = [
+        { name: 'Бронза', minRating: 0, maxRating: 499 },
+        { name: 'Серебро', minRating: 500, maxRating: 999 },
+        { name: 'Золото', minRating: 1000, maxRating: 1500 },
+    ];
+
+    it('возвращает лигу, в диапазон которой попадает рейтинг', () => {
+        expect(getLeagueConfig(250, leagues).name).toBe('Бронза');
+        expect(getLeagueConfig(500, leagues).name).toBe('Серебро');
+        expect(getLeagueConfig(1200, leagues).name).toBe('Золото');
+    });
+
+    it('возвращает последнюю лигу как fallback при превышении максимума', () => {
+        expect(getLeagueConfig(9999, leagues).name).toBe('Золото');
+    });
+
+    it('возвращает дефолт при пустом массиве лиг', () => {
+        const result = getLeagueConfig(100, []);
+        expect(result.name).toBe('Лига');
+        expect(result.minRating).toBe(0);
+        expect(result.maxRating).toBe(0);
+    });
+
+    it('корректно обрабатывает граничные значения (minRating / maxRating)', () => {
+        expect(getLeagueConfig(0, leagues).name).toBe('Бронза');
+        expect(getLeagueConfig(499, leagues).name).toBe('Бронза');
+        expect(getLeagueConfig(1500, leagues).name).toBe('Золото');
     });
 });

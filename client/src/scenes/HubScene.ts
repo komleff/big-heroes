@@ -8,24 +8,14 @@ import { ProgressBar } from '../ui/ProgressBar';
 import { BottomNav } from '../ui/BottomNav';
 import { DurabilityPips } from '../ui/DurabilityPips';
 import balanceConfig from '@config/balance.json';
-import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig, IEquipmentItem, IRelic, IHeroLeagueConfig } from 'shared';
-import { generateRoute, createRng, calcHeroStats } from 'shared';
+import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig, IEquipmentItem, IRelic } from 'shared';
+import { generateRoute, createRng, calcHeroStats, getLeagueConfig } from 'shared';
 
 // ─── Константы раскладки ──────────────────────────────────────────
 const W = THEME.layout.designWidth;
 const H = THEME.layout.designHeight;
 const PAD = 12;
 const balance = balanceConfig as unknown as IBalanceConfig;
-
-function getLeagueConfig(rating: number): IHeroLeagueConfig {
-    const leagues = balance.hero.leagues;
-    if (leagues.length === 0) {
-        return { name: 'Лига', minRating: 0, maxRating: 0 };
-    }
-
-    const matchedLeague = leagues.find(league => rating >= league.minRating && rating <= league.maxRating);
-    return matchedLeague ?? leagues[leagues.length - 1];
-}
 
 /**
  * Центральный хаб — главный экран игры (v7).
@@ -62,7 +52,7 @@ export class HubScene extends BaseScene {
     }
 
     onEnter(): void {
-        // --- Фон — 4-точечный градиент ---
+        // --- Фон хаба ---
         this.buildGradientBackground();
 
         // --- Секция: Header (y: 10) ---
@@ -114,7 +104,7 @@ export class HubScene extends BaseScene {
         this.eventBus.off(GameEvents.STATE_EQUIPMENT_CHANGED, this.onEquipmentChanged);
     }
 
-    // ─── Фон — полосчатый градиент ──────────────────────────────────
+    // ─── Фон хаба ───────────────────────────────────────────────────
 
     private buildGradientBackground(): void {
         // Фоновое изображение (cover-fit)
@@ -241,7 +231,7 @@ export class HubScene extends BaseScene {
 
     private buildLeagueBar(): void {
         const y = 52;
-        const league = getLeagueConfig(this.gameState.hero.rating);
+        const league = getLeagueConfig(this.gameState.hero.rating, balance.hero.leagues);
 
         // Лейбл лиги
         this.leagueLabel = new Text({
@@ -256,12 +246,12 @@ export class HubScene extends BaseScene {
         this.leagueLabel.position.set(PAD, y);
         this.addChild(this.leagueLabel);
 
-        // Прогресс-бар рейтинга текущей лиги.
+        // Прогресс-бар рейтинга внутри текущей лиги (относительно minRating).
         const barWidth = W - PAD * 2;
         this.leagueBar = new ProgressBar({
             width: barWidth,
-            max: league.maxRating,
-            current: this.gameState.hero.rating,
+            max: league.maxRating - league.minRating,
+            current: this.gameState.hero.rating - league.minRating,
         });
         this.leagueBar.position.set(PAD, y + 20);
         this.addChild(this.leagueBar);
@@ -488,9 +478,9 @@ export class HubScene extends BaseScene {
         const stats = calcHeroStats(hero.mass, this.gameState.equipment, [...this.gameState.activeRelics] as IRelic[]);
         this.statsText.text = `Сила: ${stats.strength}, Здоровье: ${stats.hp}`;
 
-        const league = getLeagueConfig(hero.rating);
+        const league = getLeagueConfig(hero.rating, balance.hero.leagues);
         this.leagueLabel.text = league.name;
-        this.leagueBar.update(hero.rating, league.maxRating);
+        this.leagueBar.update(hero.rating - league.minRating, league.maxRating - league.minRating);
     }
 
     // ─── Belt slots ─────────────────────────────────────────────────

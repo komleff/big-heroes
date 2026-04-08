@@ -89,9 +89,6 @@ export class PveMapScene extends BaseScene {
         this.addChild(heading);
 
         // --- Подзаголовок: шаг похода ---
-        // Для фиксированных узлов (босс, святилище, древний сундук) — показываем их номер;
-        // для развилки — показываем номер следующего шага (игрок выбирает, куда идти дальше)
-        const isFixedNode = currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary';
         // Шаг = позиция в маршруте + 1 (1-based).
         // Нельзя использовать visitedNodes.length — развилочные узлы пропускаются в visitedNodes,
         // что приводит к занижению номера шага (баг: босс показывался как шаг 7 вместо 12).
@@ -142,11 +139,10 @@ export class PveMapScene extends BaseScene {
             this.addChild(relicsText);
         }
 
-        // --- Иконка и название — только для фиксированных узлов (босс, святилище, древний сундук) ---
-        // Переиспользуем isFixedNode (определён выше) вместо дублирования
+        // --- Иконка и название узла (если тип определён, не развилка) ---
         let actionY = 220;
 
-        if (isFixedNode) {
+        if (!currentNode.isFork) {
             const nodeIcon = new Text({
                 text: display.icon,
                 style: new TextStyle({ fontSize: 64, fontFamily: THEME.font.family }),
@@ -172,9 +168,9 @@ export class PveMapScene extends BaseScene {
             actionY = 360;
         }
 
-        // Босс, древний сундук, святилище — фиксированный вход без выбора
-        if (currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary') {
-            const isCombatNode = currentNode.type === 'boss';
+        // Узел с определённым типом (не развилка) — кнопка входа
+        if (!currentNode.isFork) {
+            const isCombatNode = currentNode.type === 'boss' || currentNode.type === 'combat' || currentNode.type === 'elite';
             const enterBtn = new Button({
                 text: isCombatNode ? 'ВСТУПИТЬ В БОЙ' : 'ВОЙТИ',
                 variant: isCombatNode ? 'primary' : 'secondary',
@@ -184,7 +180,7 @@ export class PveMapScene extends BaseScene {
             this.addChild(enterBtn);
             actionY += 80;
         } else {
-            // Всегда показываем 2-3 варианта; генерируем на лету если нет forkPaths
+            // Развилка — показываем 2-3 варианта
             const forkPaths = this.ensureForkPaths(currentNode, expedition);
 
             const forkLabel = new Text({
@@ -282,7 +278,8 @@ export class PveMapScene extends BaseScene {
 
     /**
      * Обработка выбора пути на развилке.
-     * Обновляет тип СЛЕДУЮЩЕГО узла по выбранному пути и продвигает к нему.
+     * Обновляет тип СЛЕДУЮЩЕГО узла и продвигает currentNodeIndex к нему,
+     * затем перезагружает карту — кнопка входа появится на следующем экране.
      */
     private handleForkChoice(nodeType: PveNodeType, enemyId?: string, eventId?: string): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
@@ -302,11 +299,15 @@ export class PveMapScene extends BaseScene {
         };
 
         const updatedRoute = { ...expedition.route, nodes: updatedNodes };
-        const updatedState: IPveExpeditionState = { ...expedition, route: updatedRoute };
+        const updatedState: IPveExpeditionState = {
+            ...expedition,
+            route: updatedRoute,
+            currentNodeIndex: nextIndex,
+        };
         this.gameState.updateExpeditionState(updatedState);
 
-        // Сразу войти в узел без промежуточного экрана (enterNode сам обновит currentNodeIndex через advanceToNode)
-        this.enterNode(updatedNodes[nextIndex]);
+        // Перезагрузить карту — onEnter покажет определённый узел с кнопкой входа
+        void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
     }
 
     /**

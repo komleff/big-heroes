@@ -11,7 +11,7 @@ export { calcHeroStats, calcDamage, calcTTK, calcBaseWinChance, clamp,
     calcAttackWinChance, calcBlockWinChance, calcFortuneChance,
     calcRetreatChance, calcBypassChance, calcPolymorphChance,
     calcEloChange, generateHitAnimation,
-    applyConsumableEffect } from './formulas/FormulaEngine';
+    applyConsumableEffect, getLeagueConfig } from './formulas/FormulaEngine';
 
 // Системы
 export { resolveBattle } from './systems/BattleSystem';
