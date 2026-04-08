@@ -62,8 +62,6 @@ export class HubScene extends BaseScene {
     }
 
     onEnter(): void {
-        const { gameState, sceneManager } = this;
-
         // --- Фон — 4-точечный градиент ---
         this.buildGradientBackground();
 
