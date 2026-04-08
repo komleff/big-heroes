@@ -21,5 +21,8 @@
 - **Защита от галлюцинаций в Claude Code** — техники повышения надёжности
   https://habr.com/ru/articles/911990/
 
+- **Adversarial Code Review для Claude Code** — кросс-модельное ревью через Codex CLI, adversarial-промпты
+  https://habr.com/ru/articles/1019588/
+
 - **Настройки Claude Code** — hooks, settings, плановая директория
   https://habr.com/ru/articles/906750/

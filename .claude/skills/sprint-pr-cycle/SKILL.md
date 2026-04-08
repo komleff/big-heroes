@@ -81,7 +81,7 @@ EOF
 **Архитектура:**
 ```
 Ты Reviewer. Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
-Задача: проверь PR #<NUMBER> — аспект АРХИТЕКТУРА.
+Задача: проверь PR #<PR_NUMBER> — аспект АРХИТЕКТУРА.
 Фокус: разделение слоёв (client/shared), чистота shared-пакета, паттерны сцен.
 Результат: вердикт APPROVED / CHANGES_REQUESTED с обоснованием.
 ```
@@ -89,7 +89,7 @@ EOF
 **Безопасность:**
 ```
 Ты Reviewer. Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
-Задача: проверь PR #<NUMBER> — аспект БЕЗОПАСНОСТЬ.
+Задача: проверь PR #<PR_NUMBER> — аспект БЕЗОПАСНОСТЬ.
 Фокус: XSS, утечка данных, OWASP top-10.
 Результат: вердикт APPROVED / CHANGES_REQUESTED с обоснованием.
 ```
@@ -97,7 +97,7 @@ EOF
 **Качество:**
 ```
 Ты Reviewer. Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
-Задача: проверь PR #<NUMBER> — аспект КАЧЕСТВО.
+Задача: проверь PR #<PR_NUMBER> — аспект КАЧЕСТВО.
 Фокус: покрытие тестами, edge-cases, производительность < 16мс/кадр.
 Результат: вердикт APPROVED / CHANGES_REQUESTED с обоснованием.
 ```
@@ -105,7 +105,7 @@ EOF
 **Гигиена кода:**
 ```
 Ты Reviewer. Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
-Задача: проверь PR #<NUMBER> — аспект ГИГИЕНА КОДА.
+Задача: проверь PR #<PR_NUMBER> — аспект ГИГИЕНА КОДА.
 Фокус: мёртвый код, дублирование типов, захардкоженные константы, закомментированный код.
 Результат: вердикт APPROVED / CHANGES_REQUESTED с обоснованием.
 ```
@@ -113,7 +113,7 @@ EOF
 ### Шаг 2.2: Публикация отчёта
 
 ```bash
-gh pr comment <NUMBER> --body "$(cat <<'EOF'
+gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
 ## Внутреннее ревью (Claude)
 
 ### Архитектура
@@ -149,7 +149,22 @@ EOF
 
 ### Шаг 2.3: Исправление замечаний (если есть)
 
-Если хотя бы один аспект `CHANGES_REQUESTED` — запусти developer субагента на исправления, потом **атомарный финиш: `git push` + `gh pr comment`** (ОБА обязательны), затем повтори ревью.
+Если хотя бы один аспект `CHANGES_REQUESTED`:
+
+1. Запусти developer субагента на исправления
+2. `git push`
+3. `gh pr comment` с отчётом об исправлениях
+4. Запроси Copilot re-review:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
+gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
+  --method POST -f 'reviewers[]=copilot-pull-request-reviewer[bot]' \
+  && echo "Copilot: re-review requested" \
+  || echo "Copilot: request failed — может потребоваться ручной запуск"
+```
+
+5. Повтори ревью
 
 > ⛔ `git push` без `gh pr comment` = незавершённый цикл. Не останавливайся после push.
 > Только `gh pr comment` — не `gh pr review` (агенты работают под аккаунтом оператора).
@@ -157,23 +172,41 @@ EOF
 
 ## Фаза 3: Внешнее ревью (Sprint Final)
 
-> **ОБЯЗАТЕЛЬНО перед merge в master.** PM инициирует кросс-модельное ревью, передавая PR внешним моделям.
+> **ОБЯЗАТЕЛЬНО перед merge в master.** PM запускает `/external-review` для кросс-модельного ревью через Codex CLI. Модели определяются автоматически по режиму авторизации (API key или ChatGPT login).
 
-### Шаг 3.1: Подготовка промптов для внешних моделей
+### Шаг 3.1: Запуск внешнего ревью
 
-Создай файл `docs/plans/sprint-N-review-prompts.md` с промптами для:
-- GPT-5.4 (архитектура + качество)
-- GPT-5.3-Codex (безопасность + тесты)
+Вызови скилл:
 
-### Шаг 3.2: Публикация результатов внешнего ревью
-
-После получения вердиктов от оператора — опубликуй в PR:
-
-```bash
-gh pr comment <NUMBER> --body-file external-review.md
+```
+/external-review <PR_NUMBER>
 ```
 
-После публикации внешнего ревью перед handoff оператору снова выполни Pre-Chat Gate.
+Скилл выполнит:
+
+- Запуск внешних ревьюеров через Codex CLI (по всем 4 аспектам)
+- Запрос Copilot re-review
+- PM консолидирует вывод и публикует отчёт в PR через `gh pr comment` (ручной шаг в скилле)
+
+### Шаг 3.2: Обработка результатов
+
+Если вердикт `CHANGES_REQUESTED`:
+
+1. Исправь CRITICAL и WARNING замечания через Developer-субагента
+2. `git push`
+3. Запроси Copilot re-review:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
+gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
+  --method POST -f 'reviewers[]=copilot-pull-request-reviewer[bot]' \
+  && echo "Copilot: re-review requested" \
+  || echo "Copilot: request failed — может потребоваться ручной запуск"
+```
+
+4. Повтори `/external-review <PR_NUMBER>`
+
+Если вердикт `APPROVED` — переходи к Фазе 4.
 
 ## Фаза 4: Готовность к merge
 
@@ -184,7 +217,7 @@ gh pr comment <NUMBER> --body-file external-review.md
 - [ ] Все review-pass опубликованы в PR
 
 ```bash
-gh pr comment <NUMBER> --body "## ✅ Готов к merge
+gh pr comment <PR_NUMBER> --body "## ✅ Готов к merge
 
 Все проверки пройдены. Merge — на усмотрение оператора.
 
