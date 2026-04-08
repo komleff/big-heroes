@@ -132,8 +132,9 @@ export class BattleScene extends BaseScene {
         this.battleData = data as BattleSceneData;
         const { result, enemy } = this.battleData;
 
-        // Рассчитываем начальные HP: масса = HP
-        this.heroMaxHp = this.gameState.hero.mass;
+        // Рассчитываем начальные HP: масса = HP (base + набранная в походе)
+        const expeditionMass = (this.gameState.expeditionState as IPveExpeditionState | null)?.massGained ?? 0;
+        this.heroMaxHp = this.gameState.hero.mass + expeditionMass;
         this.heroCurrentHp = this.heroMaxHp;
         this.enemyMaxHp = enemy.mass;
         this.enemyCurrentHp = this.enemyMaxHp;
@@ -183,7 +184,7 @@ export class BattleScene extends BaseScene {
 
         // --- Аватары y=120 ---
         this.heroAvatar = this.buildAvatar(
-            this.gameState.hero.mass.toString() + ' кг',
+            this.heroMaxHp.toString() + ' кг',
             'Герой',
             THEME.colors.accent_cyan,
         );

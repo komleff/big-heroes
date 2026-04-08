@@ -56,8 +56,10 @@ export class LootScene extends BaseScene {
 
     /** Пересобрать весь интерфейс для текущего предмета */
     private buildUI(): void {
-        // Очистка предыдущего содержимого
-        this.removeChildren();
+        // Очистка предыдущего содержимого (освобождение GPU-памяти)
+        for (const child of this.removeChildren()) {
+            child.destroy({ children: true });
+        }
 
         const item = this.drops[this.currentIndex];
 

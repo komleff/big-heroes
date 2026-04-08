@@ -208,12 +208,12 @@ describe('calcTTK', () => {
 // ─── calcBaseWinChance ─────────────────────────────────────────────────
 
 describe('calcBaseWinChance', () => {
-    test('ttkHero=5, ttkEnemy=3 → 3/8 = 0.375', () => {
-        expect(calcBaseWinChance(5, 3)).toBe(0.375);
+    test('ttkHero=5, ttkEnemy=3 → 5/8 = 0.625 (герой живёт дольше → шанс выше)', () => {
+        expect(calcBaseWinChance(5, 3)).toBe(0.625);
     });
 
-    test('ttkHero=3, ttkEnemy=5 → 5/8 = 0.625', () => {
-        expect(calcBaseWinChance(3, 5)).toBe(0.625);
+    test('ttkHero=3, ttkEnemy=5 → 3/8 = 0.375 (герой быстро падает → шанс ниже)', () => {
+        expect(calcBaseWinChance(3, 5)).toBe(0.375);
     });
 
     test('равные TTK → 0.5', () => {

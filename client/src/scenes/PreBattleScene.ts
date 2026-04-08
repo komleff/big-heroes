@@ -4,6 +4,7 @@ import type {
     IMobConfig, IBalanceConfig, IFormulaConfig,
     IBattleContext, CommandId,
     IEquipmentSlots, IEquipmentItem, IConsumable,
+    IPveExpeditionState,
 } from 'shared';
 import {
     calcHeroStats, calcDamage, calcTTK, calcBaseWinChance,
@@ -150,6 +151,13 @@ export class PreBattleScene extends BaseScene {
         this.sceneManager = sceneManager;
     }
 
+    /** Эффективная масса героя = base + набранная в походе */
+    private getEffectiveMass(): number {
+        const base = this.getEffectiveMass();
+        const expeditionBonus = (this.gameState.expeditionState as IPveExpeditionState | null)?.massGained ?? 0;
+        return base + expeditionBonus;
+    }
+
     onEnter(data?: unknown): void {
         const enterData = data as { enemy: IMobConfig } | undefined;
         if (!enterData?.enemy) throw new Error('PreBattleScene: data.enemy обязателен');
@@ -208,7 +216,7 @@ export class PreBattleScene extends BaseScene {
         const equipment = this.gameState.equipment;
         const relics = [...this.gameState.activeRelics];
         const heroStats = calcHeroStats(
-            this.gameState.hero.mass,
+            this.getEffectiveMass(),
             equipment as IEquipmentSlots,
             relics,
         );
@@ -218,7 +226,7 @@ export class PreBattleScene extends BaseScene {
         // --- Герой (слева) ---
         const heroBlock = this.buildFighterBlock(
             'BigHero',
-            `${this.gameState.hero.mass} кг`,
+            `${this.getEffectiveMass()} кг`,
             heroStats.strength,
             heroStats.armor,
             heroStats.luck,
@@ -477,7 +485,7 @@ export class PreBattleScene extends BaseScene {
         const equipment = this.gameState.equipment;
         const relics = [...this.gameState.activeRelics];
         const heroStats = calcHeroStats(
-            this.gameState.hero.mass,
+            this.getEffectiveMass(),
             equipment as IEquipmentSlots,
             relics,
         );
@@ -772,7 +780,7 @@ export class PreBattleScene extends BaseScene {
 
         const equipment = this.gameState.equipment as IEquipmentSlots;
         const relics = [...this.gameState.activeRelics];
-        const heroStats = calcHeroStats(this.gameState.hero.mass, equipment, relics);
+        const heroStats = calcHeroStats(this.getEffectiveMass(), equipment, relics);
 
         // Расходник из пояса (или null)
         let consumable: IConsumable | null = null;

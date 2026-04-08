@@ -45,9 +45,9 @@ export function calcTTK(hp: number, damagePerHit: number): number {
     return hp / Math.max(1, damagePerHit);
 }
 
-/** Базовый шанс победы (TTK-метод) */
+/** Базовый шанс победы (TTK-метод): чем дольше герой выживает, тем выше шанс */
 export function calcBaseWinChance(ttkHero: number, ttkEnemy: number): number {
-    return ttkEnemy / (ttkHero + ttkEnemy);
+    return ttkHero / (ttkHero + ttkEnemy);
 }
 
 /** Ограничение значения в диапазоне [min, max] */
