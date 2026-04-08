@@ -162,9 +162,13 @@ export class PveMapScene extends BaseScene {
         this.addChild(forkLabel);
         actionY += 40;
 
+        // Реликвия «Все ??? раскрыты» снимает hidden с путей
+        const hasRevealAll = gameState.activeRelics.some(r => r.effect === 'reveal_all');
+
         for (const path of forkPaths) {
             const pathDisplay = getNodeDisplay(path.nodeType);
-            const pathLabel = path.hidden ? '???' : `${pathDisplay.icon} ${pathDisplay.name}`;
+            const isHidden = path.hidden && !hasRevealAll;
+            const pathLabel = isHidden ? '???' : `${pathDisplay.icon} ${pathDisplay.name}`;
             const pathBtn = new Button({
                 text: pathLabel,
                 variant: 'secondary',
@@ -405,6 +409,7 @@ export class PveMapScene extends BaseScene {
             price: Math.round(item.price * (1 - discount)),
         }));
 
+        // Магазин: только покупка. Ремонт — только в лагере (решение оператора).
         void this.sceneManager.goto('shop', {
             transition: TransitionType.SLIDE_LEFT,
             data: {
@@ -415,7 +420,7 @@ export class PveMapScene extends BaseScene {
                     if (!item) return this.gameState.resources.gold + (this.gameState.expeditionState as IPveExpeditionState).goldGained;
                     const state = this.gameState.expeditionState as IPveExpeditionState;
                     const totalGold = this.gameState.resources.gold + state.goldGained;
-                    if (totalGold < item.price) return totalGold; // Защита от отрицательного золота
+                    if (totalGold < item.price) return totalGold;
                     const newGoldGained = state.goldGained - item.price;
                     this.gameState.updateExpeditionState({
                         ...state,
