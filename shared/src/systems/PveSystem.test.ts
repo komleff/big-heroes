@@ -21,7 +21,7 @@ const pveConfig: IPveConfig = {
     node_weights: { combat: 0.40, elite: 0.12, shop: 0.12, camp: 0.12, event: 0.08, chest: 0.16 },
     constraints: { max_combats_in_row: 2, max_shops: 1, min_camps_before_boss: 1 },
     camp: { repair_amount: 1, train_mass_min: 3, train_mass_max: 5 },
-    shop: { item_count_min: 3, item_count_max: 4, price_multiplier: 1.0, repair_price_multiplier: 1.75 },
+    shop: { item_count_min: 3, item_count_max: 4, price_multiplier: 1.0, repair_price_multiplier: 1.75, repair_gold_per_durability: 10 },
     loot: { combat_loot_chance: 0.20, elite_loot_guaranteed: true, elite_relic_chance: 0.40, boss_loot_count: 2, chest_loot_count_min: 1, chest_loot_count_max: 2, pity_counter: 5, equipment_drop_chance: 0.5 },
 };
 

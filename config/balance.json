@@ -115,7 +115,8 @@
         "item_count_min": 3,
         "item_count_max": 4,
         "price_multiplier": 1.0,
-        "repair_price_multiplier": 1.75
+        "repair_price_multiplier": 1.75,
+        "repair_gold_per_durability": 10
     },
     "loot": {
         "combat_loot_chance": 0.20,

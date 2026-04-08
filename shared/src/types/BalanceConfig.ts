@@ -92,6 +92,7 @@ export interface IPveShopConfig {
     item_count_max: number;
     price_multiplier: number;
     repair_price_multiplier: number;
+    repair_gold_per_durability: number;
 }
 
 export interface IPveLootConfig {

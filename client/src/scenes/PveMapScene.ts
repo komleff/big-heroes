@@ -443,10 +443,10 @@ export class PveMapScene extends BaseScene {
             price: Math.round(item.price * (1 - discount)),
         }));
 
-        // Стоимость ремонта = суммарная нехватка прочности × наценка магазина
+        // Стоимость ремонта = суммарная нехватка прочности × цена за единицу × наценка магазина
         const baseDamage = this.calcTotalDurabilityDamage();
         const repairCost = baseDamage > 0
-            ? calcShopRepairCost(baseDamage * 10, config.pve.shop)
+            ? calcShopRepairCost(baseDamage * config.pve.shop.repair_gold_per_durability, config.pve.shop)
             : 0;
 
         void this.sceneManager.goto('shop', {
@@ -461,12 +461,13 @@ export class PveMapScene extends BaseScene {
                     const state = this.gameState.expeditionState as IPveExpeditionState;
                     const totalGold = this.gameState.resources.gold + state.goldGained;
                     if (totalGold < item.price) return totalGold;
+                    const newGoldGained = state.goldGained - item.price;
                     this.gameState.updateExpeditionState({
                         ...state,
-                        goldGained: state.goldGained - item.price,
+                        goldGained: newGoldGained,
                         itemsFound: [...state.itemsFound, item.itemId],
                     });
-                    return this.gameState.resources.gold + state.goldGained - item.price;
+                    return this.gameState.resources.gold + newGoldGained;
                 },
                 onRepair: (): number => {
                     const state = this.gameState.expeditionState as IPveExpeditionState;
@@ -480,11 +481,12 @@ export class PveMapScene extends BaseScene {
                             this.gameState.equipItem({ ...item, currentDurability: item.maxDurability });
                         }
                     }
+                    const newGoldGained = state.goldGained - repairCost;
                     this.gameState.updateExpeditionState({
                         ...state,
-                        goldGained: state.goldGained - repairCost,
+                        goldGained: newGoldGained,
                     });
-                    return this.gameState.resources.gold + state.goldGained - repairCost;
+                    return this.gameState.resources.gold + newGoldGained;
                 },
                 onLeave: () => {
                     this.advanceToNextNode();
