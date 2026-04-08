@@ -53,7 +53,8 @@ if ! git check-ref-format --allow-onelevel "refs/heads/$HEAD_BRANCH" >/dev/null 
 fi
 
 # Переключиться на head-ветку PR (гарантирует ревью именно того diff)
-git checkout -- "$HEAD_BRANCH"
+git fetch origin "$HEAD_BRANCH"
+git switch "$HEAD_BRANCH"
 git pull origin "$HEAD_BRANCH"
 ```
 
@@ -123,6 +124,8 @@ npx @openai/codex review --base "$BASE_BRANCH" -c model='"gpt-5.4"' -c model_rea
 # Режим B (ChatGPT) — дефолтная модель:
 npx @openai/codex review --base "$BASE_BRANCH"
 ```
+
+> Встроенный ревью выдаёт свободный формат. PM при консолидации (шаг 5) **вручную маппит** вывод на 4 аспекта. Если вывод не покрывает аспект — PM помечает его как "не проверен".
 
 **Альтернатива — кастомный adversarial-промпт** (без `--base`, ревьюит uncommitted):
 
@@ -226,6 +229,8 @@ npx @openai/codex review --base "$BASE_BRANCH" -c model='"gpt-5.3-codex"' -c mod
 # Режим B (ChatGPT) — дефолтная модель, второй проход:
 npx @openai/codex review --base "$BASE_BRANCH"
 ```
+
+> Встроенный ревью выдаёт свободный формат. PM при консолидации (шаг 5) **вручную маппит** вывод на 4 аспекта. Если вывод не покрывает аспект — PM помечает его как "не проверен".
 
 **Альтернатива — кастомный adversarial-промпт** (без `--base`):
 
