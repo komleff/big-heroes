@@ -33,6 +33,8 @@ const config: WebpackConfig = {
         filename: 'bundle.js',
         path: path.resolve(__dirname, 'dist'),
         clean: true,
+        // /big-heroes/ — путь проекта на GitHub Pages (komleff.github.io/big-heroes/)
+        publicPath: process.env.NODE_ENV === 'production' ? '/big-heroes/' : '/',
     },
     plugins: [
         new HtmlWebpackPlugin({
