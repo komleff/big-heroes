@@ -97,15 +97,17 @@ Codex CLI поддерживает два режима авторизации с
 
 ### 3.1 Ревьюер A
 
-Выполни `codex review` с промптом ниже.
+Выполни `codex review`. Ограничение CLI: `--base` нельзя комбинировать с кастомным промптом. Используй `codex review --base master` (встроенный ревью) или `codex review "PROMPT"` (кастомный промпт, ревьюит uncommitted).
 
-- **Режим A (API key):** добавь `-c model='"gpt-5.4"' -c model_reasoning_effort='"high"'`
-- **Режим B (ChatGPT):** без `-c model=...` (используется дефолтная модель)
+Рекомендуемый вариант — встроенный ревью с указанием модели:
+
+- **Режим A (API key):** `npx @openai/codex review --base master -c model='"gpt-5.4"'`
+- **Режим B (ChatGPT):** `npx @openai/codex review --base master` (дефолтная модель)
+
+Если нужен кастомный adversarial-промпт — используй `codex review` без `--base` (ревьюит uncommitted changes, поэтому сначала убедись что на ветке PR):
 
 ```bash
-npx @openai/codex review \
-  --base master \
-  "$(cat <<'PROMPT'
+npx @openai/codex review "$(cat <<'PROMPT'
 Ты — Reviewer в проекте Big Heroes (PixiJS v8 + TypeScript).
 Задача: проверь изменения в PR по 4 аспектам. Дай вердикт по каждому.
 
@@ -195,13 +197,13 @@ PROMPT
 
 Аналогичная команда, но с другой моделью и акцентом в adversarial directives:
 
-- **Режим A (API key):** добавь `-c model='"gpt-5.3-codex"' -c model_reasoning_effort='"high"'`
-- **Режим B (ChatGPT):** без `-c model=...` (дефолтная модель, второй проход)
+- **Режим A (API key):** `npx @openai/codex review --base master -c model='"gpt-5.3-codex"'`
+- **Режим B (ChatGPT):** `npx @openai/codex review --base master` (дефолтная модель, второй проход)
+
+Или с кастомным промптом (без `--base`):
 
 ```bash
-npx @openai/codex review \
-  --base master \
-  "$(cat <<'PROMPT'
+npx @openai/codex review "$(cat <<'PROMPT'
 Ты — Reviewer в проекте Big Heroes (PixiJS v8 + TypeScript).
 Задача: проверь изменения в PR по 4 аспектам. Дай вердикт по каждому.
 Ты — второй независимый ревьюер. Не полагайся на то, что первый ревьюер что-то поймал.
