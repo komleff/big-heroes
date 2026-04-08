@@ -10,7 +10,7 @@ import { ResourceBar } from '../ui/ResourceBar';
 import {
     advanceToNode, exitExpedition,
     generateRelicPool, configToRelic,
-    generateLoot, generateShopInventory,
+    generateLoot, generateShopInventory, calcShopRepairCost,
     generateForkPaths,
     createRng, randInt,
 } from 'shared';
@@ -443,11 +443,18 @@ export class PveMapScene extends BaseScene {
             price: Math.round(item.price * (1 - discount)),
         }));
 
+        // Стоимость ремонта = суммарная нехватка прочности × наценка магазина
+        const baseDamage = this.calcTotalDurabilityDamage();
+        const repairCost = baseDamage > 0
+            ? calcShopRepairCost(baseDamage * 10, config.pve.shop)
+            : 0;
+
         void this.sceneManager.goto('shop', {
             transition: TransitionType.SLIDE_LEFT,
             data: {
                 shopItems: discountedItems,
                 gold: this.gameState.resources.gold + expedition.goldGained,
+                repairCost,
                 onBuy: (itemIndex: number): number => {
                     const item = discountedItems[itemIndex];
                     if (!item) return this.gameState.resources.gold + (this.gameState.expeditionState as IPveExpeditionState).goldGained;
@@ -460,6 +467,24 @@ export class PveMapScene extends BaseScene {
                         itemsFound: [...state.itemsFound, item.itemId],
                     });
                     return this.gameState.resources.gold + state.goldGained - item.price;
+                },
+                onRepair: (): number => {
+                    const state = this.gameState.expeditionState as IPveExpeditionState;
+                    const totalGold = this.gameState.resources.gold + state.goldGained;
+                    if (totalGold < repairCost) return totalGold;
+                    // Полный ремонт всего снаряжения
+                    const slots: Array<'weapon' | 'armor' | 'accessory'> = ['weapon', 'armor', 'accessory'];
+                    for (const slot of slots) {
+                        const item = this.gameState.equipment[slot];
+                        if (item && item.currentDurability < item.maxDurability) {
+                            this.gameState.equipItem({ ...item, currentDurability: item.maxDurability });
+                        }
+                    }
+                    this.gameState.updateExpeditionState({
+                        ...state,
+                        goldGained: state.goldGained - repairCost,
+                    });
+                    return this.gameState.resources.gold + state.goldGained - repairCost;
                 },
                 onLeave: () => {
                     this.advanceToNextNode();
@@ -750,6 +775,19 @@ export class PveMapScene extends BaseScene {
         const updated: IPveExpeditionState = { ...expedition, currentNodeIndex: nextIndex };
         this.gameState.updateExpeditionState(updated);
         void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+    }
+
+    /** Суммарная нехватка прочности по всем слотам экипировки */
+    private calcTotalDurabilityDamage(): number {
+        const slots: Array<'weapon' | 'armor' | 'accessory'> = ['weapon', 'armor', 'accessory'];
+        let total = 0;
+        for (const slot of slots) {
+            const item = this.gameState.equipment[slot];
+            if (item && item.currentDurability < item.maxDurability) {
+                total += item.maxDurability - item.currentDurability;
+            }
+        }
+        return total;
     }
 
     onExit(): void {

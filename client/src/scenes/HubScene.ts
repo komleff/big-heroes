@@ -29,7 +29,6 @@ export class HubScene extends BaseScene {
 
     // Ссылки на обновляемые UI-компоненты
     private goldText!: Text;
-    private premiumText!: Text;
     private leagueLabel!: Text;
     private leagueBar!: ProgressBar;
     private massText!: Text;
@@ -165,16 +164,9 @@ export class HubScene extends BaseScene {
         nick.position.set(PAD + 42, y + 10);
         this.addChild(nick);
 
-        // --- Валютные пилюли (справа) ---
-        // Premium pill (самая правая)
-        const premium = this.createCurrencyPill('⭐', '80');
-        premium.pill.position.set(W - PAD - 80, y + 4);
-        this.addChild(premium.pill);
-        this.premiumText = premium.valueText;
-
-        // Gold pill (левее premium)
+        // --- Валютная пилюля (справа) ---
         const gold = this.createCurrencyPill('🪙', String(this.gameState.resources.gold));
-        gold.pill.position.set(W - PAD - 170, y + 4);
+        gold.pill.position.set(W - PAD - 80, y + 4);
         this.addChild(gold.pill);
         this.goldText = gold.valueText;
     }

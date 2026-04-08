@@ -78,8 +78,19 @@ const ALL_COMMANDS: CommandDef[] = [
 function createLockedCommand(): CommandDef {
     return {
         id: null,
-        icon: '\uD83D\uDD12',
+        icon: '🔒',
         label: 'Нет аксессуара',
+        slot: 'accessory',
+        calcChance: () => 0,
+    };
+}
+
+/** Заглушка для сломанного аксессуара (прочность = 0) */
+function createBrokenCommand(accessory: IEquipmentItem): CommandDef {
+    return {
+        id: null,
+        icon: '🔨',
+        label: `${accessory.name} (сломан)`,
         slot: 'accessory',
         calcChance: () => 0,
     };
@@ -91,12 +102,18 @@ function getActiveCommands(accessory: IEquipmentItem | null): CommandDef[] {
     const block = ALL_COMMANDS.find(c => c.id === 'cmd_block')!;
 
     // Аксессуар определяет среднюю команду
-    let accessoryCmd: CommandDef | null = null;
-    if (accessory && accessory.currentDurability > 0 && accessory.commandId) {
-        accessoryCmd = ALL_COMMANDS.find(c => c.id === accessory.commandId) ?? null;
+    if (accessory) {
+        if (accessory.currentDurability > 0 && accessory.commandId) {
+            const accessoryCmd = ALL_COMMANDS.find(c => c.id === accessory.commandId) ?? null;
+            if (accessoryCmd) return [attack, accessoryCmd, block];
+        }
+        // Аксессуар есть, но сломан
+        if (accessory.currentDurability === 0) {
+            return [attack, createBrokenCommand(accessory), block];
+        }
     }
 
-    return [attack, accessoryCmd ?? createLockedCommand(), block];
+    return [attack, createLockedCommand(), block];
 }
 
 /**

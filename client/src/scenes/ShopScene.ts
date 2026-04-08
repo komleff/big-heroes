@@ -8,7 +8,9 @@ import { createPveBackground } from '../ui/GradientBackground';
 interface ShopSceneData {
     shopItems: Array<{ itemId: string; name?: string; itemType: 'equipment' | 'consumable'; price: number }>;
     gold: number;
-    onBuy: (index: number) => number;   // возвращает оставшееся золото
+    repairCost: number;                  // стоимость полного ремонта (0 = ремонт не нужен)
+    onBuy: (index: number) => number;    // возвращает оставшееся золото
+    onRepair: () => number;              // ремонт, возвращает оставшееся золото
     onLeave: () => void;
 }
 
@@ -28,9 +30,12 @@ const CARD_R = THEME.layout.borderRadius.card; // 12
  */
 export class ShopScene extends BaseScene {
     private gold = 0;
+    private repairCost = 0;
+    private repaired = false;
     private shopItems: ShopSceneData['shopItems'] = [];
     private boughtIndices = new Set<number>();
     private onBuyCb: ((index: number) => number) | null = null;
+    private onRepairCb: (() => number) | null = null;
     private onLeaveCb: (() => void) | null = null;
 
     constructor() {
@@ -41,8 +46,11 @@ export class ShopScene extends BaseScene {
         const d = data as ShopSceneData;
         this.shopItems = d.shopItems ?? [];
         this.gold = d.gold ?? 0;
+        this.repairCost = d.repairCost ?? 0;
+        this.repaired = false;
         this.boughtIndices = new Set();
         this.onBuyCb = d.onBuy ?? null;
+        this.onRepairCb = d.onRepair ?? null;
         this.onLeaveCb = d.onLeave ?? null;
         this.buildUI();
     }
@@ -166,6 +174,42 @@ export class ShopScene extends BaseScene {
             this.addChild(card);
         });
 
+        let bottomY = startY + this.shopItems.length * (CARD_H + gap) + gap;
+
+        // Кнопка «РЕМОНТ» (если есть повреждённое снаряжение)
+        if (this.repairCost > 0 && !this.repaired) {
+            const canRepair = this.gold >= this.repairCost;
+            const repairBtn = new Button({
+                text: `🔧 РЕМОНТ (${this.repairCost} Gold)`,
+                variant: canRepair ? 'secondary' : 'danger',
+                onClick: () => {
+                    if (!canRepair) return;
+                    this.gold = this.onRepairCb?.() ?? this.gold;
+                    this.repaired = true;
+                    this.buildUI();
+                },
+            });
+            repairBtn.x = W / 2;
+            repairBtn.y = bottomY;
+            this.addChild(repairBtn);
+            bottomY += 60;
+        } else if (this.repaired) {
+            const repairedText = new Text({
+                text: '✅ Снаряжение отремонтировано',
+                style: new TextStyle({
+                    fontSize: THEME.font.sizes.itemName,
+                    fontFamily: THEME.font.family,
+                    fontWeight: THEME.font.weights.bold,
+                    fill: THEME.colors.accent_green,
+                }),
+            });
+            repairedText.anchor.set(0.5, 0);
+            repairedText.x = W / 2;
+            repairedText.y = bottomY;
+            this.addChild(repairedText);
+            bottomY += 40;
+        }
+
         // Кнопка «УЙТИ»
         const leaveBtn = new Button({
             text: 'УЙТИ',
@@ -173,7 +217,7 @@ export class ShopScene extends BaseScene {
             onClick: () => this.onLeaveCb?.(),
         });
         leaveBtn.x = W / 2;
-        leaveBtn.y = startY + this.shopItems.length * (CARD_H + gap) + gap + 20;
+        leaveBtn.y = bottomY + 20;
         this.addChild(leaveBtn);
     }
 }
