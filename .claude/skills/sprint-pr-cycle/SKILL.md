@@ -154,8 +154,10 @@ EOF
 ```bash
 # После git push — запроси Copilot re-review
 REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
-gh api "repos/$REPO/pulls/<NUMBER>/requested_reviewers" \
-  --method POST -f 'reviewers[]=copilot-pull-request-reviewer[bot]' 2>/dev/null
+gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
+  --method POST -f 'reviewers[]=copilot-pull-request-reviewer[bot]' \
+  && echo "Copilot: re-review requested" \
+  || echo "Copilot: request failed — может потребоваться ручной запуск"
 ```
 
 > ⛔ `git push` без `gh pr comment` = незавершённый цикл. Не останавливайся после push.

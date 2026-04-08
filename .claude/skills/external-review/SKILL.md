@@ -23,10 +23,20 @@ user-invocable: true
 
 ## Шаг 1: Пререквизиты
 
-### 1.1 Проверка PR
+### 1.1 Проверка PR и переключение на head-ветку
 
 ```bash
-gh pr view <PR_NUMBER> --json number,title,baseRefName,headRefName,state
+# Получить метаданные PR
+PR_DATA=$(gh pr view <PR_NUMBER> --json number,title,baseRefName,headRefName,state)
+HEAD_BRANCH=$(echo "$PR_DATA" | jq -r '.headRefName')
+STATE=$(echo "$PR_DATA" | jq -r '.state')
+
+# PR должен быть открыт
+if [ "$STATE" != "OPEN" ]; then echo "СТОП: PR не открыт"; exit 1; fi
+
+# Переключиться на head-ветку PR (гарантирует ревью именно того diff)
+git checkout "$HEAD_BRANCH"
+git pull origin "$HEAD_BRANCH"
 ```
 
 Если PR не найден или закрыт — **СТОП**.
@@ -34,13 +44,17 @@ gh pr view <PR_NUMBER> --json number,title,baseRefName,headRefName,state
 ### 1.2 Проверка что ветка запушена
 
 ```bash
-# Незапушенные коммиты
-git log @{u}..HEAD --oneline
+# Проверить наличие upstream и незапушенных коммитов
+if git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+  git log @{u}..HEAD --oneline
+else
+  echo "Upstream не настроен. Выполни: git push -u origin $(git branch --show-current)"
+fi
 # Чистота рабочего дерева
 git diff --stat HEAD
 ```
 
-Если есть незапушенные коммиты — выполни `git push` перед продолжением.
+Если есть незапушенные коммиты — выполни `git push -u origin <branch>` перед продолжением.
 
 ### 1.3 Проверка Codex CLI
 
@@ -56,31 +70,34 @@ Codex CLI поддерживает два режима авторизации с
 
 Если `npx @openai/codex login status` показывает "API key":
 
-- **Ревьюер A:** `-m gpt-5.4` — сильное рассуждение
-- **Ревьюер B:** `-m gpt-5.3-codex` — фокус на коде
+- **Ревьюер A:** `-c model='"gpt-5.4"'` — сильное рассуждение
+- **Ревьюер B:** `-c model='"gpt-5.3-codex"'` — фокус на коде
 - Две разные модели = максимальная adversarial diversity
+- В отчёте: `— Reviewer (GPT-5.4)` и `— Reviewer (GPT-5.3-Codex)`
 
 ### Режим B: ChatGPT login (fallback)
 
 Если `npx @openai/codex login status` показывает "ChatGPT":
 
-- **Ревьюер A:** дефолтная модель, промпт с фокусом на архитектуру + качество
-- **Ревьюер B:** дефолтная модель, промпт с фокусом на безопасность + гигиену
+- **Ревьюер A:** без `-c model=...` (дефолтная модель из `~/.codex/config.toml`), промпт с фокусом на архитектуру + качество
+- **Ревьюер B:** без `-c model=...` (та же дефолтная модель), промпт с фокусом на безопасность + гигиену
 - Одна модель, но два прохода с разным adversarial-фокусом
+- В отчёте **честная атрибуция**: `— Reviewer A (дефолтная модель, проход 1)` и `— Reviewer B (дефолтная модель, проход 2)`. НЕ маркировать как GPT-5.4/GPT-5.3-Codex — это ложный audit trail.
 
-> В обоих режимах каждый ревьюер проверяет все 4 аспекта. Различается только акцент промпта.
+> В обоих режимах каждый ревьюер проверяет все 4 аспекта. Различается акцент промпта и атрибуция.
 
 ## Шаг 3: Запуск ревьюеров
 
 ### 3.1 Ревьюер A
 
-Выполни `codex review` с промптом ниже. Подставь модель по режиму (шаг 2).
+Выполни `codex review` с промптом ниже.
+
+- **Режим A (API key):** добавь `-c model='"gpt-5.4"' -c model_reasoning_effort='"high"'`
+- **Режим B (ChatGPT):** без `-c model=...` (используется дефолтная модель)
 
 ```bash
 npx @openai/codex review \
   --base master \
-  -c model='"MODEL_A"' \
-  -c model_reasoning_effort='"high"' \
   "$(cat <<'PROMPT'
 Ты — Reviewer в проекте Big Heroes (PixiJS v8 + TypeScript).
 Задача: проверь изменения в PR по 4 аспектам. Дай вердикт по каждому.
@@ -169,13 +186,14 @@ PROMPT
 
 ### 3.2 Ревьюер B
 
-Аналогичная команда, но с `MODEL_B` и другим акцентом в adversarial directives:
+Аналогичная команда, но с другой моделью и акцентом в adversarial directives:
+
+- **Режим A (API key):** добавь `-c model='"gpt-5.3-codex"' -c model_reasoning_effort='"high"'`
+- **Режим B (ChatGPT):** без `-c model=...` (дефолтная модель, второй проход)
 
 ```bash
 npx @openai/codex review \
   --base master \
-  -c model='"MODEL_B"' \
-  -c model_reasoning_effort='"high"' \
   "$(cat <<'PROMPT'
 Ты — Reviewer в проекте Big Heroes (PixiJS v8 + TypeScript).
 Задача: проверь изменения в PR по 4 аспектам. Дай вердикт по каждому.
@@ -272,8 +290,8 @@ REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
 gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
   --method POST \
   -f 'reviewers[]=copilot-pull-request-reviewer[bot]' \
-  2>/dev/null && echo "Copilot: re-review requested" \
-  || echo "Copilot: request failed, may auto-trigger on push"
+  && echo "Copilot: re-review requested" \
+  || echo "Copilot: request failed — может потребоваться ручной запуск"
 ```
 
 ## Шаг 5: Консолидация и публикация

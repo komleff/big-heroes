@@ -39,7 +39,7 @@ fi
 
 # 3. Проверка доступных моделей (dry-run через exec, а не review — review требует diff)
 npx @openai/codex exec -m gpt-5.4 "Respond with OK" 2>&1 | head -5
-npx @openai/codex exec -m codex-5.3 "Respond with OK" 2>&1 | head -5
+npx @openai/codex exec -m gpt-5.3-codex "Respond with OK" 2>&1 | head -5
 
 # 4. Copilot API — проверка доступности (owner/repo вычисляется автоматически)
 REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
@@ -51,7 +51,7 @@ gh api "repos/$REPO/pulls" --jq '.[0].number' 2>/dev/null && echo "GitHub API: O
 gh api "repos/$REPO" --jq '.permissions.push' 2>/dev/null && echo "GitHub repo access: OK"
 ```
 
-> **Model ID**: `gpt-5.4` и `codex-5.3` — актуальные модели. НЕ использовать `o4-mini` (устаревшая, не подходит для code review). Если dry-run не проходит — проверить model ID в документации OpenAI и обновить.
+> **Model ID**: `gpt-5.4` и `gpt-5.3-codex` — актуальные модели. НЕ использовать `o4-mini` (устаревшая, не подходит для code review). Если dry-run не проходит — проверить model ID в документации OpenAI и обновить.
 
 Если пререквизиты не пройдены — СТОП, эскалация оператору. Не писать скилл с неработающими командами.
 
@@ -118,14 +118,14 @@ Adversarial-промпт по шаблону из статьи:
 ```bash
 npx @openai/codex review \
   --base master \
-  -c model='"codex-5.3"' \
+  -c model='"gpt-5.3-codex"' \
   "ADVERSARIAL_PROMPT_B"
 ```
 
 Те же 4 аспекта, тот же формат вердикта, другая модель → другие bias.
 Подпись: `— Reviewer (GPT-5.3-Codex)`
 
-> **Model ID**: `gpt-5.4` и `codex-5.3` — проверяются в шаге 0 dry-run. В скилле обозначены как переменные `MODEL_A` / `MODEL_B` с комментарием для замены. НЕ использовать `o4-mini` (устаревшая).
+> **Model ID**: `gpt-5.4` и `gpt-5.3-codex` — проверяются в шаге 0 dry-run. В скилле обозначены как переменные `MODEL_A` / `MODEL_B` с комментарием для замены. НЕ использовать `o4-mini` (устаревшая).
 
 #### 2.4 Copilot Re-Review
 
@@ -424,6 +424,6 @@ git push -u origin feature/external-review-skill
 
 ## Открытые вопросы (все решаются в шаге 0)
 
-1. **Model ID**: `gpt-5.4` и `codex-5.3` доступны? — dry-run через `codex exec` в шаге 0
+1. **Model ID**: `gpt-5.4` и `gpt-5.3-codex` доступны? — dry-run через `codex exec` в шаге 0
 2. **OPENAI_API_KEY**: установлен? — проверка в шаге 0
 3. **Copilot API**: `gh api .../requested_reviewers` работает для bot-аккаунта `copilot-pull-request-reviewer[bot]`? — проверка в шаге 0 (GitHub API + наличие PR)
