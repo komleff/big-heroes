@@ -285,8 +285,24 @@ export class PveMapScene extends BaseScene {
     private handleForkChoice(nodeType: PveNodeType, enemyId?: string, eventId?: string): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
         const currentIdx = expedition.currentNodeIndex;
+        const nextIndex = currentIdx + 1;
 
-        // Обновить ТЕКУЩИЙ узел по выбранному типу (развилка → конкретный тип)
+        // Фиксированные узлы (boss/ancient_chest/sanctuary) — якоря в route.
+        // Не перезаписываем текущий узел их типом (иначе дубликат).
+        // Переходим к фиксированному узлу на карте — onEnter покажет его с кнопкой ВОЙТИ.
+        const isFixedType = nodeType === 'boss' || nodeType === 'ancient_chest' || nodeType === 'sanctuary';
+        if (isFixedType && nextIndex < expedition.route.totalNodes) {
+            const updatedState: IPveExpeditionState = {
+                ...expedition,
+                currentNodeIndex: nextIndex,
+                visitedNodes: [...expedition.visitedNodes, currentIdx],
+            };
+            this.gameState.updateExpeditionState(updatedState);
+            void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+            return;
+        }
+
+        // Обычные типы: обновить ТЕКУЩИЙ узел по выбранному типу
         const updatedNodes = [...expedition.route.nodes];
         updatedNodes[currentIdx] = {
             ...updatedNodes[currentIdx],
@@ -300,7 +316,6 @@ export class PveMapScene extends BaseScene {
         const updatedRoute = { ...expedition.route, nodes: updatedNodes };
         this.gameState.updateExpeditionState({ ...expedition, route: updatedRoute });
 
-        // Войти в текущий узел (enterNode → advanceToNode(currentIdx))
         this.enterNode(updatedNodes[currentIdx]);
     }
 
