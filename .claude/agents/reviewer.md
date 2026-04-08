@@ -31,7 +31,7 @@
 
 ### Sprint Final (выполняется внешними моделями, не этим агентом)
 **Когда:** конец спринта, перед merge в master
-**Кто:** Внешние модели через скилл `/external-review`. API key: GPT-5.4 + GPT-5.3-Codex. ChatGPT login: дефолтная модель, 2 прохода.
+**Кто:** Внешние модели через скилл `/external-review`. API key: GPT-5.4 + GPT-5.3-Codex. ChatGPT login: один проход дефолтной модели.
 
 ---
 

@@ -175,7 +175,10 @@ gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
 
 ---
 
-### Ревьюер B: MODEL_B_NAME
+> Секция ревьюера B публикуется ТОЛЬКО в режиме A (API key).
+> В режиме B (ChatGPT login) этот блок опускается.
+
+### Ревьюер B: MODEL_B_NAME (только режим A)
 
 #### Архитектура: [OK / ISSUE]
 [обоснование]
