@@ -14,8 +14,7 @@
       "WebSearch",
       "TodoWrite",
       "Task",
-      "NotebookEdit",
-      "Edit(/.claude/skills/sprint-pr-cycle/**)"
+      "NotebookEdit"
     ],
     "deny": [
       "Read(.env*)",
