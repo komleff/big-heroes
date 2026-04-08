@@ -36,6 +36,9 @@
 #     - ~/beads-planning  # Personal planning repo
 #     - ~/work-planning   # Work planning repo
 
+# Git sync branch for cross-machine synchronization
+sync-branch: "beads-sync"
+
 # JSONL backup (periodic export for off-machine recovery)
 # Auto-enabled when a git remote exists. Override explicitly:
 # backup:

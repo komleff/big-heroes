@@ -750,7 +750,7 @@ export class BattleScene extends BaseScene {
                         },
                     });
                 } else {
-                    // Только обновить currentNodeIndex — visitedNodes обновится в enterNode
+                    // Продвинуть idx на +1 (enterNode установил на текущий боевой узел)
                     const updated: IPveExpeditionState = { ...newState, currentNodeIndex: nextIndex };
                     this.gameState.updateExpeditionState(updated);
                     void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });

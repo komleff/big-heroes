@@ -89,9 +89,7 @@ export class PveMapScene extends BaseScene {
         this.addChild(heading);
 
         // --- Подзаголовок: шаг похода ---
-        // Шаг = позиция в маршруте + 1 (1-based).
-        // Нельзя использовать visitedNodes.length — развилочные узлы пропускаются в visitedNodes,
-        // что приводит к занижению номера шага (баг: босс показывался как шаг 7 вместо 12).
+        // handleForkChoice обновляет текущий узел → все индексы посещаются последовательно.
         const displayStep = expedition.currentNodeIndex + 1;
         const subheading = new Text({
             text: `Шаг ${displayStep} / ${totalNodes}`,
@@ -139,10 +137,13 @@ export class PveMapScene extends BaseScene {
             this.addChild(relicsText);
         }
 
-        // --- Иконка и название узла (если тип определён, не развилка) ---
+        // --- Навигация: фиксированный вход ИЛИ выбор из 2-3 вариантов ---
         let actionY = 220;
 
-        if (!currentNode.isFork) {
+        // Фиксированные узлы (босс, древний сундук, святилище) — единственный путь
+        const isFixedNode = currentNode.type === 'boss' || currentNode.type === 'ancient_chest' || currentNode.type === 'sanctuary';
+
+        if (isFixedNode) {
             const nodeIcon = new Text({
                 text: display.icon,
                 style: new TextStyle({ fontSize: 64, fontFamily: THEME.font.family }),
@@ -166,11 +167,8 @@ export class PveMapScene extends BaseScene {
             nodeName.y = 300;
             this.addChild(nodeName);
             actionY = 360;
-        }
 
-        // Узел с определённым типом (не развилка) — кнопка входа
-        if (!currentNode.isFork) {
-            const isCombatNode = currentNode.type === 'boss' || currentNode.type === 'combat' || currentNode.type === 'elite';
+            const isCombatNode = currentNode.type === 'boss';
             const enterBtn = new Button({
                 text: isCombatNode ? 'ВСТУПИТЬ В БОЙ' : 'ВОЙТИ',
                 variant: isCombatNode ? 'primary' : 'secondary',
@@ -180,7 +178,7 @@ export class PveMapScene extends BaseScene {
             this.addChild(enterBtn);
             actionY += 80;
         } else {
-            // Развилка — показываем 2-3 варианта
+            // Все остальные — ВСЕГДА развилка с 2-3 вариантами (граф Slay the Spire)
             const forkPaths = this.ensureForkPaths(currentNode, expedition);
 
             const forkLabel = new Text({
@@ -278,19 +276,20 @@ export class PveMapScene extends BaseScene {
 
     /**
      * Обработка выбора пути на развилке.
-     * Обновляет тип СЛЕДУЮЩЕГО узла и продвигает currentNodeIndex к нему,
-     * затем перезагружает карту — кнопка входа появится на следующем экране.
+     * Карта на idx=N показывает варианты (ensureForkPaths смотрит на nodes[N+1]).
+     * Выбор обновляет nodes[N] (текущий) на выбранный тип и входит в него.
+     * enterNode → advanceToNode(N) → visited += N, idx=N.
+     * advanceToNextNode → idx=N+1. Карта: step=N+2.
+     * Все индексы посещаются → visitedNodes.length = номер шага - 1.
      */
     private handleForkChoice(nodeType: PveNodeType, enemyId?: string, eventId?: string): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
-        const nextIndex = expedition.currentNodeIndex + 1;
+        const currentIdx = expedition.currentNodeIndex;
 
-        if (nextIndex >= expedition.route.totalNodes) return;
-
-        // Обновить тип следующего узла по выбранному пути
+        // Обновить ТЕКУЩИЙ узел по выбранному типу (развилка → конкретный тип)
         const updatedNodes = [...expedition.route.nodes];
-        updatedNodes[nextIndex] = {
-            ...updatedNodes[nextIndex],
+        updatedNodes[currentIdx] = {
+            ...updatedNodes[currentIdx],
             type: nodeType,
             enemyId,
             eventId,
@@ -299,15 +298,10 @@ export class PveMapScene extends BaseScene {
         };
 
         const updatedRoute = { ...expedition.route, nodes: updatedNodes };
-        const updatedState: IPveExpeditionState = {
-            ...expedition,
-            route: updatedRoute,
-            currentNodeIndex: nextIndex,
-        };
-        this.gameState.updateExpeditionState(updatedState);
+        this.gameState.updateExpeditionState({ ...expedition, route: updatedRoute });
 
-        // Перезагрузить карту — onEnter покажет определённый узел с кнопкой входа
-        void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+        // Войти в текущий узел (enterNode → advanceToNode(currentIdx))
+        this.enterNode(updatedNodes[currentIdx]);
     }
 
     /**
@@ -743,16 +737,16 @@ export class PveMapScene extends BaseScene {
     // ───────────────────────────── Навигация по маршруту ─────────────────
 
     /**
-     * Вернуться на карту после завершения точки интереса.
-     * enterNode() установил currentNodeIndex на текущий узел.
-     * Здесь инкрементируем на +1 (следующая точка принятия решений).
+     * Продвинуться после завершения точки интереса.
+     * enterNode установил currentNodeIndex на текущий узел через advanceToNode.
+     * Здесь +1 чтобы перейти к следующей точке принятия решений.
      */
     private advanceToNextNode(): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
         const nextIndex = expedition.currentNodeIndex + 1;
 
         if (nextIndex >= expedition.route.totalNodes) {
-            // Маршрут пройден — победа
+            // Маршрут пройден — победа (некомбатный узел был последним перед боссом)
             const finalState: IPveExpeditionState = { ...expedition, status: 'victory' };
             this.gameState.updateExpeditionState(finalState);
             this.gameState.endExpedition();
