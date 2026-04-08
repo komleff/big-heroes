@@ -1,6 +1,6 @@
 ---
 name: external-review
-description: Кросс-модельное внешнее ревью PR через GPT-5.4 и GPT-5.3-Codex (Codex CLI). Оба ревьюера параллельно по всем 4 аспектам. Используй: /external-review <PR_NUMBER>
+description: Кросс-модельное внешнее ревью PR через GPT-5.4 и GPT-5.3-Codex (Codex CLI). Оба ревьюера последовательно по всем 4 аспектам. Используй: /external-review <PR_NUMBER>
 user-invocable: true
 ---
 
@@ -23,7 +23,19 @@ user-invocable: true
 
 ## Шаг 1: Пререквизиты
 
-### 1.1 Проверка PR и переключение на head-ветку
+### 1.1 Проверка чистоты рабочего дерева
+
+> Проверяется ДО checkout, чтобы не потерять локальные изменения.
+
+```bash
+# Проверить чистоту рабочего дерева (включая untracked)
+if [ -n "$(git status --porcelain)" ]; then
+  echo "СТОП: рабочее дерево не чистое. Закоммить или stash изменения."
+  exit 1
+fi
+```
+
+### 1.2 Проверка PR и переключение на head-ветку
 
 ```bash
 # Получить метаданные PR (без внешнего jq — используем встроенный --jq)
@@ -40,7 +52,7 @@ git pull origin "$HEAD_BRANCH"
 
 Если PR не найден или закрыт — **СТОП**.
 
-### 1.2 Проверка что ветка запушена
+### 1.3 Проверка что ветка запушена
 
 ```bash
 # Проверить наличие upstream
@@ -53,12 +65,6 @@ fi
 UNPUSHED=$(git log @{u}..HEAD --oneline)
 if [ -n "$UNPUSHED" ]; then
   echo "СТОП: есть незапушенные коммиты. Выполни git push."
-  exit 1
-fi
-
-# Проверить чистоту рабочего дерева (включая untracked)
-if [ -n "$(git status --porcelain)" ]; then
-  echo "СТОП: рабочее дерево не чистое. Закоммить или stash изменения."
   exit 1
 fi
 ```
@@ -97,14 +103,19 @@ Codex CLI поддерживает два режима авторизации с
 
 ### 3.1 Ревьюер A
 
-Выполни `codex review`. Ограничение CLI: `--base` нельзя комбинировать с кастомным промптом. Используй `codex review --base master` (встроенный ревью) или `codex review "PROMPT"` (кастомный промпт, ревьюит uncommitted).
+Ограничение CLI: `--base` нельзя комбинировать с кастомным промптом.
 
-Рекомендуемый вариант — встроенный ревью с указанием модели:
+**Рекомендуемый вариант — встроенный ревью:**
 
-- **Режим A (API key):** `npx @openai/codex review --base master -c model='"gpt-5.4"'`
-- **Режим B (ChatGPT):** `npx @openai/codex review --base master` (дефолтная модель)
+```bash
+# Режим A (API key) — GPT-5.4:
+npx @openai/codex review --base master -c model='"gpt-5.4"' -c model_reasoning_effort='"high"'
 
-Если нужен кастомный adversarial-промпт — используй `codex review` без `--base` (ревьюит uncommitted changes, поэтому сначала убедись что на ветке PR):
+# Режим B (ChatGPT) — дефолтная модель:
+npx @openai/codex review --base master
+```
+
+**Альтернатива — кастомный adversarial-промпт** (без `--base`, ревьюит uncommitted):
 
 ```bash
 npx @openai/codex review "$(cat <<'PROMPT'
@@ -195,12 +206,19 @@ PROMPT
 
 ### 3.2 Ревьюер B
 
-Аналогичная команда, но с другой моделью и акцентом в adversarial directives:
+Аналогичная команда, но с другой моделью и акцентом в adversarial directives.
 
-- **Режим A (API key):** `npx @openai/codex review --base master -c model='"gpt-5.3-codex"'`
-- **Режим B (ChatGPT):** `npx @openai/codex review --base master` (дефолтная модель, второй проход)
+**Рекомендуемый вариант — встроенный ревью:**
 
-Или с кастомным промптом (без `--base`):
+```bash
+# Режим A (API key) — GPT-5.3-Codex:
+npx @openai/codex review --base master -c model='"gpt-5.3-codex"' -c model_reasoning_effort='"high"'
+
+# Режим B (ChatGPT) — дефолтная модель, второй проход:
+npx @openai/codex review --base master
+```
+
+**Альтернатива — кастомный adversarial-промпт** (без `--base`):
 
 ```bash
 npx @openai/codex review "$(cat <<'PROMPT'
