@@ -337,13 +337,16 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 
 ## Шаг 5: Консолидация и публикация
 
-Собери результаты обоих ревьюеров в единый комментарий. Формат:
+Собери результаты обоих ревьюеров в единый комментарий. Подставь реальные имена моделей из шага 2 (не захардкоженные):
+
+- **Режим A:** `MODEL_A_NAME = "GPT-5.4"`, `MODEL_B_NAME = "GPT-5.3-Codex"`
+- **Режим B:** `MODEL_A_NAME = "дефолтная модель, проход 1"`, `MODEL_B_NAME = "дефолтная модель, проход 2"`
 
 ```bash
 gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
 ## Внешнее ревью (Sprint Final)
 
-### Ревьюер A: GPT-5.4
+### Ревьюер A: MODEL_A_NAME
 
 #### Архитектура: [OK / ISSUE]
 [обоснование]
@@ -358,11 +361,11 @@ gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
 [обоснование]
 
 **Вердикт:** [APPROVED / CHANGES_REQUESTED]
-— Reviewer (GPT-5.4)
+— Reviewer (MODEL_A_NAME)
 
 ---
 
-### Ревьюер B: GPT-5.3-Codex
+### Ревьюер B: MODEL_B_NAME
 
 #### Архитектура: [OK / ISSUE]
 [обоснование]
@@ -377,7 +380,7 @@ gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
 [обоснование]
 
 **Вердикт:** [APPROVED / CHANGES_REQUESTED]
-— Reviewer (GPT-5.3-Codex)
+— Reviewer (MODEL_B_NAME)
 
 ---
 
