@@ -4,7 +4,6 @@ import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { createPveBackground } from '../ui/GradientBackground';
 
-/** Данные, передаваемые в сцену через onEnter */
 /** Данные магазина — только покупка, БЕЗ ремонта (ремонт — только в лагере) */
 interface ShopSceneData {
     shopItems: Array<{ itemId: string; name?: string; itemType: 'equipment' | 'consumable'; price: number }>;
@@ -134,7 +133,7 @@ export class ShopScene extends BaseScene {
             card.addChild(nameLabel);
 
             // Цена / статус
-            const priceText = bought ? 'Куплено' : `${item.price} Gold`;
+            const priceText = bought ? 'Куплено' : `${item.price} 💰`;
             const priceColor = bought
                 ? THEME.colors.accent_green
                 : canAfford ? THEME.colors.accent_yellow : THEME.colors.text_muted;

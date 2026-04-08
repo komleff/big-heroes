@@ -490,4 +490,22 @@ describe('generateForkPaths', () => {
         // Assert — глубокое сравнение
         expect(paths1).toEqual(paths2);
     });
+
+    test('нет дублей одинаковых типов на развилке (кроме combat/elite)', () => {
+        // Arrange — генерируем много развилок и проверяем дедупликацию
+        const target = makeTargetNode({ type: 'shop' });
+        const combatTypes = new Set(['combat', 'elite']);
+
+        // Act — 20 прогонов с разными seed
+        for (let seed = 0; seed < 20; seed++) {
+            const paths = generateForkPaths(target, pveConfig, enemies, events, 3, createRng(seed));
+            const nonCombatTypes = paths
+                .map(p => p.nodeType)
+                .filter(t => !combatTypes.has(t));
+
+            // Assert — среди некомбатных типов нет повторов
+            const unique = new Set(nonCombatTypes);
+            expect(unique.size).toBe(nonCombatTypes.length);
+        }
+    });
 });

@@ -202,11 +202,6 @@ export class PveMapScene extends BaseScene {
     }
 
     /**
-     * Гарантировать наличие forkPaths у узла.
-     * Если развилка уже есть — вернуть её; иначе — сгенерировать динамически
-     * (аналог Slay the Spire: игрок всегда видит 2-3 варианта следующей точки).
-     */
-    /**
      * Генерирует варианты для развилки на ТЕКУЩЕМ узле.
      * - Фиксированный (boss/ancient_chest/sanctuary) → 1 вариант (сам текущий тип)
      * - Обычный → 2-3 случайных варианта (без дублей одного типа на развилке)
@@ -241,18 +236,9 @@ export class PveMapScene extends BaseScene {
     }
 
     /**
-     * Обработка выбора пути на развилке.
-     * Карта на idx=N показывает варианты (ensureForkPaths смотрит на nodes[N+1]).
-     * Выбор обновляет nodes[N] (текущий) на выбранный тип и входит в него.
-     * enterNode → advanceToNode(N) → visited += N, idx=N.
-     * advanceToNextNode → idx=N+1. Карта: step=N+2.
-     * Все индексы посещаются → visitedNodes.length = номер шага - 1.
-     */
-    /**
      * Обработка выбора на развилке.
-     * Записывает выбранный тип в текущий узел и сразу входит в него.
-     * Для фиксированных (boss/ancient_chest/sanctuary) — тип уже записан при генерации,
-     * запись идемпотентна.
+     * Записывает выбранный тип в nodes[currentIdx] и сразу входит через enterNode.
+     * Для фиксированных (boss/ancient_chest/sanctuary) — тип уже записан, запись идемпотентна.
      */
     private handleForkChoice(nodeType: PveNodeType, enemyId?: string, eventId?: string): void {
         const expedition = this.gameState.expeditionState as IPveExpeditionState;
