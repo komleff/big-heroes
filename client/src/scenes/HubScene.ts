@@ -12,8 +12,8 @@ import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig, IEquipmen
 import { generateRoute, createRng, calcHeroStats } from 'shared';
 
 // ─── Константы раскладки ──────────────────────────────────────────
-const W = 390;
-const H = 844;
+const W = THEME.layout.designWidth;
+const H = THEME.layout.designHeight;
 const PAD = 12;
 const balance = balanceConfig as unknown as IBalanceConfig;
 
@@ -179,20 +179,20 @@ export class HubScene extends BaseScene {
 
         // --- Валютные пилюли (справа) ---
         // Premium pill (самая правая)
-        const premiumPill = this.createCurrencyPill('⭐', '80', THEME.colors.accent_magenta);
-        premiumPill.position.set(W - PAD - 80, y + 4);
-        this.addChild(premiumPill);
-        this.premiumText = premiumPill.getChildByLabel('value') as Text;
+        const premium = this.createCurrencyPill('⭐', '80');
+        premium.pill.position.set(W - PAD - 80, y + 4);
+        this.addChild(premium.pill);
+        this.premiumText = premium.valueText;
 
         // Gold pill (левее premium)
-        const goldPill = this.createCurrencyPill('🪙', String(this.gameState.resources.gold), THEME.colors.accent_yellow);
-        goldPill.position.set(W - PAD - 170, y + 4);
-        this.addChild(goldPill);
-        this.goldText = goldPill.getChildByLabel('value') as Text;
+        const gold = this.createCurrencyPill('🪙', String(this.gameState.resources.gold));
+        gold.pill.position.set(W - PAD - 170, y + 4);
+        this.addChild(gold.pill);
+        this.goldText = gold.valueText;
     }
 
-    /** Создаёт пилюлю валюты: иконка + число + «+» */
-    private createCurrencyPill(icon: string, value: string, iconColor: number): Container {
+    /** Создаёт пилюлю валюты: иконка + число + «+». Возвращает [container, valueText]. */
+    private createCurrencyPill(icon: string, value: string): { pill: Container; valueText: Text } {
         const pill = new Container();
         const px = 8;
         const py = 4;
@@ -220,7 +220,6 @@ export class HubScene extends BaseScene {
                 fill: THEME.colors.text_primary,
             }),
         });
-        valueText.label = 'value';
         valueText.position.set(px + 22, py + 2);
         pill.addChild(valueText);
 
@@ -237,7 +236,7 @@ export class HubScene extends BaseScene {
         plus.position.set(66, py);
         pill.addChild(plus);
 
-        return pill;
+        return { pill, valueText };
     }
 
     // ─── League bar ─────────────────────────────────────────────────
