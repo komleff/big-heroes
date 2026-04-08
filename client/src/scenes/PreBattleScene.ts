@@ -153,7 +153,7 @@ export class PreBattleScene extends BaseScene {
 
     /** Эффективная масса героя = base + набранная в походе */
     private getEffectiveMass(): number {
-        const base = this.getEffectiveMass();
+        const base = this.gameState.hero.mass;
         const expeditionBonus = (this.gameState.expeditionState as IPveExpeditionState | null)?.massGained ?? 0;
         return base + expeditionBonus;
     }

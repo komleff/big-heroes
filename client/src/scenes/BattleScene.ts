@@ -644,21 +644,22 @@ export class BattleScene extends BaseScene {
                     },
                 });
             } else if (result.outcome === 'retreat') {
-                // Отступление — назад на перекрёсток (GDD: путь к врагу остаётся открытым)
-                // Удалить текущий боевой узел из visitedNodes → можно retry
+                // Отступление — остаёмся на текущем узле (GDD: путь к врагу остаётся открытым).
+                // Удаляем узел из visitedNodes → enterNode не пропустит его.
+                // Очищаем forkPaths → ensureForkPaths сгенерирует новую развилку.
                 const currentIdx = newState.currentNodeIndex;
                 const filteredVisited = newState.visitedNodes.filter(idx => idx !== currentIdx);
-                let retreatState: IPveExpeditionState = { ...newState, visitedNodes: filteredVisited };
-
-                // Найти ближайший fork перед текущим узлом
-                let retreatIndex = currentIdx;
-                for (let i = currentIdx - 1; i >= 0; i--) {
-                    if (retreatState.route.nodes[i].isFork) {
-                        retreatIndex = i;
-                        break;
-                    }
-                }
-                retreatState = { ...retreatState, currentNodeIndex: retreatIndex };
+                const updatedNodes = [...newState.route.nodes];
+                updatedNodes[currentIdx] = {
+                    ...updatedNodes[currentIdx],
+                    isFork: false,
+                    forkPaths: undefined,
+                };
+                const retreatState: IPveExpeditionState = {
+                    ...newState,
+                    visitedNodes: filteredVisited,
+                    route: { ...newState.route, nodes: updatedNodes },
+                };
                 this.gameState.updateExpeditionState(retreatState);
                 void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
             } else {
