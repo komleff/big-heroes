@@ -161,6 +161,7 @@ export class GameState {
         return this._stash;
     }
 
+
     get activeRelics(): ReadonlyArray<IRelic> {
         return this._activeRelics;
     }

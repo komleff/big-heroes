@@ -5,7 +5,8 @@ import type { IStarterEquipmentConfigItem, IPveExpeditionState } from 'shared';
 /**
  * Авто-экипировать предмет, если слот пустой или новый предмет лучше.
  * "Лучше" = выше tier, или при равном tier выше суммарный бонус.
- * Старый предмет помещается в рюкзак экспедиции (itemsFound).
+ * Старый предмет помещается в походный рюкзак (expedition.itemsFound).
+ * При defeat рюкзак теряется — это по GDD (игрок рискует).
  */
 export function autoEquipIfBetter(
     gameState: GameState,
@@ -46,7 +47,7 @@ export function autoEquipIfBetter(
 
     if (!isBetter) return;
 
-    // Старый предмет → в рюкзак экспедиции (itemsFound)
+    // Старый предмет → в походный рюкзак (рискует потеряться при defeat — по GDD)
     const expedition = gameState.expeditionState;
     if (expedition) {
         const state = expedition as IPveExpeditionState;
