@@ -690,48 +690,65 @@ export class BattleScene extends BaseScene {
                     // Босс: пул из 3 реликвий для выбора в PveResultScene (GDD: выбор 1 из 3)
                     // НЕ авто-добавляем — выбор делает игрок на экране extraction
 
-                    // Навигация после боя (callback для поддержки overlay замены реликвий)
+                    // Переход к PveResultScene (победа босса) или PveMapScene (обычный бой)
+                    const goToResult = (bossRelic?: IRelic, bossLootItems?: string[]): void => {
+                        const finalState: IPveExpeditionState = { ...newState, status: 'victory' as const };
+                        this.gameState.updateExpeditionState(finalState);
+                        this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, finalState);
+                        // extractionPool = все активные реликвии (включая boss relic, если добавлена)
+                        const extractionPool = [...this.gameState.activeRelics] as IRelic[];
+                        void this.sceneManager.goto('pveResult', {
+                            transition: TransitionType.FADE,
+                            data: {
+                                status: 'victory',
+                                massGained: finalState.massGained,
+                                goldGained: finalState.goldGained,
+                                itemsFound: finalState.itemsFound,
+                                nodesVisited: finalState.visitedNodes.length,
+                                totalNodes: finalState.route.totalNodes,
+                                bossRelic,
+                                bossLootItems,
+                                extractionPool,
+                                onSaveRelic: (relic: IRelic) => {
+                                    this.gameState.saveArenaRelic(relic);
+                                },
+                                onContinue: () => {
+                                    this.gameState.endExpedition();
+                                    void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                                },
+                            },
+                        });
+                    };
+
+                    // Навигация после боя
                     const proceedAfterBattle = (): void => {
                         const nextIndex = newState.currentNodeIndex + 1;
                         if (nextIndex >= newState.route.totalNodes) {
-                            // Маршрут пройден — победа
-                            const finalState: IPveExpeditionState = { ...newState, status: 'victory' as const };
-                            this.gameState.updateExpeditionState(finalState);
-                            this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, finalState);
-                            const relicsForExtraction = [...this.gameState.activeRelics];
+                            // Маршрут пройден — boss victory
                             const currentNode2 = newState.route.nodes[newState.currentNodeIndex];
-                            let bossRelicPool: typeof relicsForExtraction = [];
                             if (currentNode2.type === 'boss') {
+                                // Boss: 1 random relic + 2 random items (u1z)
                                 const bossRng = createRng(Date.now() + 1);
-                                bossRelicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 3, bossRng)
-                                    .map(r => configToRelic(r));
+                                const bossRelicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, bossRng);
+                                // Boss loot: 2 random items (GDD: boss_loot_count)
+                                const bossLoot = generateLoot('boss', config.pve.loot, config.equipment.catalog, config.consumables, newState.pityCounter, bossRng);
+                                const bossLootItems = bossLoot.drops.map(d => d.itemId);
+                                // Обновить itemsFound с boss loot
+                                const updatedState = { ...newState, itemsFound: [...newState.itemsFound, ...bossLootItems] };
+                                this.gameState.updateExpeditionState(updatedState);
+
+                                if (bossRelicPool.length > 0) {
+                                    const bossRelic = configToRelic(bossRelicPool[0]);
+                                    // Добавляем boss relic через UI (с выбором замены если лимит)
+                                    addRelicWithUI(this, this.gameState, bossRelic, () => {
+                                        goToResult(bossRelic, bossLootItems);
+                                    });
+                                    return;
+                                }
+                                goToResult(undefined, bossLootItems);
+                            } else {
+                                goToResult();
                             }
-                            void this.sceneManager.goto('pveResult', {
-                                transition: TransitionType.FADE,
-                                data: {
-                                    status: 'victory',
-                                    massGained: finalState.massGained,
-                                    goldGained: finalState.goldGained,
-                                    itemsFound: finalState.itemsFound,
-                                    nodesVisited: finalState.visitedNodes.length,
-                                    totalNodes: finalState.route.totalNodes,
-                                    relicsForExtraction,
-                                    bossRelicPool,
-                                    onSelectBossRelic: (relic: IRelic) => {
-                                        addRelicWithUI(this, this.gameState, relic, () => {});
-                                    },
-                                    onGetActiveRelics: () => {
-                                        return [...this.gameState.activeRelics] as IRelic[];
-                                    },
-                                    onSaveRelic: (relic: IRelic) => {
-                                        this.gameState.saveArenaRelic(relic);
-                                    },
-                                    onContinue: () => {
-                                        this.gameState.endExpedition();
-                                        void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
-                                    },
-                                },
-                            });
                         } else {
                             const updated: IPveExpeditionState = { ...newState, currentNodeIndex: nextIndex };
                             this.gameState.updateExpeditionState(updated);
