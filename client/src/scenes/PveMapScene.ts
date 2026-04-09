@@ -362,15 +362,21 @@ export class PveMapScene extends BaseScene {
                 relicPool: pool,
                 onSelect: (index: number) => {
                     const relic = configToRelic(pool[index]);
-                    // Получаем текущую активную сцену (SanctuaryScene) для overlay
+                    // Продвигаем экспедицию ПЕРЕД переходом (advanceToNextNode логика)
+                    const advanceAndReturn = (): void => {
+                        const exp = this.gameState.expeditionState as IPveExpeditionState;
+                        const nextIdx = exp.currentNodeIndex + 1;
+                        const updated: IPveExpeditionState = { ...exp, currentNodeIndex: nextIdx };
+                        this.gameState.updateExpeditionState(updated);
+                        void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
+                    };
+                    // overlay рендерим на текущей активной сцене (SanctuaryScene)
                     const activeScene = this.sceneManager.activeScene;
                     if (activeScene) {
-                        addRelicWithUI(activeScene, this.gameState, relic, () => {
-                            void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
-                        });
+                        addRelicWithUI(activeScene, this.gameState, relic, advanceAndReturn);
                     } else {
                         this.gameState.addRelic(relic);
-                        void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
+                        advanceAndReturn();
                     }
                 },
             },
@@ -662,14 +668,19 @@ export class PveMapScene extends BaseScene {
                 title,
                 onSelect: (index: number) => {
                     const relic = configToRelic(pool[index]);
+                    const advanceAndReturn = (): void => {
+                        const exp = this.gameState.expeditionState as IPveExpeditionState;
+                        const nextIdx = exp.currentNodeIndex + 1;
+                        const updated: IPveExpeditionState = { ...exp, currentNodeIndex: nextIdx };
+                        this.gameState.updateExpeditionState(updated);
+                        void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
+                    };
                     const activeScene = this.sceneManager.activeScene;
                     if (activeScene) {
-                        addRelicWithUI(activeScene, this.gameState, relic, () => {
-                            void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
-                        });
+                        addRelicWithUI(activeScene, this.gameState, relic, advanceAndReturn);
                     } else {
                         this.gameState.addRelic(relic);
-                        void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
+                        advanceAndReturn();
                     }
                 },
             },
