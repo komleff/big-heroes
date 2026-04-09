@@ -689,8 +689,7 @@ export class BattleScene extends BaseScene {
                         this.gameState.updateExpeditionState(newState);
                     }
 
-                    // Босс: пул из 3 реликвий для выбора в PveResultScene (GDD: выбор 1 из 3)
-                    // НЕ авто-добавляем — выбор делает игрок на экране extraction
+                    // Босс: реликвия добавляется через addRelicWithUI ниже (с выбором замены при лимите)
 
                     // Переход к PveResultScene (победа босса) или PveMapScene (обычный бой)
                     const goToResult = (bossRelic?: IRelic, bossLootItems?: string[]): void => {
@@ -749,7 +748,9 @@ export class BattleScene extends BaseScene {
                                     const bossRelic = configToRelic(bossRelicPool[0]);
                                     // Добавляем boss relic через UI (с выбором замены если лимит)
                                     addRelicWithUI(this, this.gameState, bossRelic, () => {
-                                        goToResult(bossRelic, bossLootItems);
+                                        // Проверяем, добавил ли игрок реликвию (мог отказаться)
+                                        const wasAdded = this.gameState.activeRelics.some(r => r.id === bossRelic.id);
+                                        goToResult(wasAdded ? bossRelic : undefined, bossLootItems);
                                     });
                                     return;
                                 }

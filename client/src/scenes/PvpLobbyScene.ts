@@ -4,7 +4,7 @@ import { GameState } from '../core/GameState';
 import { SceneManager, TransitionType } from '../core/SceneManager';
 import { Button } from '../ui/Button';
 import { THEME } from '../config/ThemeConfig';
-import type { IMobConfig, IBalanceConfig, IPvpBot } from 'shared';
+import type { IMobConfig, IBalanceConfig } from 'shared';
 import { generateBots } from 'shared';
 import balanceConfig from '@config/balance.json';
 

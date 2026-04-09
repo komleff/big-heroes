@@ -25,11 +25,12 @@ export function generateBots(
     const count = Math.max(1, config.bot_count);
     const bots: IPvpBot[] = [];
 
+    const namesLen = config.bot_names.length || 1;
     for (let i = 0; i < count; i++) {
         const mult = config.bot_mass_multipliers[i] ?? 1.0;
         const botMass = Math.round(safeMass * mult);
         bots.push({
-            name: config.bot_names[i % config.bot_names.length] ?? `Бот ${i + 1}`,
+            name: config.bot_names.length > 0 ? config.bot_names[i % namesLen] : `Бот ${i + 1}`,
             mass: Math.max(1, botMass),
             strength: Math.max(1, Math.floor(botMass / 3)),
             armor: i,

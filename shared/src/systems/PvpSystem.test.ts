@@ -46,10 +46,16 @@ describe('PvpSystem', () => {
         });
 
         it('edge-case: heroRating < 0 → не уходит ниже 0', () => {
-            const bots = generateBots(50, 0, defaultConfig);
+            const bots = generateBots(50, -50, defaultConfig);
             for (const bot of bots) {
                 expect(bot.rating).toBeGreaterThanOrEqual(0);
             }
+        });
+
+        it('edge-case: пустой bot_names → fallback', () => {
+            const cfg = { ...defaultConfig, bot_names: [] };
+            const bots = generateBots(50, 1000, cfg);
+            expect(bots[0].name).toBe('Бот 1');
         });
     });
 
