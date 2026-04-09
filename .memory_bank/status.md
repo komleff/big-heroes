@@ -1,8 +1,8 @@
 # Статус проекта Big Heroes
 
 **Обновлён:** 2026-04-10
-**Фаза:** Sprint 4 — Relic UX + PvP Arena MVP — PR #8 (ожидает merge)
-**last_checked_commit:** 2aa6d2a
+**Фаза:** Sprint 4 — Relic UX + PvP Arena MVP — PR #8 — MERGED
+**last_checked_commit: b3cd7ac
 
 ---
 
