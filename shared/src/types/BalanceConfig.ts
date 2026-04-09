@@ -136,6 +136,7 @@ export interface IEventVariant {
     description: string;
     condition?: { type: string; value: number };
     effects: IEventEffect[];
+    proc_chance?: number;  // Вероятность срабатывания (0-1). По умолчанию 1.0
 }
 
 // Конфигурация события PvE

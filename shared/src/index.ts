@@ -19,6 +19,8 @@ export { generateRelicPool, selectRelic, configToRelic, calcRelicMassMultiplier,
 export { generateRoute, createExpeditionState, advanceToNode, applyBattleResult, exitExpedition, generateForkPaths } from './systems/PveSystem';
 export { generateLoot, generateShopInventory, calcShopRepairCost } from './systems/LootSystem';
 export type { ILootDrop, ILootResult, IShopItem } from './systems/LootSystem';
+export { resolveEventOutcome, getVariantProcChance } from './systems/EventSystem';
+export type { IEventEffectResult } from './systems/EventSystem';
 
 // Утилиты
 export { createRng, randInt, randPick, shuffle, weightedPick } from './utils/Random';

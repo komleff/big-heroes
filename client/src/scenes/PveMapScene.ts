@@ -13,6 +13,7 @@ import {
     generateLoot, generateShopInventory,
     generateForkPaths,
     createRng, randInt,
+    resolveEventOutcome,
 } from 'shared';
 import type {
     IPveNode, PveNodeType, IPveExpeditionState,
@@ -493,11 +494,11 @@ export class PveMapScene extends BaseScene {
                     }
 
                     const isMerchantBuy = eventConfig.id === 'evt_merchant' && variant.id === 'buy';
-                    const probMatch = variant.description.match(/(\d+)%/);
-                    const procChance = probMatch ? parseInt(probMatch[1]) / 100 : 1.0;
-                    const rollSuccess = isMerchantBuy ? true : rng() < procChance;
+                    // Резолв успеха через shared-функцию (ne5 + 03b)
+                    const roll = isMerchantBuy ? -1 : rng(); // -1 < любой proc_chance → гарантия для торговца
+                    const outcomeResults = resolveEventOutcome(variant, roll);
 
-                    for (const effect of variant.effects) {
+                    for (const { effect, success } of outcomeResults) {
                         switch (effect.type) {
                             case 'mass':
                                 state = { ...state, massGained: state.massGained + effect.value };
@@ -521,7 +522,7 @@ export class PveMapScene extends BaseScene {
                                 break;
                             }
                             case 'item': {
-                                if (!rollSuccess) { results.push('Неудача...'); break; }
+                                if (!success) { results.push('Неудача...'); break; }
                                 if (isMerchantBuy) {
                                     const isTier2 = rng() < 0.2;
                                     if (isTier2) {
@@ -556,7 +557,7 @@ export class PveMapScene extends BaseScene {
                                 break;
                             }
                             case 'loot_chest': {
-                                if (rollSuccess) {
+                                if (success) {
                                     const loot = generateLoot('chest', config.pve.loot, config.equipment.catalog, config.consumables, state.pityCounter, rng);
                                     const ids = loot.drops.map(d => d.itemId);
                                     state = { ...state, itemsFound: [...state.itemsFound, ...ids], pityCounter: loot.newPityCounter };
