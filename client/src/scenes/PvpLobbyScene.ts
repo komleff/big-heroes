@@ -5,38 +5,12 @@ import { EventBus } from '../core/EventBus';
 import { SceneManager, TransitionType } from '../core/SceneManager';
 import { Button } from '../ui/Button';
 import { THEME } from '../config/ThemeConfig';
-import type { IMobConfig, IBalanceConfig } from 'shared';
+import type { IMobConfig, IBalanceConfig, IPvpBot } from 'shared';
+import { generateBots } from 'shared';
 import balanceConfig from '@config/balance.json';
 
 /** Ширина дизайна */
 const W = THEME.layout.designWidth;
-
-/** AI-противник для PvP */
-interface PvpOpponent {
-    name: string;
-    mass: number;
-    strength: number;
-    armor: number;
-    rating: number;
-}
-
-/** Генерация 3 AI-ботов на основе hero stats */
-function generateBots(heroMass: number, heroRating: number): PvpOpponent[] {
-    const names = ['Теневой рыцарь', 'Буря клинков', 'Каменный страж', 'Ледяной маг', 'Пламенный воин'];
-    const bots: PvpOpponent[] = [];
-    for (let i = 0; i < 3; i++) {
-        // Разброс: 80%-120% от hero stats
-        const mult = 0.8 + i * 0.2;
-        bots.push({
-            name: names[i % names.length],
-            mass: Math.round(heroMass * mult),
-            strength: Math.round(Math.floor(heroMass * mult / 3)),
-            armor: i,
-            rating: Math.round(heroRating + (i - 1) * 50),
-        });
-    }
-    return bots;
-}
 
 /**
  * PvP Lobby — выбор противника для арены.
@@ -135,9 +109,9 @@ export class PvpLobbyScene extends BaseScene {
         this.addChild(subheading);
         nextY += 36;
 
-        // --- 3 AI-бота ---
-        const bots = generateBots(this.gameState.hero.mass, this.gameState.hero.rating);
+        // --- AI-боты из shared ---
         const config = balanceConfig as unknown as IBalanceConfig;
+        const bots = generateBots(this.gameState.hero.mass, this.gameState.hero.rating, config.pvp);
 
         for (let i = 0; i < bots.length; i++) {
             const bot = bots[i];

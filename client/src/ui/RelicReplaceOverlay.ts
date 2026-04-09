@@ -1,6 +1,7 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from './Button';
+import { getEffectDescription } from '../utils/relicDisplay';
 import type { IRelic } from 'shared';
 
 /** Ширина дизайна */
@@ -13,38 +14,13 @@ const CARD_H = 80;
 const CARD_RADIUS = 12;
 const CARD_GAP = 8;
 
-/** Человекочитаемое описание эффекта реликвии */
-function getEffectDescription(effect: string, value: number): string {
-    switch (effect) {
-        case 'strength_bonus': return `+${value} к силе`;
-        case 'armor_bonus': return `+${value} к броне`;
-        case 'luck_bonus': return `+${value} к удаче`;
-        case 'gold_bonus': return `+${Math.round(value * 100)}% Gold`;
-        case 'mass_bonus': return `+${Math.round(value * 100)}% массы`;
-        case 'extra_loot': return `+${value} предмет из сундуков`;
-        case 'mass_on_win': return `+${Math.round(value * 100)}% массы за победу`;
-        case 'first_strike': return `+${Math.round(value * 100)}% урона первого удара`;
-        case 'thorns': return `${Math.round(value * 100)}% отражённого урона`;
-        case 'enemy_strength_reduction': return `−${Math.round(value * 100)}% силы врага`;
-        case 'boss_armor': return `+${value} брони vs босс`;
-        case 'reveal_all': return 'Все «???» раскрыты';
-        case 'safe_retreat': return 'Отступление всегда 100%';
-        case 'safe_bypass': return 'Обход всегда 100%';
-        case 'extra_backpack': return `+${value} слота рюкзака`;
-        case 'no_durability': return 'Нет износа снаряжения';
-        case 'camp_repair_bonus': return `+${value} к ремонту в лагере`;
-        case 'shop_discount': return `−${Math.round(value * 100)}% в магазине`;
-        case 'polymorph_bonus': return `+${Math.round(value * 100)}% полиморфа`;
-        default: return effect;
-    }
-}
-
 /**
  * Оверлей выбора замены реликвии при переполнении (max_relics=3).
  * Показывает текущие реликвии + новую, игрок тапает по одной из текущих для замены.
  */
 export class RelicReplaceOverlay extends Container {
     private selectionMade = false;
+    private pendingTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(
         activeRelics: IRelic[],
@@ -114,7 +90,7 @@ export class RelicReplaceOverlay extends Container {
                 border.roundRect(0, 0, CARD_W, CARD_H, CARD_RADIUS);
                 border.stroke({ color: THEME.colors.accent_red, width: 3 });
                 card.addChild(border);
-                setTimeout(() => onReplace(i), THEME.animation.transitionMs);
+                this.pendingTimer = setTimeout(() => onReplace(i), THEME.animation.transitionMs);
             });
             this.addChild(card);
         }
@@ -174,5 +150,13 @@ export class RelicReplaceOverlay extends Container {
         card.addChild(effectText);
 
         return card;
+    }
+
+    override destroy(options?: boolean | { children?: boolean; texture?: boolean; baseTexture?: boolean }): void {
+        if (this.pendingTimer !== null) {
+            clearTimeout(this.pendingTimer);
+            this.pendingTimer = null;
+        }
+        super.destroy(options);
     }
 }

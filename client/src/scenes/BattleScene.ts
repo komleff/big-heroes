@@ -9,7 +9,7 @@ import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
 import { addRelicWithUI } from '../utils/relicHelper';
 import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic } from 'shared';
-import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange } from 'shared';
+import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange, calcPvpMassLoss } from 'shared';
 import balanceConfig from '@config/balance.json';
 
 /** Данные, передаваемые в onEnter */
@@ -783,9 +783,9 @@ export class BattleScene extends BaseScene {
             );
             this.gameState.setRating(this.gameState.hero.rating + eloChange);
 
-            // GDD: при поражении в PvP −10% массы
+            // GDD: при поражении в PvP −N% массы (из конфига)
             if (result.outcome !== 'victory') {
-                const massLoss = Math.floor(this.gameState.hero.mass * 0.1);
+                const massLoss = calcPvpMassLoss(this.gameState.hero.mass, config.pvp.mass_loss_on_defeat);
                 this.gameState.setMass(this.gameState.hero.mass - massLoss);
             }
 

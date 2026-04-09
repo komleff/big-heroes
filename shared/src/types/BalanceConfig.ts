@@ -170,4 +170,14 @@ export interface IBalanceConfig {
     starterBackpack: Array<string | null>;          // id предметов/расходников
     pve: IPveConfig;
     events: IEventConfig[];
+    pvp: IPvpConfig;
+}
+
+// Конфигурация PvP-арены
+export interface IPvpConfig {
+    mass_loss_on_defeat: number;      // Доля потери массы при поражении (0.1 = 10%)
+    bot_count: number;                // Количество AI-ботов в лобби
+    bot_mass_multipliers: number[];   // Множители массы ботов относительно героя
+    bot_rating_spread: number;        // Разброс рейтинга ботов ±N
+    bot_names: string[];              // Имена AI-ботов
 }
