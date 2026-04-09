@@ -61,7 +61,7 @@ async function main(): Promise<void> {
     // Регистрация сцен
     sceneManager.register('hub', () => new HubScene(gameState, eventBus, sceneManager));
     sceneManager.register('pveMap', () => new PveMapScene(gameState, eventBus, sceneManager));
-    sceneManager.register('pvpLobby', () => new PvpLobbyScene(sceneManager));
+    sceneManager.register('pvpLobby', () => new PvpLobbyScene(sceneManager, gameState));
     sceneManager.register('inventory', () => new InventoryScene(sceneManager));
     sceneManager.register('devPanel', () => new DevPanelScene(sceneManager));
     sceneManager.register('preBattle', () => new PreBattleScene(gameState, eventBus, sceneManager));

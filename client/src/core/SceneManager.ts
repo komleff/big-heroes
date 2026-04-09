@@ -308,4 +308,9 @@ export class SceneManager {
     get activeSceneName(): string | null {
         return this.currentSceneName;
     }
+
+    /** Текущая активная сцена (для overlay на текущей сцене) */
+    get activeScene(): BaseScene | null {
+        return this.currentScene;
+    }
 }

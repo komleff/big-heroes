@@ -161,6 +161,7 @@ export class GameState {
         return this._stash;
     }
 
+
     get activeRelics(): ReadonlyArray<IRelic> {
         return this._activeRelics;
     }
@@ -214,18 +215,21 @@ export class GameState {
         return item;
     }
 
-    /** Уменьшить прочность предмета в слоте на 1 */
+    /** Уменьшить прочность предмета в слоте на 1. При durability=0 — предмет удаляется */
     wearItem(slot: 'weapon' | 'armor' | 'accessory'): void {
         const item = this._equipment[slot];
         if (!item) return;
 
-        this._equipment = {
-            ...this._equipment,
-            [slot]: {
-                ...item,
-                currentDurability: Math.max(0, item.currentDurability - 1),
-            },
-        };
+        const newDurability = Math.max(0, item.currentDurability - 1);
+        if (newDurability === 0) {
+            // Сломанный предмет удаляется из слота (GDD: разнообразие через новый лут)
+            this._equipment = { ...this._equipment, [slot]: null };
+        } else {
+            this._equipment = {
+                ...this._equipment,
+                [slot]: { ...item, currentDurability: newDurability },
+            };
+        }
         this.eventBus.emit(GameEvents.STATE_EQUIPMENT_CHANGED, this._equipment);
     }
 
@@ -252,6 +256,11 @@ export class GameState {
     /** Сохранить реликвию для арены (extraction после босса, GDD: max 1) */
     saveArenaRelic(relic: IRelic): void {
         this._arenaRelic = relic;
+    }
+
+    /** Потребить арена-реликвию после PvP сессии */
+    consumeArenaRelic(): void {
+        this._arenaRelic = null;
     }
 
     /** Начать экспедицию */

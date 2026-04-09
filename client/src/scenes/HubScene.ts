@@ -545,7 +545,7 @@ export class HubScene extends BaseScene {
 
         const huntBtn = this.createBigActionButton(
             'Охота', THEME.colors.accent_green, THEME.colors.accent_green_dark,
-            '🎟️', '3', bigBtnW,
+            '🎟️', '1', bigBtnW,
             () => {
                 const config = balanceConfig as unknown as IBalanceConfig;
                 const seed = Date.now();
@@ -565,14 +565,30 @@ export class HubScene extends BaseScene {
         // Row 2: spacer(56) + [Арена pink] + spacer(56)
         const row2Y = y + sqSize + 8;
         const arenaBtn = this.createBigActionButton(
-            'Арена', THEME.colors.accent_magenta, THEME.colors.accent_magenta_dark,
-            '⚔️', '', bigBtnW,
+            '⚔️ Арена', THEME.colors.accent_magenta, THEME.colors.accent_magenta_dark,
+            '', '', bigBtnW,
             () => {
                 void this.sceneManager.goto('pvpLobby', { transition: TransitionType.SLIDE_LEFT });
             },
         );
         arenaBtn.position.set(PAD + sqSize + 12, row2Y);
         this.addChild(arenaBtn);
+
+        // Реликвия арены — под кнопкой
+        if (this.gameState.arenaRelic) {
+            const relicLabel = new Text({
+                text: `🏆 ${this.gameState.arenaRelic.name}`,
+                style: new TextStyle({
+                    fontSize: 11,
+                    fontFamily: THEME.font.family,
+                    fontWeight: THEME.font.weights.regular,
+                    fill: THEME.colors.accent_yellow,
+                }),
+            });
+            relicLabel.anchor.set(0.5, 0);
+            relicLabel.position.set(PAD + sqSize + 12 + bigBtnW / 2, row2Y + 58);
+            this.addChild(relicLabel);
+        }
     }
 
     // ─── Bottom nav ─────────────────────────────────────────────────

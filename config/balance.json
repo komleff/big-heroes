@@ -146,7 +146,7 @@
         "description": "Вы заметили ловушку на пути.",
         "variants": [
             { "id": "avoid", "label": "Обойти", "description": "Безопасный проход", "effects": [] },
-            { "id": "disarm", "label": "Разрядить (50/50)", "description": "50% → предмет, 50% → ничего", "effects": [{ "type": "item", "value": 1 }] }
+            { "id": "disarm", "label": "Разрядить (50/50)", "description": "50% → предмет, 50% → ничего", "proc_chance": 0.5, "effects": [{ "type": "item", "value": 1 }] }
         ]
     },
     {
@@ -173,7 +173,7 @@
         "name": "Загадка",
         "description": "Каменная плита с загадкой преграждает путь.",
         "variants": [
-            { "id": "solve", "label": "Разгадать (70/30)", "description": "70% → сундук, 30% → ничего", "effects": [{ "type": "loot_chest", "value": 1 }] },
+            { "id": "solve", "label": "Разгадать (70/30)", "description": "70% → сундук, 30% → ничего", "proc_chance": 0.7, "effects": [{ "type": "loot_chest", "value": 1 }] },
             { "id": "sacrifice", "label": "Пожертвовать предмет", "description": "Предмет → гарантированный сундук", "effects": [{ "type": "lose_item", "value": 1 }, { "type": "loot_chest", "value": 1 }] },
             { "id": "leave", "label": "Уйти", "description": "Пройти мимо", "effects": [] }
         ]
@@ -187,5 +187,12 @@
             { "id": "decline", "label": "Отказаться", "description": "Пройти мимо", "effects": [] }
         ]
     }
-  ]
+  ],
+  "pvp": {
+    "mass_loss_on_defeat": 0.1,
+    "bot_count": 3,
+    "bot_mass_multipliers": [0.8, 1.0, 1.2],
+    "bot_rating_spread": 50,
+    "bot_names": ["Теневой рыцарь", "Буря клинков", "Каменный страж"]
+  }
 }

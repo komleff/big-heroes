@@ -7,14 +7,18 @@ import { SceneManager, TransitionType } from '../core/SceneManager';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
+import { addRelicWithUI } from '../utils/relicHelper';
+import { autoEquipIfBetter } from '../utils/autoEquip';
 import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic } from 'shared';
-import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng } from 'shared';
+import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange, calcPvpMassLoss } from 'shared';
 import balanceConfig from '@config/balance.json';
 
 /** Данные, передаваемые в onEnter */
 interface BattleSceneData {
     result: IBattleResult;
     enemy: IMobConfig;
+    isPvp?: boolean;                // PvP-бой (арена)
+    pvpOpponentRating?: number;     // Рейтинг противника для Elo
 }
 
 /**
@@ -580,6 +584,48 @@ export class BattleScene extends BaseScene {
         );
     }
 
+    /** Оверлей результата PvP с деталями потерь */
+    private showPvpResultOverlay(message: string): void {
+        const W = THEME.layout.designWidth;
+        const H = THEME.layout.designHeight;
+
+        const overlay = new Container();
+        const dimBg = new Graphics();
+        dimBg.rect(0, 0, W, H);
+        dimBg.fill({ color: 0x000000 });
+        dimBg.alpha = 0.8;
+        dimBg.eventMode = 'static';
+        overlay.addChild(dimBg);
+
+        const msgText = new Text({
+            text: message,
+            style: new TextStyle({
+                fontSize: 16,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.medium,
+                fill: THEME.colors.text_primary,
+                wordWrap: true,
+                wordWrapWidth: W - 64,
+                align: 'center',
+            }),
+        });
+        msgText.anchor.set(0.5);
+        msgText.position.set(W / 2, H / 2 - 40);
+        overlay.addChild(msgText);
+
+        const homeBtn = new Button({
+            text: 'ДОМОЙ',
+            variant: 'primary',
+            onClick: () => {
+                void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+            },
+        });
+        homeBtn.position.set(W / 2, H / 2 + 40);
+        overlay.addChild(homeBtn);
+
+        this.addChild(overlay);
+    }
+
     /**
      * Конфигурация баннера исхода.
      */
@@ -667,24 +713,114 @@ export class BattleScene extends BaseScene {
                 const currentNode = newState.route.nodes[newState.currentNodeIndex];
                 const config = balanceConfig as unknown as IBalanceConfig;
 
-                if (result.outcome === 'victory' || result.outcome === 'polymorph') {
+                if (result.outcome === 'victory' || result.outcome === 'polymorph' || result.outcome === 'bypass') {
                     const rng = createRng(Date.now());
 
-                    // Генерация лута для ВСЕХ боевых узлов (combat/elite/boss)
-                    const loot = generateLoot(
-                        currentNode.type, config.pve.loot,
-                        config.equipment.catalog, config.consumables,
-                        newState.pityCounter, rng,
-                    );
-                    if (loot.drops.length > 0) {
-                        const items = loot.drops.map(d => d.itemId);
-                        newState = {
-                            ...newState,
-                            itemsFound: [...newState.itemsFound, ...items],
-                            pityCounter: loot.newPityCounter,
-                        };
-                        this.gameState.updateExpeditionState(newState);
+                    // Генерация лута (GDD: bypass = без лута, только продвижение)
+                    if (result.outcome !== 'bypass' && currentNode.type !== 'boss') {
+                        const loot = generateLoot(
+                            currentNode.type, config.pve.loot,
+                            config.equipment.catalog, config.consumables,
+                            newState.pityCounter, rng,
+                        );
+                        if (loot.drops.length > 0) {
+                            const items = loot.drops.map(d => d.itemId);
+                            newState = {
+                                ...newState,
+                                itemsFound: [...newState.itemsFound, ...items],
+                                pityCounter: loot.newPityCounter,
+                            };
+                            this.gameState.updateExpeditionState(newState);
+                            // Авто-экипировать лут
+                            for (const id of items) {
+                                autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
+                            }
+                        }
                     }
+
+                    // Босс: реликвия добавляется через addRelicWithUI ниже (с выбором замены при лимите)
+
+                    // Переход к PveResultScene (победа босса) или PveMapScene (обычный бой)
+                    const goToResult = (bossRelic?: IRelic, bossLootItems?: string[]): void => {
+                        // Читаем актуальное состояние (может быть обновлено boss loot)
+                        const currentExpState = this.gameState.expeditionState as IPveExpeditionState;
+                        const finalState: IPveExpeditionState = { ...currentExpState, status: 'victory' as const };
+                        this.gameState.updateExpeditionState(finalState);
+                        this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, finalState);
+                        // extractionPool = все активные реликвии (включая boss relic, если добавлена)
+                        const extractionPool = [...this.gameState.activeRelics] as IRelic[];
+                        void this.sceneManager.goto('pveResult', {
+                            transition: TransitionType.FADE,
+                            data: {
+                                status: 'victory',
+                                massGained: finalState.massGained,
+                                goldGained: finalState.goldGained,
+                                itemsFound: finalState.itemsFound,
+                                nodesVisited: finalState.visitedNodes.length,
+                                totalNodes: finalState.route.totalNodes,
+                                bossRelic,
+                                bossLootItems,
+                                extractionPool,
+                                onSaveRelic: (relic: IRelic) => {
+                                    this.gameState.saveArenaRelic(relic);
+                                },
+                                onContinue: () => {
+                                    this.gameState.endExpedition();
+                                    void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                                },
+                                onGoArena: () => {
+                                    this.gameState.endExpedition();
+                                    void this.sceneManager.goto('pvpLobby', { transition: TransitionType.FADE });
+                                },
+                            },
+                        });
+                    };
+
+                    // Навигация после боя
+                    const proceedAfterBattle = (): void => {
+                        const nextIndex = newState.currentNodeIndex + 1;
+                        if (nextIndex >= newState.route.totalNodes) {
+                            // Маршрут пройден — boss victory
+                            const currentNode2 = newState.route.nodes[newState.currentNodeIndex];
+                            if (currentNode2.type === 'boss') {
+                                // Boss: 1 random relic + 2 random items (u1z)
+                                const bossRng = createRng(Date.now() + 1);
+                                const bossRelicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, bossRng);
+                                // Boss loot: 2 random items (GDD: boss_loot_count)
+                                const bossLoot = generateLoot('boss', config.pve.loot, config.equipment.catalog, config.consumables, newState.pityCounter, bossRng);
+                                const bossLootItems = bossLoot.drops.slice(0, config.pve.loot.boss_loot_count).map(d => d.itemId);
+                                // Обновить itemsFound и pityCounter с boss loot
+                                const updatedState = {
+                                    ...newState,
+                                    itemsFound: [...newState.itemsFound, ...bossLootItems],
+                                    pityCounter: bossLoot.newPityCounter,
+                                };
+                                this.gameState.updateExpeditionState(updatedState);
+                                // Авто-экипировать boss loot
+                                for (const id of bossLootItems) {
+                                    autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
+                                }
+
+                                if (bossRelicPool.length > 0) {
+                                    const bossRelic = configToRelic(bossRelicPool[0]);
+                                    // Добавляем boss relic через UI (с выбором замены если лимит)
+                                    addRelicWithUI(this, this.gameState, bossRelic, () => {
+                                        // Проверяем, добавил ли игрок реликвию (мог отказаться)
+                                        const wasAdded = this.gameState.activeRelics.some(r => r.id === bossRelic.id);
+                                        goToResult(wasAdded ? bossRelic : undefined, bossLootItems);
+                                    });
+                                    return;
+                                }
+                                goToResult(undefined, bossLootItems);
+                            } else {
+                                goToResult();
+                            }
+                        } else {
+                            const updated: IPveExpeditionState = { ...newState, currentNodeIndex: nextIndex };
+                            this.gameState.updateExpeditionState(updated);
+                            void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
+                        }
+                    };
 
                     // Элита: шанс реликвии (только при victory, не polymorph)
                     if (result.outcome === 'victory' && currentNode.type === 'elite') {
@@ -692,71 +828,62 @@ export class BattleScene extends BaseScene {
                             const pool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, rng);
                             if (pool.length > 0) {
                                 const eliteRelic = configToRelic(pool[0]);
-                                if (this.gameState.isRelicsFull()) {
-                                    this.gameState.addRelic(eliteRelic, this.gameState.activeRelics.length - 1);
-                                } else {
-                                    this.gameState.addRelic(eliteRelic);
-                                }
+                                addRelicWithUI(this, this.gameState, eliteRelic, proceedAfterBattle);
+                                return; // Ждём выбора игрока
                             }
                         }
                     }
 
-                    // Босс: пул из 3 реликвий для выбора в PveResultScene (GDD: выбор 1 из 3)
-                    // НЕ авто-добавляем — выбор делает игрок на экране extraction
+                    proceedAfterBattle();
                 }
+            }
+        } else if (this.battleData.isPvp) {
+            // PvP-бой: обновить рейтинг по GDD
+            const config = balanceConfig as unknown as IBalanceConfig;
+            const opponentRating = this.battleData.pvpOpponentRating ?? this.gameState.hero.rating;
 
-                const nextIndex = newState.currentNodeIndex + 1;
-                if (nextIndex >= newState.route.totalNodes) {
-                    // Маршрут пройден — победа
-                    const finalState: IPveExpeditionState = { ...newState, status: 'victory' as const };
-                    this.gameState.updateExpeditionState(finalState);
-                    this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, finalState);
-                    // НЕ вызываем endExpedition сразу — PveResultScene покажет extraction экран
-                    const relicsForExtraction = [...this.gameState.activeRelics];
-                    // Boss relic pool для выбора (GDD: 1 из 3)
-                    const currentNode2 = newState.route.nodes[newState.currentNodeIndex];
-                    let bossRelicPool: typeof relicsForExtraction = [];
-                    if (currentNode2.type === 'boss') {
-                        const bossRng = createRng(Date.now() + 1);
-                        bossRelicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 3, bossRng)
-                            .map(r => configToRelic(r));
-                    }
-                    void this.sceneManager.goto('pveResult', {
-                        transition: TransitionType.FADE,
-                        data: {
-                            status: 'victory',
-                            massGained: finalState.massGained,
-                            goldGained: finalState.goldGained,
-                            itemsFound: finalState.itemsFound,
-                            nodesVisited: finalState.visitedNodes.length,
-                            totalNodes: finalState.route.totalNodes,
-                            relicsForExtraction,
-                            bossRelicPool,
-                            onSelectBossRelic: (relic: IRelic) => {
-                                if (this.gameState.isRelicsFull()) {
-                                    this.gameState.addRelic(relic, this.gameState.activeRelics.length - 1);
-                                } else {
-                                    this.gameState.addRelic(relic);
-                                }
-                            },
-                            onGetActiveRelics: () => {
-                                return [...this.gameState.activeRelics] as IRelic[];
-                            },
-                            onSaveRelic: (relic: IRelic) => {
-                                this.gameState.saveArenaRelic(relic);
-                            },
-                            onContinue: () => {
-                                this.gameState.endExpedition();
-                                void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
-                            },
-                        },
-                    });
-                } else {
-                    // Продвинуть idx на +1 (enterNode установил на текущий боевой узел)
-                    const updated: IPveExpeditionState = { ...newState, currentNodeIndex: nextIndex };
-                    this.gameState.updateExpeditionState(updated);
-                    void this.sceneManager.goto('pveMap', { transition: TransitionType.FADE });
-                }
+            // GDD: victory → +Elo, defeat → −Elo, retreat/bypass/polymorph → 0 Elo
+            if (result.outcome === 'victory' || result.outcome === 'defeat') {
+                const eloResult: 0 | 1 = result.outcome === 'victory' ? 1 : 0;
+                const eloChange = calcEloChange(
+                    this.gameState.hero.rating, opponentRating, eloResult, config.formulas.eloK,
+                );
+                this.gameState.setRating(this.gameState.hero.rating + eloChange);
+            }
+            // retreat/bypass/polymorph → 0 Elo change (GDD: бой не засчитан / 0 рейтинга)
+
+            // Сохраняем имя реликвии до потребления
+            const consumedRelicName = this.gameState.arenaRelic?.name ?? null;
+
+            // GDD: при поражении в PvP −N% массы. Только defeat!
+            let massLoss = 0;
+            if (result.outcome === 'defeat') {
+                massLoss = calcPvpMassLoss(this.gameState.hero.mass, config.pvp.mass_loss_on_defeat);
+                this.gameState.setMass(this.gameState.hero.mass - massLoss);
+            }
+
+            // Износ экипировки
+            if (result.durabilityTarget) {
+                this.gameState.wearItem(result.durabilityTarget);
+            }
+
+            // Потребить arenaRelic только при завершении PvP сессии (victory/defeat)
+            // Retreat/bypass — сессия продолжается, relic сохраняется
+            if (result.outcome === 'victory' || result.outcome === 'defeat') {
+                this.gameState.consumeArenaRelic();
+            }
+
+            this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
+
+            // Показать экран результата PvP с деталями потерь
+            if (result.outcome === 'defeat') {
+                const lines: string[] = [];
+                if (massLoss > 0) lines.push(`Потеряно ${massLoss} кг массы`);
+                if (consumedRelicName) lines.push(`Реликвия «${consumedRelicName}» потеряна`);
+                lines.push('Добудьте новую реликвию в Походе!');
+                this.showPvpResultOverlay(lines.join('\n'));
+            } else {
+                void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
             }
         } else {
             // Вне экспедиции: старое поведение

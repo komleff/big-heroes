@@ -4,7 +4,7 @@ import type {
     IMobConfig, IBalanceConfig, IFormulaConfig,
     IBattleContext, CommandId,
     IEquipmentSlots, IEquipmentItem, IConsumable,
-    IPveExpeditionState,
+    IPveExpeditionState, IRelic,
 } from 'shared';
 import {
     calcHeroStats, calcDamage, calcTTK, calcBaseWinChance,
@@ -128,6 +128,8 @@ export class PreBattleScene extends BaseScene {
 
     /** Текущий враг (задаётся в onEnter) */
     private enemy!: IMobConfig;
+    private isPvp = false;
+    private pvpOpponentRating?: number;
 
     /** Индекс выбранного слота пояса (-1 = не выбран) */
     private selectedBeltIndex = -1;
@@ -159,9 +161,11 @@ export class PreBattleScene extends BaseScene {
     }
 
     onEnter(data?: unknown): void {
-        const enterData = data as { enemy: IMobConfig } | undefined;
+        const enterData = data as { enemy: IMobConfig; isPvp?: boolean; pvpOpponentRating?: number } | undefined;
         if (!enterData?.enemy) throw new Error('PreBattleScene: data.enemy обязателен');
         this.enemy = enterData.enemy;
+        this.isPvp = enterData.isPvp ?? false;
+        this.pvpOpponentRating = enterData.pvpOpponentRating;
 
         // Сброс выбора
         this.selectedBeltIndex = -1;
@@ -214,7 +218,10 @@ export class PreBattleScene extends BaseScene {
 
     private buildMatchup(): void {
         const equipment = this.gameState.equipment;
-        const relics = [...this.gameState.activeRelics];
+        const relics = [...this.gameState.activeRelics] as IRelic[];
+        if (this.isPvp && this.gameState.arenaRelic) {
+            relics.push(this.gameState.arenaRelic as IRelic);
+        }
         const heroStats = calcHeroStats(
             this.getEffectiveMass(),
             equipment as IEquipmentSlots,
@@ -483,7 +490,10 @@ export class PreBattleScene extends BaseScene {
 
     private buildCommandGrid(): void {
         const equipment = this.gameState.equipment;
-        const relics = [...this.gameState.activeRelics];
+        const relics = [...this.gameState.activeRelics] as IRelic[];
+        if (this.isPvp && this.gameState.arenaRelic) {
+            relics.push(this.gameState.arenaRelic as IRelic);
+        }
         const heroStats = calcHeroStats(
             this.getEffectiveMass(),
             equipment as IEquipmentSlots,
@@ -636,6 +646,14 @@ export class PreBattleScene extends BaseScene {
             itemLabel.y = 74;
             container.addChild(itemLabel);
 
+            // Красная рамка при durability=1 (предупреждение о поломке)
+            if (durability === 1 && !isDisabled && !isLockedSlot) {
+                const border = new Graphics();
+                border.roundRect(0, 0, btnW, btnH, 14);
+                border.stroke({ color: THEME.colors.accent_red, width: 2 });
+                container.addChild(border);
+            }
+
             // Обработчик тапа
             if (!isDisabled && cmd.id) {
                 const commandId = cmd.id;
@@ -646,6 +664,29 @@ export class PreBattleScene extends BaseScene {
 
             this.addChild(container);
             this.commandContainers.push(container);
+        }
+
+        // Предупреждение о поломке под кнопками
+        const hasLastDurability = this.activeCommands.some(cmd => {
+            const item: IEquipmentItem | null = (equipment as IEquipmentSlots)[cmd.slot];
+            return item && item.currentDurability === 1;
+        });
+        if (hasLastDurability) {
+            const warningText = new Text({
+                text: 'Использование этого предмета приведёт к его поломке и потере',
+                style: new TextStyle({
+                    fontSize: 11,
+                    fontFamily: THEME.font.family,
+                    fontWeight: THEME.font.weights.bold,
+                    fill: THEME.colors.accent_red,
+                    wordWrap: true,
+                    wordWrapWidth: W - 28,
+                    align: 'center',
+                }),
+            });
+            warningText.anchor.set(0.5, 0);
+            warningText.position.set(W / 2, gridY + btnH + 6);
+            this.addChild(warningText);
         }
     }
 
@@ -780,6 +821,10 @@ export class PreBattleScene extends BaseScene {
 
         const equipment = this.gameState.equipment as IEquipmentSlots;
         const relics = [...this.gameState.activeRelics];
+        // PvP: добавить arenaRelic к бонусам
+        if (this.isPvp && this.gameState.arenaRelic) {
+            relics.push(this.gameState.arenaRelic as IRelic);
+        }
         const heroStats = calcHeroStats(this.getEffectiveMass(), equipment, relics);
 
         // Расходник из пояса (или null)
@@ -793,7 +838,7 @@ export class PreBattleScene extends BaseScene {
 
         // Собираем IBattleContext
         const context: IBattleContext = {
-            mode: 'pve',
+            mode: this.isPvp ? 'pvp' : 'pve',
             heroStats,
             enemy: this.enemy,
             command: this.selectedCommand,
@@ -808,7 +853,12 @@ export class PreBattleScene extends BaseScene {
         // Переход к сцене боя
         void this.sceneManager.goto('battle', {
             transition: TransitionType.FADE,
-            data: { result: battleResult, enemy: this.enemy },
+            data: {
+                result: battleResult,
+                enemy: this.enemy,
+                isPvp: this.isPvp,
+                pvpOpponentRating: this.pvpOpponentRating,
+            },
         });
     }
 }

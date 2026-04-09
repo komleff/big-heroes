@@ -7,12 +7,15 @@ import { SceneManager, TransitionType } from '../core/SceneManager';
 import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { ResourceBar } from '../ui/ResourceBar';
+import { addRelicWithUI } from '../utils/relicHelper';
+import { autoEquipIfBetter } from '../utils/autoEquip';
 import {
     advanceToNode, exitExpedition,
     generateRelicPool, configToRelic,
     generateLoot, generateShopInventory,
     generateForkPaths,
     createRng, randInt,
+    resolveEventOutcome,
 } from 'shared';
 import type {
     IPveNode, PveNodeType, IPveExpeditionState,
@@ -360,13 +363,22 @@ export class PveMapScene extends BaseScene {
                 relicPool: pool,
                 onSelect: (index: number) => {
                     const relic = configToRelic(pool[index]);
-                    if (this.gameState.isRelicsFull()) {
-                        // Лимит: заменить последнюю (GDD: выбор замены — Sprint 4 UI)
-                        this.gameState.addRelic(relic, this.gameState.activeRelics.length - 1);
+                    // Продвигаем экспедицию ПЕРЕД переходом (advanceToNextNode логика)
+                    const advanceAndReturn = (): void => {
+                        const exp = this.gameState.expeditionState as IPveExpeditionState;
+                        const nextIdx = exp.currentNodeIndex + 1;
+                        const updated: IPveExpeditionState = { ...exp, currentNodeIndex: nextIdx };
+                        this.gameState.updateExpeditionState(updated);
+                        void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
+                    };
+                    // overlay рендерим на текущей активной сцене (SanctuaryScene)
+                    const activeScene = this.sceneManager.activeScene;
+                    if (activeScene) {
+                        addRelicWithUI(activeScene, this.gameState, relic, advanceAndReturn);
                     } else {
                         this.gameState.addRelic(relic);
+                        advanceAndReturn();
                     }
-                    this.advanceToNextNode();
                 },
             },
         });
@@ -413,6 +425,7 @@ export class PveMapScene extends BaseScene {
                         goldGained: newGoldGained,
                         itemsFound: [...state.itemsFound, item.itemId],
                     });
+                    autoEquipIfBetter(this.gameState, item.itemId, config.equipment.catalog);
                     return this.gameState.resources.gold + newGoldGained;
                 },
                 onLeave: () => {
@@ -485,6 +498,7 @@ export class PveMapScene extends BaseScene {
                     let state = this.gameState.expeditionState as IPveExpeditionState;
                     const rng = createRng(Date.now());
                     const results: string[] = [];
+                    const newItemIds: string[] = [];
 
                     // Проверка: вариант требует жертву предмета, а предметов нет
                     const requiresItem = variant.effects.some(e => e.type === 'lose_item');
@@ -493,11 +507,11 @@ export class PveMapScene extends BaseScene {
                     }
 
                     const isMerchantBuy = eventConfig.id === 'evt_merchant' && variant.id === 'buy';
-                    const probMatch = variant.description.match(/(\d+)%/);
-                    const procChance = probMatch ? parseInt(probMatch[1]) / 100 : 1.0;
-                    const rollSuccess = isMerchantBuy ? true : rng() < procChance;
+                    // Резолв успеха через shared-функцию (ne5 + 03b)
+                    const roll = isMerchantBuy ? 0 : rng(); // 0 < любой proc_chance > 0 → гарантия для торговца
+                    const outcomeResults = resolveEventOutcome(variant, roll);
 
-                    for (const effect of variant.effects) {
+                    for (const { effect, success } of outcomeResults) {
                         switch (effect.type) {
                             case 'mass':
                                 state = { ...state, massGained: state.massGained + effect.value };
@@ -521,7 +535,7 @@ export class PveMapScene extends BaseScene {
                                 break;
                             }
                             case 'item': {
-                                if (!rollSuccess) { results.push('Неудача...'); break; }
+                                if (!success) { results.push('Неудача...'); break; }
                                 if (isMerchantBuy) {
                                     const isTier2 = rng() < 0.2;
                                     if (isTier2) {
@@ -529,6 +543,7 @@ export class PveMapScene extends BaseScene {
                                         if (tier2Items.length > 0) {
                                             const picked = tier2Items[Math.floor(rng() * tier2Items.length)];
                                             state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                            newItemIds.push(picked.id);
                                             results.push(`Получен предмет!`);
                                         }
                                     } else {
@@ -539,6 +554,7 @@ export class PveMapScene extends BaseScene {
                                         if (tier1Items.length > 0) {
                                             const picked = tier1Items[Math.floor(rng() * tier1Items.length)];
                                             state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                            newItemIds.push(picked.id);
                                             results.push(`Получен предмет!`);
                                         }
                                     }
@@ -556,10 +572,11 @@ export class PveMapScene extends BaseScene {
                                 break;
                             }
                             case 'loot_chest': {
-                                if (rollSuccess) {
+                                if (success) {
                                     const loot = generateLoot('chest', config.pve.loot, config.equipment.catalog, config.consumables, state.pityCounter, rng);
                                     const ids = loot.drops.map(d => d.itemId);
                                     state = { ...state, itemsFound: [...state.itemsFound, ...ids], pityCounter: loot.newPityCounter };
+                                    newItemIds.push(...ids);
                                     results.push(`Найден сундук! (+${ids.length} предм.)`);
                                 } else {
                                     results.push('Неудача...');
@@ -576,6 +593,10 @@ export class PveMapScene extends BaseScene {
                         }
                     }
                     this.gameState.updateExpeditionState(state);
+                    // Авто-экипировать новые предметы
+                    for (const id of newItemIds) {
+                        autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
+                    }
                     return results.length > 0 ? results.join('\n') : 'Ничего не произошло';
                 },
                 onContinue: () => {
@@ -608,6 +629,8 @@ export class PveMapScene extends BaseScene {
         const onTake = (drop: { itemId: string }) => {
             const state = this.gameState.expeditionState as IPveExpeditionState;
             this.gameState.updateExpeditionState({ ...state, itemsFound: [...state.itemsFound, drop.itemId] });
+            // Авто-экипировать если слот пустой или предмет лучше
+            autoEquipIfBetter(this.gameState, drop.itemId, config.equipment.catalog);
         };
 
         if (node.type === 'ancient_chest') {
@@ -657,12 +680,20 @@ export class PveMapScene extends BaseScene {
                 title,
                 onSelect: (index: number) => {
                     const relic = configToRelic(pool[index]);
-                    if (this.gameState.isRelicsFull()) {
-                        this.gameState.addRelic(relic, this.gameState.activeRelics.length - 1);
+                    const advanceAndReturn = (): void => {
+                        const exp = this.gameState.expeditionState as IPveExpeditionState;
+                        const nextIdx = exp.currentNodeIndex + 1;
+                        const updated: IPveExpeditionState = { ...exp, currentNodeIndex: nextIdx };
+                        this.gameState.updateExpeditionState(updated);
+                        void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
+                    };
+                    const activeScene = this.sceneManager.activeScene;
+                    if (activeScene) {
+                        addRelicWithUI(activeScene, this.gameState, relic, advanceAndReturn);
                     } else {
                         this.gameState.addRelic(relic);
+                        advanceAndReturn();
                     }
-                    this.advanceToNextNode();
                 },
             },
         });
