@@ -8,6 +8,7 @@ import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
 import { addRelicWithUI } from '../utils/relicHelper';
+import { autoEquipIfBetter } from '../utils/autoEquip';
 import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic } from 'shared';
 import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange, calcPvpMassLoss } from 'shared';
 import balanceConfig from '@config/balance.json';
@@ -689,6 +690,10 @@ export class BattleScene extends BaseScene {
                                 pityCounter: loot.newPityCounter,
                             };
                             this.gameState.updateExpeditionState(newState);
+                            // Авто-экипировать лут
+                            for (const id of items) {
+                                autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
+                            }
                         }
                     }
 
@@ -746,6 +751,10 @@ export class BattleScene extends BaseScene {
                                     pityCounter: bossLoot.newPityCounter,
                                 };
                                 this.gameState.updateExpeditionState(updatedState);
+                                // Авто-экипировать boss loot
+                                for (const id of bossLootItems) {
+                                    autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
+                                }
 
                                 if (bossRelicPool.length > 0) {
                                     const bossRelic = configToRelic(bossRelicPool[0]);

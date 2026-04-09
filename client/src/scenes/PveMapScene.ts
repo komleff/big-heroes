@@ -8,6 +8,7 @@ import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { ResourceBar } from '../ui/ResourceBar';
 import { addRelicWithUI } from '../utils/relicHelper';
+import { autoEquipIfBetter } from '../utils/autoEquip';
 import {
     advanceToNode, exitExpedition,
     generateRelicPool, configToRelic,
@@ -424,6 +425,7 @@ export class PveMapScene extends BaseScene {
                         goldGained: newGoldGained,
                         itemsFound: [...state.itemsFound, item.itemId],
                     });
+                    autoEquipIfBetter(this.gameState, item.itemId, config.equipment.catalog);
                     return this.gameState.resources.gold + newGoldGained;
                 },
                 onLeave: () => {
@@ -496,6 +498,7 @@ export class PveMapScene extends BaseScene {
                     let state = this.gameState.expeditionState as IPveExpeditionState;
                     const rng = createRng(Date.now());
                     const results: string[] = [];
+                    const newItemIds: string[] = [];
 
                     // Проверка: вариант требует жертву предмета, а предметов нет
                     const requiresItem = variant.effects.some(e => e.type === 'lose_item');
@@ -540,6 +543,7 @@ export class PveMapScene extends BaseScene {
                                         if (tier2Items.length > 0) {
                                             const picked = tier2Items[Math.floor(rng() * tier2Items.length)];
                                             state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                            newItemIds.push(picked.id);
                                             results.push(`Получен предмет!`);
                                         }
                                     } else {
@@ -550,6 +554,7 @@ export class PveMapScene extends BaseScene {
                                         if (tier1Items.length > 0) {
                                             const picked = tier1Items[Math.floor(rng() * tier1Items.length)];
                                             state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                            newItemIds.push(picked.id);
                                             results.push(`Получен предмет!`);
                                         }
                                     }
@@ -571,6 +576,7 @@ export class PveMapScene extends BaseScene {
                                     const loot = generateLoot('chest', config.pve.loot, config.equipment.catalog, config.consumables, state.pityCounter, rng);
                                     const ids = loot.drops.map(d => d.itemId);
                                     state = { ...state, itemsFound: [...state.itemsFound, ...ids], pityCounter: loot.newPityCounter };
+                                    newItemIds.push(...ids);
                                     results.push(`Найден сундук! (+${ids.length} предм.)`);
                                 } else {
                                     results.push('Неудача...');
@@ -587,6 +593,10 @@ export class PveMapScene extends BaseScene {
                         }
                     }
                     this.gameState.updateExpeditionState(state);
+                    // Авто-экипировать новые предметы
+                    for (const id of newItemIds) {
+                        autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
+                    }
                     return results.length > 0 ? results.join('\n') : 'Ничего не произошло';
                 },
                 onContinue: () => {
@@ -619,6 +629,8 @@ export class PveMapScene extends BaseScene {
         const onTake = (drop: { itemId: string }) => {
             const state = this.gameState.expeditionState as IPveExpeditionState;
             this.gameState.updateExpeditionState({ ...state, itemsFound: [...state.itemsFound, drop.itemId] });
+            // Авто-экипировать если слот пустой или предмет лучше
+            autoEquipIfBetter(this.gameState, drop.itemId, config.equipment.catalog);
         };
 
         if (node.type === 'ancient_chest') {
