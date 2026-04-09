@@ -4,8 +4,8 @@ import { GameState } from '../core/GameState';
 import { SceneManager, TransitionType } from '../core/SceneManager';
 import { Button } from '../ui/Button';
 import { THEME } from '../config/ThemeConfig';
-import type { IMobConfig, IBalanceConfig } from 'shared';
-import { generateBots } from 'shared';
+import type { IMobConfig, IBalanceConfig, IEquipmentSlots, IRelic } from 'shared';
+import { generateBots, calcHeroStats } from 'shared';
 import balanceConfig from '@config/balance.json';
 
 /** Ширина дизайна */
@@ -47,7 +47,28 @@ export class PvpLobbyScene extends BaseScene {
         heading.y = THEME.layout.spacing.topOffset;
         this.addChild(heading);
 
-        let nextY = 100;
+        let nextY = 90;
+
+        // --- Параметры героя ---
+        const equipment = this.gameState.equipment as IEquipmentSlots;
+        const relics = [...this.gameState.activeRelics] as IRelic[];
+        const arenaRel = this.gameState.arenaRelic;
+        if (arenaRel) relics.push(arenaRel as IRelic);
+        const heroStats = calcHeroStats(this.gameState.hero.mass, equipment, relics);
+        const heroInfo = new Text({
+            text: `Ваш герой:  Масса ${this.gameState.hero.mass} кг  |  Сила ${heroStats.strength}  |  Броня ${heroStats.armor}  |  Удача ${heroStats.luck}  |  Рейтинг ${this.gameState.hero.rating}`,
+            style: new TextStyle({
+                fontSize: 11,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.medium,
+                fill: THEME.colors.accent_cyan,
+                wordWrap: true,
+                wordWrapWidth: W - 32,
+            }),
+        });
+        heroInfo.position.set(16, nextY);
+        this.addChild(heroInfo);
+        nextY += 36;
 
         // --- Arena Relic карточка ---
         const arenaRelic = this.gameState.arenaRelic;
