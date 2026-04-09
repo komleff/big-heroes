@@ -19,6 +19,7 @@ interface PveResultSceneData {
     bossLootItems?: string[];             // 2 random items от босса (u1z)
     extractionPool?: IRelic[];            // Все реликвии для выбора arena relic
     onSaveRelic?: (relic: IRelic) => void; // Сохранить реликвию для арены
+    onGoArena?: () => void;               // Перейти в арену после extraction
 }
 
 /** Ширина дизайна */
@@ -34,6 +35,7 @@ const W = THEME.layout.designWidth;
 export class PveResultScene extends BaseScene {
     private sceneData!: PveResultSceneData;
     private extractionDone = false;
+    private savedRelicName: string | null = null;
 
     constructor() {
         super();
@@ -122,14 +124,45 @@ export class PveResultScene extends BaseScene {
         if (data.status === 'victory' && data.extractionPool && data.extractionPool.length > 0 && !this.extractionDone) {
             this.buildExtractionSection(data.extractionPool, nextY);
         } else {
-            // Кнопка «В ХАБ»
+            // Сообщение о выбранной реликвии для арены
+            if (this.savedRelicName) {
+                const relicMsg = new Text({
+                    text: `Вы выбрали реликвию «${this.savedRelicName}» для арены`,
+                    style: new TextStyle({
+                        fontSize: 14,
+                        fontFamily: THEME.font.family,
+                        fontWeight: THEME.font.weights.bold,
+                        fill: THEME.colors.accent_green,
+                        wordWrap: true,
+                        wordWrapWidth: W - 64,
+                        align: 'center',
+                    }),
+                });
+                relicMsg.anchor.set(0.5, 0);
+                relicMsg.position.set(W / 2, nextY + 8);
+                this.addChild(relicMsg);
+                nextY += 36;
+            }
+
+            // Кнопка «Домой»
             const hubBtn = new Button({
-                text: 'В ХАБ',
+                text: 'ДОМОЙ',
                 variant: 'primary',
                 onClick: () => data.onContinue(),
             });
             hubBtn.position.set(W / 2, nextY + 16);
             this.addChild(hubBtn);
+
+            // Кнопка «Арена» (если выбрана реликвия для арены)
+            if (this.savedRelicName && data.onGoArena) {
+                const arenaBtn = new Button({
+                    text: '⚔️ АРЕНА',
+                    variant: 'secondary',
+                    onClick: () => data.onGoArena!(),
+                });
+                arenaBtn.position.set(W / 2, nextY + 72);
+                this.addChild(arenaBtn);
+            }
         }
     }
 
@@ -229,6 +262,7 @@ export class PveResultScene extends BaseScene {
 
             card.on('pointerdown', () => {
                 this.sceneData.onSaveRelic?.(relic);
+                this.savedRelicName = relic.name;
                 this.extractionDone = true;
                 this.buildLayout();
             });

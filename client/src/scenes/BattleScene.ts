@@ -584,6 +584,48 @@ export class BattleScene extends BaseScene {
         );
     }
 
+    /** Оверлей результата PvP с деталями потерь */
+    private showPvpResultOverlay(message: string): void {
+        const W = THEME.layout.designWidth;
+        const H = THEME.layout.designHeight;
+
+        const overlay = new Container();
+        const dimBg = new Graphics();
+        dimBg.rect(0, 0, W, H);
+        dimBg.fill({ color: 0x000000 });
+        dimBg.alpha = 0.8;
+        dimBg.eventMode = 'static';
+        overlay.addChild(dimBg);
+
+        const msgText = new Text({
+            text: message,
+            style: new TextStyle({
+                fontSize: 16,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.medium,
+                fill: THEME.colors.text_primary,
+                wordWrap: true,
+                wordWrapWidth: W - 64,
+                align: 'center',
+            }),
+        });
+        msgText.anchor.set(0.5);
+        msgText.position.set(W / 2, H / 2 - 40);
+        overlay.addChild(msgText);
+
+        const homeBtn = new Button({
+            text: 'ДОМОЙ',
+            variant: 'primary',
+            onClick: () => {
+                void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+            },
+        });
+        homeBtn.position.set(W / 2, H / 2 + 40);
+        overlay.addChild(homeBtn);
+
+        this.addChild(overlay);
+    }
+
     /**
      * Конфигурация баннера исхода.
      */
@@ -727,6 +769,10 @@ export class BattleScene extends BaseScene {
                                     this.gameState.endExpedition();
                                     void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
                                 },
+                                onGoArena: () => {
+                                    this.gameState.endExpedition();
+                                    void this.sceneManager.goto('pvpLobby', { transition: TransitionType.FADE });
+                                },
                             },
                         });
                     };
@@ -807,9 +853,13 @@ export class BattleScene extends BaseScene {
             }
             // retreat/bypass/polymorph → 0 Elo change (GDD: бой не засчитан / 0 рейтинга)
 
+            // Сохраняем имя реликвии до потребления
+            const consumedRelicName = this.gameState.arenaRelic?.name ?? null;
+
             // GDD: при поражении в PvP −N% массы. Только defeat!
+            let massLoss = 0;
             if (result.outcome === 'defeat') {
-                const massLoss = calcPvpMassLoss(this.gameState.hero.mass, config.pvp.mass_loss_on_defeat);
+                massLoss = calcPvpMassLoss(this.gameState.hero.mass, config.pvp.mass_loss_on_defeat);
                 this.gameState.setMass(this.gameState.hero.mass - massLoss);
             }
 
@@ -822,7 +872,17 @@ export class BattleScene extends BaseScene {
             this.gameState.consumeArenaRelic();
 
             this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
-            void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+
+            // Показать экран результата PvP с деталями потерь
+            if (result.outcome === 'defeat') {
+                const lines: string[] = [];
+                if (massLoss > 0) lines.push(`Потеряно ${massLoss} кг массы`);
+                if (consumedRelicName) lines.push(`Реликвия «${consumedRelicName}» потеряна`);
+                lines.push('Добудьте новую реликвию в Походе!');
+                this.showPvpResultOverlay(lines.join('\n'));
+            } else {
+                void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+            }
         } else {
             // Вне экспедиции: старое поведение
             if (result.outcome === 'victory') {
