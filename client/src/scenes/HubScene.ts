@@ -564,9 +564,10 @@ export class HubScene extends BaseScene {
 
         // Row 2: spacer(56) + [Арена pink] + spacer(56)
         const row2Y = y + sqSize + 8;
+        const arenaRelicLabel = this.gameState.arenaRelic ? `🏆 ${this.gameState.arenaRelic.name}` : '';
         const arenaBtn = this.createBigActionButton(
             'Арена', THEME.colors.accent_magenta, THEME.colors.accent_magenta_dark,
-            '⚔️', '', bigBtnW,
+            '⚔️', arenaRelicLabel, bigBtnW,
             () => {
                 void this.sceneManager.goto('pvpLobby', { transition: TransitionType.SLIDE_LEFT });
             },

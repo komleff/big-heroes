@@ -9,13 +9,15 @@ import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
 import { addRelicWithUI } from '../utils/relicHelper';
 import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic } from 'shared';
-import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng } from 'shared';
+import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange } from 'shared';
 import balanceConfig from '@config/balance.json';
 
 /** Данные, передаваемые в onEnter */
 interface BattleSceneData {
     result: IBattleResult;
     enemy: IMobConfig;
+    isPvp?: boolean;                // PvP-бой (арена)
+    pvpOpponentRating?: number;     // Рейтинг противника для Elo
 }
 
 /**
@@ -771,6 +773,32 @@ export class BattleScene extends BaseScene {
                     proceedAfterBattle();
                 }
             }
+        } else if (this.battleData.isPvp) {
+            // PvP-бой: обновить рейтинг, потребить arenaRelic
+            const config = balanceConfig as unknown as IBalanceConfig;
+            const eloResult: 0 | 1 = result.outcome === 'victory' ? 1 : 0;
+            const opponentRating = this.battleData.pvpOpponentRating ?? this.gameState.hero.rating;
+            const eloChange = calcEloChange(
+                this.gameState.hero.rating, opponentRating, eloResult, config.formulas.eloK,
+            );
+            this.gameState.setRating(this.gameState.hero.rating + eloChange);
+
+            // GDD: при поражении в PvP −10% массы
+            if (result.outcome !== 'victory') {
+                const massLoss = Math.floor(this.gameState.hero.mass * 0.1);
+                this.gameState.setMass(this.gameState.hero.mass - massLoss);
+            }
+
+            // Износ экипировки
+            if (result.durabilityTarget) {
+                this.gameState.wearItem(result.durabilityTarget);
+            }
+
+            // Потребить arenaRelic после PvP сессии
+            this.gameState.consumeArenaRelic();
+
+            this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
+            void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
         } else {
             // Вне экспедиции: старое поведение
             if (result.outcome === 'victory') {

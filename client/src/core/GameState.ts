@@ -254,6 +254,11 @@ export class GameState {
         this._arenaRelic = relic;
     }
 
+    /** Потребить арена-реликвию после PvP сессии */
+    consumeArenaRelic(): void {
+        this._arenaRelic = null;
+    }
+
     /** Начать экспедицию */
     startExpedition(route: IPveRoute): void {
         this._expeditionState = createExpeditionState(route);

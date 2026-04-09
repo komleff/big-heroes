@@ -568,3 +568,41 @@ describe('getLeagueConfig', () => {
         expect(getLeagueConfig(-100, leagues).name).toBe('Бронза');
     });
 });
+
+// ─── PvP: arenaRelic через calcHeroStats (Sprint 4) ──────────────────
+
+describe('PvP arenaRelic бонусы через calcHeroStats', () => {
+    it('arenaRelic strength_bonus добавляет силу', () => {
+        const equip = emptyEquipment();
+        const arenaRelic = makeRelic('strength_bonus', 5);
+        const stats = calcHeroStats(50, equip, [arenaRelic]);
+        // Сила = 50/3 + 5 = 16 + 5 = 21
+        expect(stats.strength).toBe(Math.floor(50 / 3) + 5);
+    });
+
+    it('arenaRelic armor_bonus добавляет броню', () => {
+        const equip = emptyEquipment();
+        const arenaRelic = makeRelic('armor_bonus', 3);
+        const stats = calcHeroStats(50, equip, [arenaRelic]);
+        expect(stats.armor).toBe(3);
+    });
+
+    it('arenaRelic luck_bonus добавляет удачу', () => {
+        const equip = emptyEquipment();
+        const arenaRelic = makeRelic('luck_bonus', 2);
+        const stats = calcHeroStats(50, equip, [arenaRelic]);
+        expect(stats.luck).toBe(2);
+    });
+
+    it('arenaRelic + экипировка комбинируются', () => {
+        const equip: IEquipmentSlots = {
+            weapon: makeItem({ slot: 'weapon', strengthBonus: 3 }),
+            armor: makeItem({ slot: 'armor', armorBonus: 2 }),
+            accessory: null,
+        };
+        const arenaRelic = makeRelic('strength_bonus', 4);
+        const stats = calcHeroStats(50, equip, [arenaRelic]);
+        // Сила = 50/3 + 3(weapon) + 4(relic) = 16 + 3 + 4 = 23
+        expect(stats.strength).toBe(Math.floor(50 / 3) + 3 + 4);
+    });
+});
