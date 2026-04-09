@@ -1,7 +1,6 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { BaseScene } from './BaseScene';
 import { GameState } from '../core/GameState';
-import { EventBus } from '../core/EventBus';
 import { SceneManager, TransitionType } from '../core/SceneManager';
 import { Button } from '../ui/Button';
 import { THEME } from '../config/ThemeConfig';
@@ -19,13 +18,11 @@ const W = THEME.layout.designWidth;
 export class PvpLobbyScene extends BaseScene {
     private readonly sceneManager: SceneManager;
     private readonly gameState: GameState;
-    private readonly eventBus: EventBus;
 
-    constructor(sceneManager: SceneManager, gameState: GameState, eventBus: EventBus) {
+    constructor(sceneManager: SceneManager, gameState: GameState) {
         super();
         this.sceneManager = sceneManager;
         this.gameState = gameState;
-        this.eventBus = eventBus;
     }
 
     onEnter(): void {

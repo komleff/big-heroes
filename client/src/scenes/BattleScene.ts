@@ -694,7 +694,9 @@ export class BattleScene extends BaseScene {
 
                     // Переход к PveResultScene (победа босса) или PveMapScene (обычный бой)
                     const goToResult = (bossRelic?: IRelic, bossLootItems?: string[]): void => {
-                        const finalState: IPveExpeditionState = { ...newState, status: 'victory' as const };
+                        // Читаем актуальное состояние (может быть обновлено boss loot)
+                        const currentExpState = this.gameState.expeditionState as IPveExpeditionState;
+                        const finalState: IPveExpeditionState = { ...currentExpState, status: 'victory' as const };
                         this.gameState.updateExpeditionState(finalState);
                         this.eventBus.emit(GameEvents.PVE_EXPEDITION_END, finalState);
                         // extractionPool = все активные реликвии (включая boss relic, если добавлена)
@@ -734,9 +736,13 @@ export class BattleScene extends BaseScene {
                                 const bossRelicPool = generateRelicPool(config.relics, [...this.gameState.activeRelics], 1, bossRng);
                                 // Boss loot: 2 random items (GDD: boss_loot_count)
                                 const bossLoot = generateLoot('boss', config.pve.loot, config.equipment.catalog, config.consumables, newState.pityCounter, bossRng);
-                                const bossLootItems = bossLoot.drops.map(d => d.itemId);
-                                // Обновить itemsFound с boss loot
-                                const updatedState = { ...newState, itemsFound: [...newState.itemsFound, ...bossLootItems] };
+                                const bossLootItems = bossLoot.drops.slice(0, config.pve.loot.boss_loot_count).map(d => d.itemId);
+                                // Обновить itemsFound и pityCounter с boss loot
+                                const updatedState = {
+                                    ...newState,
+                                    itemsFound: [...newState.itemsFound, ...bossLootItems],
+                                    pityCounter: bossLoot.newPityCounter,
+                                };
                                 this.gameState.updateExpeditionState(updatedState);
 
                                 if (bossRelicPool.length > 0) {

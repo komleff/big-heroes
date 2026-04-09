@@ -492,7 +492,7 @@ export class PveMapScene extends BaseScene {
 
                     const isMerchantBuy = eventConfig.id === 'evt_merchant' && variant.id === 'buy';
                     // Резолв успеха через shared-функцию (ne5 + 03b)
-                    const roll = isMerchantBuy ? -1 : rng(); // -1 < любой proc_chance → гарантия для торговца
+                    const roll = isMerchantBuy ? 0 : rng(); // 0 < любой proc_chance > 0 → гарантия для торговца
                     const outcomeResults = resolveEventOutcome(variant, roll);
 
                     for (const { effect, success } of outcomeResults) {

@@ -20,16 +20,22 @@ describe('EventSystem', () => {
             expect(getVariantProcChance(variant)).toBe(1.0);
         });
 
-        it('всегда 1.0 при наличии lose_item (жертва = гарантия)', () => {
+        it('clamp: proc_chance > 1 → 1.0', () => {
             const variant: IEventVariant = {
-                id: 'sacrifice', label: 'Пожертвовать', description: 'Предмет → сундук',
-                proc_chance: 0.5,
-                effects: [
-                    { type: 'lose_item', value: 1 },
-                    { type: 'loot_chest', value: 1 },
-                ],
+                id: 'broken', label: 'Broken', description: '',
+                proc_chance: 70,
+                effects: [{ type: 'item', value: 1 }],
             };
             expect(getVariantProcChance(variant)).toBe(1.0);
+        });
+
+        it('clamp: proc_chance < 0 → 0', () => {
+            const variant: IEventVariant = {
+                id: 'broken', label: 'Broken', description: '',
+                proc_chance: -0.5,
+                effects: [{ type: 'item', value: 1 }],
+            };
+            expect(getVariantProcChance(variant)).toBe(0);
         });
     });
 
@@ -76,6 +82,19 @@ describe('EventSystem', () => {
             };
             const results = resolveEventOutcome(variant, 0.99);
             expect(results[0].success).toBe(true);
+        });
+
+        it('lose_item гарантирует все эффекты даже при roll=1.0', () => {
+            const variant: IEventVariant = {
+                id: 'sacrifice', label: 'Пожертвовать', description: '',
+                effects: [
+                    { type: 'lose_item', value: 1 },
+                    { type: 'loot_chest', value: 1 },
+                ],
+            };
+            const results = resolveEventOutcome(variant, 1.0);
+            expect(results[0].success).toBe(true);
+            expect(results[1].success).toBe(true);
         });
 
         it('lose_item всегда success даже при провале roll', () => {
