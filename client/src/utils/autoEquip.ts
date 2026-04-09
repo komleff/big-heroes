@@ -3,8 +3,8 @@ import type { IEquipmentItem, EquipmentSlotId } from 'shared';
 import type { IStarterEquipmentConfigItem } from 'shared';
 
 /**
- * Авто-экипировать предмет, если слот пустой или новый предмет лучше.
- * "Лучше" = выше tier, при равном tier — выше суммарный бонус.
+ * Авто-экипировать предмет, если слот пустой.
+ * Замена существующего предмета — только через инвентарь (будущий Sprint).
  */
 export function autoEquipIfBetter(
     gameState: GameState,
@@ -17,7 +17,10 @@ export function autoEquipIfBetter(
     const slot = configItem.slot as EquipmentSlotId;
     const current = gameState.equipment[slot];
 
-    const newItem: IEquipmentItem = {
+    // Экипировать только в пустой слот (нет потери старого предмета)
+    if (current) return;
+
+    gameState.equipItem({
         id: configItem.id,
         name: configItem.name,
         slot: configItem.slot,
@@ -29,19 +32,5 @@ export function autoEquipIfBetter(
         maxDurability: configItem.maxDurability,
         currentDurability: configItem.maxDurability,
         basePrice: configItem.basePrice,
-    };
-
-    // Слот пустой — экипировать сразу
-    if (!current) {
-        gameState.equipItem(newItem);
-        return;
-    }
-
-    // Новый предмет лучше: tier выше, или при равном tier суммарный бонус выше
-    const currentTotal = current.strengthBonus + current.armorBonus + current.luckBonus;
-    const newTotal = newItem.strengthBonus + newItem.armorBonus + newItem.luckBonus;
-
-    if (newItem.tier > current.tier || (newItem.tier === current.tier && newTotal > currentTotal)) {
-        gameState.equipItem(newItem);
-    }
+    });
 }

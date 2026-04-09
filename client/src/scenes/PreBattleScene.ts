@@ -218,7 +218,10 @@ export class PreBattleScene extends BaseScene {
 
     private buildMatchup(): void {
         const equipment = this.gameState.equipment;
-        const relics = [...this.gameState.activeRelics];
+        const relics = [...this.gameState.activeRelics] as IRelic[];
+        if (this.isPvp && this.gameState.arenaRelic) {
+            relics.push(this.gameState.arenaRelic as IRelic);
+        }
         const heroStats = calcHeroStats(
             this.getEffectiveMass(),
             equipment as IEquipmentSlots,
@@ -487,7 +490,10 @@ export class PreBattleScene extends BaseScene {
 
     private buildCommandGrid(): void {
         const equipment = this.gameState.equipment;
-        const relics = [...this.gameState.activeRelics];
+        const relics = [...this.gameState.activeRelics] as IRelic[];
+        if (this.isPvp && this.gameState.arenaRelic) {
+            relics.push(this.gameState.arenaRelic as IRelic);
+        }
         const heroStats = calcHeroStats(
             this.getEffectiveMass(),
             equipment as IEquipmentSlots,

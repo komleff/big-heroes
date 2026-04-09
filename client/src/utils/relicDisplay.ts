@@ -4,7 +4,7 @@ export function getEffectDescription(effect: string, value: number): string {
         case 'strength_bonus': return `+${value} к силе`;
         case 'armor_bonus': return `+${value} к броне`;
         case 'luck_bonus': return `+${value} к удаче`;
-        case 'gold_bonus': return `+${Math.round(value * 100)}% Gold`;
+        case 'gold_bonus': return `+${Math.round(value * 100)}% золота`;
         case 'mass_bonus': return `+${Math.round(value * 100)}% массы`;
         case 'extra_loot': return `+${value} предмет из сундуков`;
         case 'mass_on_win': return `+${Math.round(value * 100)}% массы за победу`;

@@ -716,9 +716,8 @@ export class BattleScene extends BaseScene {
                 if (result.outcome === 'victory' || result.outcome === 'polymorph' || result.outcome === 'bypass') {
                     const rng = createRng(Date.now());
 
-                    // Генерация лута для НЕ-боссовых узлов (combat/elite)
-                    // Boss loot генерируется отдельно в proceedAfterBattle (u1z: boss_loot_count)
-                    if (currentNode.type !== 'boss') {
+                    // Генерация лута (GDD: bypass = без лута, только продвижение)
+                    if (result.outcome !== 'bypass' && currentNode.type !== 'boss') {
                         const loot = generateLoot(
                             currentNode.type, config.pve.loot,
                             config.equipment.catalog, config.consumables,
