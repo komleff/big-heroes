@@ -41,8 +41,12 @@ export class DurabilityPips extends Container {
             const pip = new Graphics();
             const x = i * (this.pipSize + this.pipGap);
             const filled = i < this.currentPips;
-            pip.roundRect(x, 0, this.pipSize, this.pipSize / 2, 2)
-                .fill(filled ? THEME.colors.accent_green : THEME.colors.text_muted);
+            // Последняя прочность — красный (предупреждение о поломке)
+            const isLastDurability = filled && this.currentPips === 1;
+            const color = filled
+                ? (isLastDurability ? THEME.colors.accent_red : THEME.colors.accent_green)
+                : THEME.colors.text_muted;
+            pip.roundRect(x, 0, this.pipSize, this.pipSize / 2, 2).fill(color);
             this.addChild(pip);
         }
     }

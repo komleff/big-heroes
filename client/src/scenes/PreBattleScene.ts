@@ -640,6 +640,14 @@ export class PreBattleScene extends BaseScene {
             itemLabel.y = 74;
             container.addChild(itemLabel);
 
+            // Красная рамка при durability=1 (предупреждение о поломке)
+            if (durability === 1 && !isDisabled && !isLockedSlot) {
+                const border = new Graphics();
+                border.roundRect(0, 0, btnW, btnH, 14);
+                border.stroke({ color: THEME.colors.accent_red, width: 2 });
+                container.addChild(border);
+            }
+
             // Обработчик тапа
             if (!isDisabled && cmd.id) {
                 const commandId = cmd.id;
@@ -650,6 +658,29 @@ export class PreBattleScene extends BaseScene {
 
             this.addChild(container);
             this.commandContainers.push(container);
+        }
+
+        // Предупреждение о поломке под кнопками
+        const hasLastDurability = this.activeCommands.some(cmd => {
+            const item: IEquipmentItem | null = (equipment as IEquipmentSlots)[cmd.slot];
+            return item && item.currentDurability === 1;
+        });
+        if (hasLastDurability) {
+            const warningText = new Text({
+                text: 'Использование этого предмета приведёт к его поломке и потере',
+                style: new TextStyle({
+                    fontSize: 11,
+                    fontFamily: THEME.font.family,
+                    fontWeight: THEME.font.weights.bold,
+                    fill: THEME.colors.accent_red,
+                    wordWrap: true,
+                    wordWrapWidth: W - 28,
+                    align: 'center',
+                }),
+            });
+            warningText.anchor.set(0.5, 0);
+            warningText.position.set(W / 2, gridY + btnH + 6);
+            this.addChild(warningText);
         }
     }
 
