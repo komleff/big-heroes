@@ -362,9 +362,16 @@ export class PveMapScene extends BaseScene {
                 relicPool: pool,
                 onSelect: (index: number) => {
                     const relic = configToRelic(pool[index]);
-                    addRelicWithUI(this, this.gameState, relic, () => {
-                        this.advanceToNextNode();
-                    });
+                    // Получаем текущую активную сцену (SanctuaryScene) для overlay
+                    const activeScene = this.sceneManager.activeScene;
+                    if (activeScene) {
+                        addRelicWithUI(activeScene, this.gameState, relic, () => {
+                            void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
+                        });
+                    } else {
+                        this.gameState.addRelic(relic);
+                        void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
+                    }
                 },
             },
         });
@@ -655,9 +662,15 @@ export class PveMapScene extends BaseScene {
                 title,
                 onSelect: (index: number) => {
                     const relic = configToRelic(pool[index]);
-                    addRelicWithUI(this, this.gameState, relic, () => {
-                        this.advanceToNextNode();
-                    });
+                    const activeScene = this.sceneManager.activeScene;
+                    if (activeScene) {
+                        addRelicWithUI(activeScene, this.gameState, relic, () => {
+                            void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
+                        });
+                    } else {
+                        this.gameState.addRelic(relic);
+                        void this.sceneManager.goto('pveMap', { transition: TransitionType.SLIDE_RIGHT });
+                    }
                 },
             },
         });

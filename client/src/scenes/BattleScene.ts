@@ -670,23 +670,26 @@ export class BattleScene extends BaseScene {
                 const currentNode = newState.route.nodes[newState.currentNodeIndex];
                 const config = balanceConfig as unknown as IBalanceConfig;
 
-                if (result.outcome === 'victory' || result.outcome === 'polymorph') {
+                if (result.outcome === 'victory' || result.outcome === 'polymorph' || result.outcome === 'bypass') {
                     const rng = createRng(Date.now());
 
-                    // Генерация лута для ВСЕХ боевых узлов (combat/elite/boss)
-                    const loot = generateLoot(
-                        currentNode.type, config.pve.loot,
-                        config.equipment.catalog, config.consumables,
-                        newState.pityCounter, rng,
-                    );
-                    if (loot.drops.length > 0) {
-                        const items = loot.drops.map(d => d.itemId);
-                        newState = {
-                            ...newState,
-                            itemsFound: [...newState.itemsFound, ...items],
-                            pityCounter: loot.newPityCounter,
-                        };
-                        this.gameState.updateExpeditionState(newState);
+                    // Генерация лута для НЕ-боссовых узлов (combat/elite)
+                    // Boss loot генерируется отдельно в proceedAfterBattle (u1z: boss_loot_count)
+                    if (currentNode.type !== 'boss') {
+                        const loot = generateLoot(
+                            currentNode.type, config.pve.loot,
+                            config.equipment.catalog, config.consumables,
+                            newState.pityCounter, rng,
+                        );
+                        if (loot.drops.length > 0) {
+                            const items = loot.drops.map(d => d.itemId);
+                            newState = {
+                                ...newState,
+                                itemsFound: [...newState.itemsFound, ...items],
+                                pityCounter: loot.newPityCounter,
+                            };
+                            this.gameState.updateExpeditionState(newState);
+                        }
                     }
 
                     // Босс: реликвия добавляется через addRelicWithUI ниже (с выбором замены при лимите)
@@ -790,8 +793,8 @@ export class BattleScene extends BaseScene {
             );
             this.gameState.setRating(this.gameState.hero.rating + eloChange);
 
-            // GDD: при поражении в PvP −N% массы (из конфига)
-            if (result.outcome !== 'victory') {
+            // GDD: при поражении в PvP −N% массы (из конфига). Только defeat!
+            if (result.outcome === 'defeat') {
                 const massLoss = calcPvpMassLoss(this.gameState.hero.mass, config.pvp.mass_loss_on_defeat);
                 this.gameState.setMass(this.gameState.hero.mass - massLoss);
             }
