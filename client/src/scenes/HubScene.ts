@@ -545,7 +545,7 @@ export class HubScene extends BaseScene {
 
         const huntBtn = this.createBigActionButton(
             'Охота', THEME.colors.accent_green, THEME.colors.accent_green_dark,
-            '🎟️', '3', bigBtnW,
+            '🎟️', '1', bigBtnW,
             () => {
                 const config = balanceConfig as unknown as IBalanceConfig;
                 const seed = Date.now();
