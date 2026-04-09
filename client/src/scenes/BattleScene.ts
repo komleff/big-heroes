@@ -793,16 +793,21 @@ export class BattleScene extends BaseScene {
                 }
             }
         } else if (this.battleData.isPvp) {
-            // PvP-бой: обновить рейтинг, потребить arenaRelic
+            // PvP-бой: обновить рейтинг по GDD
             const config = balanceConfig as unknown as IBalanceConfig;
-            const eloResult: 0 | 1 = result.outcome === 'victory' ? 1 : 0;
             const opponentRating = this.battleData.pvpOpponentRating ?? this.gameState.hero.rating;
-            const eloChange = calcEloChange(
-                this.gameState.hero.rating, opponentRating, eloResult, config.formulas.eloK,
-            );
-            this.gameState.setRating(this.gameState.hero.rating + eloChange);
 
-            // GDD: при поражении в PvP −N% массы (из конфига). Только defeat!
+            // GDD: victory → +Elo, defeat → −Elo, retreat/bypass/polymorph → 0 Elo
+            if (result.outcome === 'victory' || result.outcome === 'defeat') {
+                const eloResult: 0 | 1 = result.outcome === 'victory' ? 1 : 0;
+                const eloChange = calcEloChange(
+                    this.gameState.hero.rating, opponentRating, eloResult, config.formulas.eloK,
+                );
+                this.gameState.setRating(this.gameState.hero.rating + eloChange);
+            }
+            // retreat/bypass/polymorph → 0 Elo change (GDD: бой не засчитан / 0 рейтинга)
+
+            // GDD: при поражении в PvP −N% массы. Только defeat!
             if (result.outcome === 'defeat') {
                 const massLoss = calcPvpMassLoss(this.gameState.hero.mass, config.pvp.mass_loss_on_defeat);
                 this.gameState.setMass(this.gameState.hero.mass - massLoss);
