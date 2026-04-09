@@ -867,8 +867,11 @@ export class BattleScene extends BaseScene {
                 this.gameState.wearItem(result.durabilityTarget);
             }
 
-            // Потребить arenaRelic после PvP сессии
-            this.gameState.consumeArenaRelic();
+            // Потребить arenaRelic только при завершении PvP сессии (victory/defeat)
+            // Retreat/bypass — сессия продолжается, relic сохраняется
+            if (result.outcome === 'victory' || result.outcome === 'defeat') {
+                this.gameState.consumeArenaRelic();
+            }
 
             this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
 
