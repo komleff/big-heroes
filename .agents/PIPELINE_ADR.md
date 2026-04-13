@@ -197,6 +197,43 @@
 
 **Источник:** [Adversarial Code Review для Claude Code](https://habr.com/ru/articles/1019588/)
 
+### 3.11 Hard gate для merge-readiness (`/finalize-pr`)
+
+**Решение:** Новый скилл `/finalize-pr` — единственный разрешённый способ объявить PR готовым к merge. Прямой `gh pr comment` с текстом «готово к merge» перехватывается hook-ом. Скилл проверяет: verify на текущем commit, review привязан к commit hash, external review для Sprint Final, triage всех замечаний.
+
+**Обоснование:**
+- PM систематически объявлял merge-ready, пропуская повторный ревью или незакрытые замечания. Чеклист «PM обязан» не работал — это была рекомендация, не enforcement.
+- Commit binding (review привязан к hash) закрывает конкретный сценарий: review → fix → merge без re-review.
+- Emergency override `--force` (только по команде оператора) предотвращает pipeline deadlock при сбое скилла.
+
+**Источник:** План v3.3, 5 раундов кросс-модельного ревью.
+
+### 3.12 Единый владелец публикации + защита findings
+
+**Решение:** PM — единственный владелец публикации review-pass. Reviewer-субагенты возвращают structured findings PM, не публикуют самостоятельно. PM не имеет права изменять findings (только структурирование и triage). Raw output внешних ревьюверов сохраняется в collapsible блоке.
+
+**Обоснование:**
+- Два режима публикации (PM или Reviewer) создавали серую зону ownership и потерю отчётов.
+- PM мог «сгладить» или потерять findings при консолидации, нарушая Zero Trust.
+
+### 3.13 Verification Contract до кода
+
+**Решение:** Planner обязан создать секцию с acceptance criteria, expected behaviors, edge-cases и списком тестов до начала реализации. Reviewer в аспекте «Качество» проверяет покрытие контракта. Отсутствие контракта → автоматический `CHANGES_REQUESTED`.
+
+**Обоснование:** Без независимого контракта TDD вырождается в «тесты подтверждают, что код делает то, что делает», а не «код делает то, что требуется». Подход близок к OpenSpec (GIVEN/WHEN/THEN), но в более компактной форме.
+
+### 3.14 Протокол triage замечаний
+
+**Решение:** Каждое замечание получает статус: fix now / defer to Beads (с обязательным ID) / reject with rationale. Defer без Beads ID = неразрешённое замечание. При >50% defer `/finalize-pr` выдаёт warning.
+
+**Обоснование:** Без формализованного triage замечания либо терялись (нарушение инварианта 5), либо бесконечно блокировали merge. Исторически подтверждено: «потом добавим → забыли → потеряли».
+
+### 3.15 Контекстная изоляция PM
+
+**Решение:** PM обновляет status.md после каждой задачи, формирует handoff packet после каждого review-pass. После 3 задач или 5 review-итераций — обязательная рекомендация session reset.
+
+**Обоснование:** Основная деградация контекста — от длинного review-loop (5–10 итераций), не от числа задач. Процедурные правила заменяют субъективную оценку PM.
+
 ---
 
 ## 4. Альтернативы, которые были рассмотрены и отвергнуты
@@ -218,7 +255,7 @@
 ### Текущие ограничения
 
 1. **Один аккаунт для всех агентов.** Нет audit trail — непонятно, кто из агентов сделал коммит. Решение: подпись `— Role (Model)` в конце каждого отчёта.
-2. **Нет CI/CD.** Тесты запускаются хуками в Claude Code, а не в GitHub Actions. При merge без агента хуки не срабатывают.
+2. **CI без required checks.** CI уже работает (`.github/workflows/ci.yml`: build + test на push/PR), но нет required status checks и branch protection. При merge без агента хуки Claude Code не срабатывают, а CI не блокирует merge.
 3. **Нет автоматического Copilot auto-review на все коммиты.** Copilot ревьюит только при создании PR или re-request.
 4. **Beads CLI не стабилен.** Некоторые команды (`bd sync`) не существуют, документация отстаёт от реализации.
 
@@ -226,11 +263,14 @@
 
 | Риск | Вероятность | Влияние | Митигация |
 |------|------------|---------|-----------|
-| Агент игнорирует hard gate | Средняя | Высокое | Enforcement через hooks + deny rules |
-| Memory Bank устаревает | Высокая | Среднее | PM обязан обновлять при завершении спринта |
+| Агент игнорирует hard gate | Средняя | Высокое | Enforcement через hooks + deny rules + `/finalize-pr` |
+| Memory Bank устаревает | Высокая | Среднее | PM обязан обновлять; warning при финализации |
 | Кросс-модельное ревью даёт конфликтующие вердикты | Средняя | Низкое | PM арбитрирует, CRITICAL приоритет |
-| Оператор мержит без Sprint Final | Низкая | Высокое | Напоминание в PR description |
-| Drift между документами (3 vs 4 аспекта, main vs master) | Высокая | Среднее | Pipeline Audit после каждых 3–5 спринтов |
+| Оператор мержит без Sprint Final | Низкая | Высокое | `/finalize-pr` проверяет наличие external review |
+| Drift между документами | Высокая | Среднее | `/pipeline-audit` после каждых 3–5 спринтов |
+| PM искажает findings при консолидации | Средняя | Среднее | Raw output в collapsible блоке, инвариант 6 |
+| Defer-abuse (все замечания → defer) | Средняя | Среднее | Warning при >50% defer в `/finalize-pr` |
+| `/finalize-pr` сломался | Низкая | Высокое | Emergency override `--force` (только оператор) |
 
 ---
 
@@ -239,11 +279,18 @@
 | Документ | Назначение |
 |----------|-----------|
 | `.agents/PIPELINE.md` | Операционная карта пайплайна (ЧТО) |
+| `.agents/AGENTIC_PIPELINE.md` | Универсальная методология (ПОЧЕМУ) |
 | `.agents/AGENT_ROLES.md` | Роли, обязанности, промпты (КАК) |
 | `.agents/PM_ROLE.md` | Детальный workflow PM |
-| `.claude/agents/*.md` | Инструкции нативных агентов |
-| `.claude/settings.json` | Hooks, deny-rules, permissions |
+| `.agents/HOW_TO_USE.md` | Шпаргалка оператора |
 | `.agents/REFERENCES.md` | Источники и референсы |
+| `.claude/agents/*.md` | Инструкции нативных агентов |
+| `.claude/skills/sprint-pr-cycle/` | Оркестрация ревью-цикла |
+| `.claude/skills/external-review/` | Кросс-модельное ревью |
+| `.claude/skills/finalize-pr/` | Hard gate перед merge |
+| `.claude/skills/verify/` | Единый build/test gate |
+| `.claude/skills/pipeline-audit/` | Проверка консистентности |
+| `.claude/settings.json` | Hooks, deny-rules, permissions |
 | `.memory_bank/` | Персистентный контекст проекта |
 
 ---
