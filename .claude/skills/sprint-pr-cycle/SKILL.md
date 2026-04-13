@@ -31,11 +31,15 @@ user-invocable: true
 
 ### Шаг 1.1: Проверка готовности
 
-```bash
-npm run build && npm run test
+Запусти единый gate:
+
+```
+/verify
 ```
 
-Если тесты падают — **СТОП**. Исправь перед продолжением.
+> `/verify` — единая точка проверки (build + test). При расширении пайплайна (linter, typecheck) добавляется туда, чтобы не было расползания проверок по скиллам.
+
+Если `/verify` упал — **СТОП**. Исправь перед продолжением.
 
 ### Шаг 1.2: Push всех изменений
 
@@ -62,8 +66,7 @@ gh pr create --title "Sprint N: [краткое описание]" --body "$(cat
 - [список закрытых beads issues]
 
 ## Test plan
-- [ ] npm run build
-- [ ] npm run test
+- [ ] /verify
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
