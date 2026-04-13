@@ -11,3 +11,7 @@ dist/
 
 # Windows shortcuts
 *.lnk
+
+# macOS
+.DS_Store
+**/.DS_Store
