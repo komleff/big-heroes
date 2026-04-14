@@ -75,6 +75,53 @@ EOF
 
 ## Фаза 2: Внутреннее ревью
 
+### Шаг 2.0: Определение review tier (ОБЯЗАТЕЛЬНО)
+
+Tier выбирается по содержимому изменений PR:
+
+| Tier | Когда | Ревью |
+|------|-------|-------|
+| **Light** | Только документация (`.md`), конфиги без логики | Один проход, аспекты «Архитектура» и «Гигиена кода» |
+| **Standard** | Фичи, рефакторинг, обычные PR | Один проход, все 4 аспекта параллельно |
+| **Critical** | Изменения в `shared/`, `config/balance.json`, игровая логика, формулы | Tester gate + два прохода, все 4 аспекта |
+| **Sprint Final** | PR, завершающий спринт (готовится к merge в master) | Standard/Critical + обязательный `/external-review` |
+
+Определение tier:
+```bash
+gh pr diff <PR_NUMBER> --name-only > /tmp/pr-files.txt
+
+# Critical, если есть изменения в shared/ или config/balance.json
+if grep -qE '^(shared/|config/balance\.json)' /tmp/pr-files.txt; then
+  TIER="critical"
+# Light, если только .md/.json без логики
+elif ! grep -qvE '\.(md|json)$' /tmp/pr-files.txt; then
+  TIER="light"
+else
+  TIER="standard"
+fi
+echo "Tier: $TIER"
+```
+
+> Если PR помечен как Sprint Final (метка `sprint-final` или явно в описании) — добавь обязательный `/external-review` в Фазе 3 поверх выбранного tier.
+
+### Шаг 2.0.1: Tester gate для Critical (только Critical tier)
+
+> Применяется **до** запуска reviewer'ов. Цель: найти непокрытые edge-cases ДО ревью кода.
+
+Промпт Tester-субагенту:
+```
+Ты Tester. Прочитай .agents/AGENT_ROLES.md секция "4. Tester".
+Задача: проверь PR #<PR_NUMBER>. Tier: Critical.
+Контекст: PR трогает shared/ или config/balance.json — игровая математика.
+Найди:
+- Edge cases из Verification Contract плана (docs/plans/<sprint>.md), не покрытые тестами
+- Граничные значения из config/balance.json без покрытия
+- Регрессии: сценарии, ранее работавшие, которые могут сломаться
+Верни findings PM (НЕ публикуй в PR).
+```
+
+Если Tester нашёл **непокрытые edge-cases** — PM делегирует Developer'у написать тесты, затем повторный `/verify`. Только после этого — переход к шагу 2.1.
+
 ### Шаг 2.1: Запуск reviewer субагентов (параллельно)
 
 > В этом skill reviewer субагенты не публикуют комментарии в PR самостоятельно.
@@ -172,6 +219,26 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 > ⛔ `git push` без `gh pr comment` = незавершённый цикл. Не останавливайся после push.
 > Только `gh pr comment` — не `gh pr review` (агенты работают под аккаунтом оператора).
 > ⛔ После повторного ревью снова действует тот же review-pass gate: сначала публикация, потом сообщение оператору.
+
+### Шаг 2.4: Critical — второй проход (только Critical tier)
+
+Для tier=Critical обязателен **второй проход** всех 4 аспектов после фиксов первого прохода. Цель — поймать то, что было пропущено или сломано в ходе исправлений.
+
+Промпт каждому Reviewer-субагенту изменяется:
+```
+Ты Reviewer (второй проход). Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
+Контекст: PR #<PR_NUMBER>, Critical tier, фиксы первого прохода применены.
+Фокус: то, что мог пропустить первый проход; регрессии от фиксов; сценарии,
+не покрытые первым проходом.
+Аспект: <АРХИТЕКТУРА | БЕЗОПАСНОСТЬ | КАЧЕСТВО | ГИГИЕНА КОДА>.
+Верни findings PM (НЕ публикуй в PR).
+```
+
+PM публикует второй консолидированный отчёт (по аналогии с шагом 2.2). В JSON-метаданных `iteration: 2`.
+
+Если второй проход дал `CHANGES_REQUESTED` — повторить шаг 2.3 → 2.4 до APPROVED.
+
+> Если tier=Light, шаги 2.0.1, 2.4 пропускаются. Если tier=Standard — пропускается только 2.4.
 
 ## Фаза 3: Внешнее ревью (Sprint Final)
 
