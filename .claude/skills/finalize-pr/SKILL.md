@@ -96,13 +96,61 @@ LAST_VERDICT=$(gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
 
 Если последний вердикт = `CHANGES_REQUESTED` — **СТОП**: «После CHANGES_REQUESTED нужен повторный review-pass на текущем commit».
 
-## Финальный комментарий (фаза 1, без triage)
+## Фаза 2: triage-проверки
 
-> ⚠️ В фазе 2 (после внедрения triage-протокола, шаг 5b плана v3.3) шаблон расширяется полями `Unresolved findings` и `Deferred to Beads`. Сейчас публикуй именно эту версию.
+> Активируется автоматически после внедрения triage-протокола (план v3.3 шаг 1.4 — реализован в `PM_ROLE.md` секция 2.3 и `AGENT_ROLES.md`). До внедрения триажа фаза 2 пропускается, публикуется шаблон фазы 1.
 
-Формирование тела с экранированной переменной (без heredoc-подстановок, чтобы избежать инъекции):
+### Шаг 6: статус каждого замечания
+
+Каждое замечание из internal/external review должно иметь явный статус, проставленный PM:
+
+| Статус | Валидация |
+|--------|-----------|
+| **fix now** | Должен быть закрыт (повторный review-pass на $HEAD_COMMIT с APPROVED для затронутого аспекта) |
+| **defer to Beads** | **Обязателен Beads ID** (`bd-XXX`). Без ID — замечание считается неразрешённым |
+| **reject with rationale** | **Обязательно обоснование** в PR comment |
+
+Скилл выгружает все review-pass комментарии PR, парсит таблицу замечаний и проверяет:
+- У каждого fix-now-замечания есть закрывающий APPROVED.
+- У каждого defer есть Beads ID в формате `bd-[a-z0-9]+` (проверка `bd show <id>` опциональна).
+- У каждого reject есть текстовое обоснование (не пустое).
+
+Если хотя бы одно замечание без статуса/ID/обоснования — **СТОП**:
+```
+СТОП: замечание #N («<краткая цитата>») не имеет статуса.
+Допустимые: fix now / defer to Beads (с ID) / reject with rationale.
+```
+
+### Шаг 7: warning при defer-abuse (>50%)
+
+Подсчитай долю замечаний со статусом `defer`:
+```
+defer_ratio = count(deferred) / count(all_findings)
+```
+
+Если `defer_ratio > 0.5` — **warning** (не блокировка):
+```
+⚠️ ВНИМАНИЕ: >50% замечаний отложены в Beads. Это сигнал defer-abuse —
+PR может быть откладывается «на потом» вместо реальных фиксов.
+Оператор: проверь Beads issues перед merge.
+```
+
+Warning публикуется в финальном комментарии и в чат оператору. Не блокирует merge — это сигнал для оператора, не hard gate (план v3.3 секция 1.4 «Защита от defer-abuse»).
+
+### Сбор данных для финального шаблона
 
 ```bash
+UNRESOLVED=$(...)              # 0 при штатном ходе после фазы 2
+DEFERRED_LIST="bd-001, bd-042" # ID из таблицы триажа
+DEFER_RATIO=42                 # % defer от общего числа замечаний
+```
+
+## Финальный комментарий
+
+### Шаблон фазы 1 (до внедрения triage-протокола)
+
+```bash
+export FINALIZE_PR_TOKEN=1
 gh pr comment <PR_NUMBER> --body "## ✅ Готов к merge
 
 Commit: $HEAD_COMMIT
@@ -111,15 +159,31 @@ Internal review: ✅ (commit $HEAD_COMMIT)
 External review: <✅ (commit $HEAD_COMMIT) | N/A>
 
 — PM (Claude Opus 4.6), /finalize-pr"
+unset FINALIZE_PR_TOKEN
 ```
 
-Этот комментарий обходит hook блокировки «ready to merge» через переменную окружения `FINALIZE_PR_TOKEN`, которую устанавливает сам скилл:
+### Шаблон фазы 2 (после внедрения triage-протокола)
 
 ```bash
 export FINALIZE_PR_TOKEN=1
-gh pr comment <PR_NUMBER> --body "..."
+gh pr comment <PR_NUMBER> --body "## ✅ Готов к merge
+
+Commit: $HEAD_COMMIT
+Verify: ✅
+Internal review: ✅ (commit $HEAD_COMMIT)
+External review: <✅ (commit $HEAD_COMMIT) | N/A>
+Unresolved findings: $UNRESOLVED
+Deferred to Beads: $DEFERRED_LIST
+
+<если defer_ratio > 50%>
+⚠️ ВНИМАНИЕ: $DEFER_RATIO% замечаний отложены в Beads. Проверь перед merge.
+</если>
+
+— PM (Claude Opus 4.6), /finalize-pr"
 unset FINALIZE_PR_TOKEN
 ```
+
+Этот комментарий обходит hook блокировки «ready to merge» через переменную `FINALIZE_PR_TOKEN`. Не оставляй её установленной за пределами одного `gh pr comment` — иначе любая команда сможет писать «готов к merge» в обход проверок.
 
 ## Emergency override `--force`
 
