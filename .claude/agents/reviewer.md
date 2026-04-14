@@ -53,7 +53,9 @@
 - OWASP Top 10
 
 ### 3. Качество
-- Тесты покрывают новый код
+- **Verification Contract присутствует в плане** (`docs/plans/<sprint>.md`, секция «Verification Contract»). Если отсутствует — **автоматически `CHANGES_REQUESTED`** для аспекта «Качество», без рассмотрения остальных пунктов
+- Тесты покрывают **каждый пункт** Verification Contract: acceptance criteria, expected behaviors, edge cases, error cases, инварианты. Если хотя бы один пункт не покрыт — `CHANGES_REQUESTED`
+- Тесты покрывают новый код в целом
 - Edge-cases обработаны
 - Комментарии на русском, объясняют «почему»
 - Нет дублирования кода
