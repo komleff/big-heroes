@@ -54,27 +54,35 @@ fi
 
 ### Шаг 3: Internal review-pass привязан к $HEAD_COMMIT?
 
-PM публикует review-отчёты с JSON-метаданными в HTML-комментарии (см. `PM_ROLE.md` секция 2.2):
+PM публикует review-отчёты с двумя маркерами commit binding:
+1. **Строка `Commit: <hash>`** в теле отчёта (под заголовком) — человекочитаемый маркер для оператора.
+2. **JSON-метаданные** в HTML-комментарии (см. `PM_ROLE.md` секция 2.2): `<!-- {"reviewer": "...", "commit": "<hash>", ...} -->` — машинный маркер.
 
-```
-<!-- {"reviewer": "opus", "iteration": N, "tier": "...", "commit": "<hash>", ...} -->
-```
-
-Скилл выгружает все комментарии PR и ищет последний `review-pass` с `commit == $HEAD_COMMIT`:
+Скилл ищет **последний по времени** internal review-pass с `commit == $HEAD_COMMIT` через `jq` (сортировка по `createdAt`):
 
 ```bash
-timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
-  | grep -B 1 -A 30 'reviewer.*commit.*'"$HEAD_COMMIT" \
-  | head -50
+LAST_INTERNAL=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
+  | jq -r --arg head "$HEAD_COMMIT" '
+      [ .comments[]
+        | select(.body | test("review-pass|Внутреннее ревью"; "i"))
+        | select(.body | test("\"commit\":\\s*\"" + $head + "\"|Commit:\\s*`?" + $head; "s"))
+      ]
+      | sort_by(.createdAt)
+      | last
+      | .body // empty
+    ')
+
+if [ -z "$LAST_INTERNAL" ]; then
+  echo "СТОП: Internal review-pass отсутствует для commit $HEAD_COMMIT."
+  echo "Запусти /sprint-pr-cycle для нового review-pass."
+  exit 1
+fi
+echo "$LAST_INTERNAL" | head -30
 ```
 
+> Используем `jq sort_by(.createdAt) | last` вместо `head -50`: при нескольких review-pass на одном commit (например, CHANGES_REQUESTED → APPROVED в одном цикле) берём именно последний, не первый.
+
 Если последний review-pass на этом commit — **OK**.
-Если последний review-pass на старом commit (или его нет) — **СТОП**:
-```
-СТОП: Internal review-pass отсутствует для commit $HEAD_COMMIT.
-Последний внутренний review был на commit <старый_hash>.
-Запусти /sprint-pr-cycle для нового review-pass.
-```
 
 ### Шаг 4: External review для Sprint Final
 
@@ -85,13 +93,28 @@ timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
 
 Если tier == `sprint-final`:
 ```bash
-timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
-  | grep -B 1 -A 5 'Внешнее ревью.*Sprint Final.*commit.*'"$HEAD_COMMIT"
+LAST_EXTERNAL=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
+  | jq -r --arg head "$HEAD_COMMIT" '
+      [ .comments[]
+        | select(.body | test("Внешнее ревью"; "i"))
+        | select(.body | test("\"commit\":\\s*\"" + $head + "\"|Commit:\\s*`?" + $head; "s"))
+      ]
+      | sort_by(.createdAt)
+      | last
+      | .body // empty
+    ')
+
+if [ -z "$LAST_EXTERNAL" ]; then
+  echo "СТОП: External review обязателен для Sprint Final на commit $HEAD_COMMIT."
+  echo "Запусти /external-review <PR_NUMBER>."
+  exit 1
+fi
 ```
 
 - Если внешний review-pass на $HEAD_COMMIT есть — **OK**.
-- Если нет — **СТОП**: «External review обязателен для Sprint Final. Запусти `/external-review <PR_NUMBER>`».
 - `N/A` для Sprint Final **не допускается** — внешнее ревью обязательно.
+
+> Используем тот же `jq sort_by(.createdAt) | last` паттерн: ищем маркер `Commit: <hash>` (человекочитаемый в теле) ИЛИ `"commit": "<hash>"` (в META JSON HTML-комментария). Оба варианта гарантированно присутствуют в шаблоне `external-review/SKILL.md` после обновления раунда фиксов Copilot.
 
 **Hard gate на метку Degraded/Manual mode (инвариант 6 → честный audit trail):**
 
@@ -102,12 +125,10 @@ timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
 Без метки Sprint Final ложно маркируется как cross-model review. Финализация заблокирована:
 
 ```bash
-EXT_COMMENT=$(timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
-  | awk '/Внешнее ревью/,/— PM/' | tail -200)
-
-if echo "$EXT_COMMENT" | grep -qE 'mode[":]*\s*"?(C|D)'; then
+# $LAST_EXTERNAL уже содержит тело последнего external review-pass на $HEAD_COMMIT
+if echo "$LAST_EXTERNAL" | grep -qE 'mode[":]*\s*"?(C|D)'; then
   # Degraded/Manual режим — нужна метка
-  if ! echo "$EXT_COMMENT" | grep -qE '⚠️ (Degraded mode|Manual emergency mode)'; then
+  if ! echo "$LAST_EXTERNAL" | grep -qE '⚠️ (Degraded mode|Manual emergency mode)'; then
     echo "СТОП: external review в режиме C/D без обязательной метки '⚠️ Degraded mode' / '⚠️ Manual emergency mode'."
     echo "PM должен опубликовать новый external review-pass с меткой."
     exit 1
@@ -144,10 +165,15 @@ LAST_VERDICT=$(timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments
 
 Скилл выгружает все review-pass комментарии PR, парсит таблицу замечаний и проверяет:
 - У каждого fix-now-замечания есть закрывающий APPROVED.
-- У каждого defer есть Beads ID в формате `bd-[a-z0-9-]+` (класс включает цифры и дефис — валидные примеры: `bd-001`, `bd-042`, `bd-pipeline-001`).
+- У каждого defer есть **корректный Beads ID** согласно **фактическому формату проекта**. Валидация:
+  - **Мягкая hard-проверка через `bd show <id>`** — если команда находит issue, формат валиден. Это единственный надёжный способ, не завязанный на префикс.
+  - **Fallback regex** (если `bd` CLI недоступен): `[a-z][a-z-]+-[a-z0-9]+` — покрывает фактические форматы в проекте: `big-heroes-z3l`, `big-heroes-tgr`, `bd-pipeline-001`. Не хардкодит префикс `bd-`.
 - У каждого reject есть текстовое обоснование (не пустое).
 
-> **Проверка реального существования `bd show <id>` — опциональна и мягкая.** Скилл проверяет только формат. Если Beads локально доступен, PM может дополнительно вызвать `bd show <id>` для sanity-check, но это НЕ hard gate: недоступность Beads в среде не должна ломать `/finalize-pr`. Полная валидация «ID → реальная issue» — отдельная задача (см. `bd-pipeline-bdid-check`).
+> **Почему не хардкодим `bd-*`:** в репозитории фактические Beads ID имеют префикс `big-heroes-*` (см. `.memory_bank/status.md`). Regex `bd-[a-z0-9]+` прошлой версии не покрывал их — все defer были бы ложно отвергнуты как «без ID». Правильный порядок проверки:
+> 1. Попробовать `bd show <id>` (если доступен) → если issue существует → OK.
+> 2. Если `bd` недоступен → regex `[a-z][a-z-]+-[a-z0-9]+` как fallback (проверка формата, не существования).
+> 3. Если ни то, ни другое не прошло → замечание считается неразрешённым.
 
 Если хотя бы одно замечание без статуса/ID/обоснования — **СТОП**:
 ```

@@ -178,6 +178,14 @@ grep -rEo '\.(agents|claude/agents|claude/skills|memory_bank|claude/rules)/[^ )"
 
 Если запущен в контексте PR (например, перед merge большого изменения пайплайна) — публикуй отчёт через `gh pr comment <PR_NUMBER>`. Иначе — выводи в чат оператору.
 
+> ⚠️ **Пререквизит для публикации в PR:** PreToolUse hook `Bash(gh pr comment*)` из `.claude/settings.json` блокирует команду, если PR не найден для **локальной текущей ветки** (`git branch --show-current`). Если audit запускают не с head-ветки PR — `gh pr comment <PR_NUMBER>` будет заблокирован как «PR не найден для ветки».
+>
+> **Перед публикацией обязательно выполни:**
+> ```bash
+> gh pr checkout <PR_NUMBER>
+> ```
+> Это переключит локально на head-ветку PR, и hook разрешит публикацию. Если `gh pr checkout` невозможен (нет прав, конфликт, detached HEAD) — **не пытайся** публиковать через `gh pr comment`, вместо этого выведи отчёт в чат оператору.
+
 > ⛔ Pipeline Audit **не пишет в файлы** — он только обнаруживает drift. Любые правки делает PM/Developer как отдельная задача.
 
 ## Ограничения

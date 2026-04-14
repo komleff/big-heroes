@@ -42,7 +42,7 @@
 
 ### Sprint 4 (предыдущий, MERGED)
 
-Sprint 4 реализован, PR #8 открыт. 20+ коммитов, 168 тестов.
+Sprint 4 реализован, PR #8 — MERGED. 20+ коммитов, 168 тестов.
 Ревью: 3 pass Claude (APPROVED), 9 pass Copilot, 5 pass GPT-5.4.
 9 CRITICAL + 13 WARNING найдено и исправлено.
 

@@ -221,6 +221,10 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
 ## Внешнее ревью (Sprint Final) — Режим: [A/B/C/D]
 
+**Commit:** `<HEAD_COMMIT_HASH>`
+
+> ⚠️ **Обязательная строка `Commit: <hash>` сразу под заголовком** — это стабильный маркер для `/finalize-pr` commit binding. Без неё скилл не сможет привязать отчёт к конкретному commit и заблокирует финализацию. Хэш получить через `HEAD_COMMIT=$(gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')` ДО запуска ревьюеров.
+
 <!-- Если режим C или D — обязательная метка: -->
 ⚠️ [Degraded mode / Manual emergency mode] — <описание из таблицы 5.1>
 

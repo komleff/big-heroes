@@ -59,6 +59,22 @@ def extract_command(raw_stdin: str) -> str:
     return tool_input.get("command") or ""
 
 
+# Флаги gh pr comment, передающие body через файл или stdin — hook не может
+# надёжно провалидировать содержимое файла. Блокируем их полностью вне
+# /finalize-pr (защита инварианта hard gate от bypass'а).
+_BODY_FILE_FLAGS = re.compile(
+    r"(^|\s)(--body-file|-F)(\s|=|$)",
+)
+
+
+def uses_body_file(command: str) -> bool:
+    """True — если команда gh pr comment передаёт body через файл/stdin."""
+    # Проверяем только для gh pr comment — остальные команды не по нашей теме.
+    if "gh pr comment" not in command:
+        return False
+    return bool(_BODY_FILE_FLAGS.search(command))
+
+
 def is_forbidden(command: str) -> bool:
     """True — если команда содержит запрещённую формулировку."""
     # Нормализуем: подчёркивания и дефисы → пробелы, переносы строк → пробелы.
@@ -82,6 +98,19 @@ def main() -> int:
 
     if not command:
         return 0
+
+    # Блокируем --body-file / -F для gh pr comment вне /finalize-pr: body
+    # передаётся файлом/stdin и hook не может надёжно проверить содержимое.
+    # Это bypass hard gate (нашёл Copilot auto-reviewer). Для легитимных
+    # длинных отчётов используется /finalize-pr с FINALIZE_PR_TOKEN.
+    if uses_body_file(command):
+        sys.stderr.write(
+            "БЛОКИРОВКА: для `gh pr comment` флаги --body-file / -F "
+            "запрещены без FINALIZE_PR_TOKEN, потому что hook не может "
+            "провалидировать содержимое файла.\n"
+            "Используй inline --body '...' ИЛИ /finalize-pr <PR_NUMBER>.\n"
+        )
+        return 1
 
     if is_forbidden(command):
         sys.stderr.write(

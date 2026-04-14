@@ -75,6 +75,41 @@ EOF
 
 ## Фаза 2: Внутреннее ревью
 
+### Шаг 2.0a: Чтение Copilot auto-review (ОБЯЗАТЕЛЬНО)
+
+> ⚠️ **Copilot автоматически запускает review при создании PR.** Его комментарии появляются в PR в течение 1–3 минут после `gh pr create`. **PM ОБЯЗАН** прочитать их **до запуска** reviewer-субагентов — иначе findings Copilot'а не попадут в triage и могут быть пропущены (реальный случай: PR #9 пропустил 7 Copilot-замечаний в 10 раундах ревью).
+
+Выгрузка комментариев Copilot:
+
+```bash
+# Все review-треды (комментарии, привязанные к строкам кода)
+timeout 10 gh pr view <PR_NUMBER> --json reviews \
+  | jq -r '.reviews[] | select(.author.login == "copilot-pull-request-reviewer") | .body' \
+  | head -200
+
+# Комментарии на уровне файлов/строк — через MCP (или gh api)
+timeout 10 gh api repos/OWNER/REPO/pulls/<PR_NUMBER>/comments \
+  | jq -r '.[] | select(.user.login | contains("copilot")) | "\(.path):\(.line) — \(.body)"'
+```
+
+Для каждого Copilot-findings:
+- Если валиден → добавь в triage как `fix now` / `defer to Beads` / `reject with rationale`.
+- Помечай в консолидированном отчёте как `**[Copilot]**` (атрибуция источника).
+
+### Шаг 2.0b: Запрос повторного Copilot re-review после фиксов
+
+После push фиксов можно запросить Copilot повторно:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
+gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
+  --method POST -f 'reviewers[]=copilot-pull-request-reviewer[bot]' \
+  && echo "Copilot: re-review requested" \
+  || echo "Copilot: request failed"
+```
+
+Через MCP (если `gh` недоступен): `mcp__github__request_copilot_review`.
+
 ### Шаг 2.0: Определение review tier (ОБЯЗАТЕЛЬНО)
 
 Tier выбирается по содержимому изменений PR:
