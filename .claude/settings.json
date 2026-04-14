@@ -37,7 +37,6 @@
       "Bash(git push * HEAD:master)",
       "Bash(gh pr merge *)",
       "Bash(gh api *merge*)",
-      "Bash(gh api *pulls*merge*)",
       "Bash(gh repo delete *)",
       "Bash(gh api -X DELETE *)"
     ],

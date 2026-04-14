@@ -126,7 +126,10 @@ fi
 
 ```bash
 # $LAST_EXTERNAL уже содержит тело последнего external review-pass на $HEAD_COMMIT
-if echo "$LAST_EXTERNAL" | grep -qE 'mode[":]*\s*"?(C|D)'; then
+# Матчим оба допустимых маркера режима:
+#   1) человекочитаемый заголовок «Режим: C» / «Режим: D» (всегда в шаблоне external-review)
+#   2) машинный маркер «Mode: C» / `"mode": "C"` в META JSON (fallback)
+if echo "$LAST_EXTERNAL" | grep -qE '(Режим|Mode)[:"]*\s*"?[CD]\b'; then
   # Degraded/Manual режим — нужна метка
   if ! echo "$LAST_EXTERNAL" | grep -qE '⚠️ (Degraded mode|Manual emergency mode)'; then
     echo "СТОП: external review в режиме C/D без обязательной метки '⚠️ Degraded mode' / '⚠️ Manual emergency mode'."
@@ -135,6 +138,8 @@ if echo "$LAST_EXTERNAL" | grep -qE 'mode[":]*\s*"?(C|D)'; then
   fi
 fi
 ```
+
+> **Почему два маркера.** Шаблон `external-review/SKILL.md` использует человекочитаемый заголовок «**Режим: [A/B/C/D]**» — это стабильный якорь (проверено Copilot в раунде 2: предыдущий паттерн `mode: C|D` не матчился ни с одним реальным отчётом). Регексп с альтернативой `(Режим|Mode)` закрывает оба варианта — включая случай, когда PM дополнительно включает `Mode: C` в META JSON.
 
 Если tier == `light`/`standard`/`critical` — external review **опционален**. Если он есть на $HEAD_COMMIT — отметить, если нет — `N/A`.
 
@@ -160,7 +165,7 @@ LAST_VERDICT=$(timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments
 | Статус | Валидация |
 |--------|-----------|
 | **fix now** | Должен быть закрыт (повторный review-pass на $HEAD_COMMIT с APPROVED для затронутого аспекта) |
-| **defer to Beads** | **Обязателен Beads ID** (`bd-XXX`). Без ID — замечание считается неразрешённым |
+| **defer to Beads** | **Обязателен Beads ID**. Формат валидируется через `bd show <id>` (приоритет); при недоступности `bd` CLI — fallback regex `[a-z][a-z-]+-[a-z0-9]+` (покрывает `big-heroes-*` и `bd-*`). Без ID или если `bd show` не находит задачу — замечание считается неразрешённым |
 | **reject with rationale** | **Обязательно обоснование** в PR comment |
 
 Скилл выгружает все review-pass комментарии PR, парсит таблицу замечаний и проверяет:

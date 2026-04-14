@@ -67,12 +67,44 @@ _BODY_FILE_FLAGS = re.compile(
 )
 
 
+# Паттерны bash-subst, скрывающие реальное содержимое --body от hook'а.
+# Legitimate heredoc `$(cat <<'EOF' ... EOF)` НЕ блокируется: содержимое
+# инлайн в команде, hook его видит. А `$(cat /tmp/x)` — block, файл вне
+# команды.
+_DANGEROUS_SUBST = re.compile(
+    r"""(
+        \$\(\s*cat\s+[^<\s]    # $(cat /path/…) или $(cat  file) — не heredoc
+        |
+        \$\(\s*<               # $(<file) — file redirection
+        |
+        (?<!\\)`               # backtick substitution (не экранированный)
+        |
+        <<<                    # here-string — читает переменную/файл
+    )""",
+    re.VERBOSE,
+)
+
+
 def uses_body_file(command: str) -> bool:
     """True — если команда gh pr comment передаёт body через файл/stdin."""
     # Проверяем только для gh pr comment — остальные команды не по нашей теме.
     if "gh pr comment" not in command:
         return False
     return bool(_BODY_FILE_FLAGS.search(command))
+
+
+def uses_dangerous_substitution(command: str) -> bool:
+    """True — если команда gh pr comment использует file-read конструкции
+    внутри command substitution, скрывающие реальное содержимое body.
+
+    Закрывает bypass: `--body "$(cat /tmp/x)"` — hook видит только литерал
+    `$(cat /tmp/x)`, не содержимое файла. Легитимный heredoc
+    `$(cat <<'EOF' ... EOF)` остаётся разрешённым: содержимое инлайн в
+    команде и попадает в regex `_MERGE_READY_PATTERN`.
+    """
+    if "gh pr comment" not in command:
+        return False
+    return bool(_DANGEROUS_SUBST.search(command))
 
 
 def is_forbidden(command: str) -> bool:
@@ -109,6 +141,20 @@ def main() -> int:
             "запрещены без FINALIZE_PR_TOKEN, потому что hook не может "
             "провалидировать содержимое файла.\n"
             "Используй inline --body '...' ИЛИ /finalize-pr <PR_NUMBER>.\n"
+        )
+        return 1
+
+    # Блокируем command substitution, скрывающие реальное содержимое body
+    # от hook'а: `$(cat /file)`, `$(<file)`, backticks, here-strings.
+    # Legitimate heredoc `$(cat <<'EOF' ... EOF)` остаётся разрешённым
+    # (содержимое инлайн, regex его видит).
+    if uses_dangerous_substitution(command):
+        sys.stderr.write(
+            "БЛОКИРОВКА: для `gh pr comment` запрещены конструкции, "
+            "скрывающие содержимое body от hook'а: "
+            "`$(cat file)`, `$(<file)`, backticks `cmd`, here-string `<<<`.\n"
+            "Используй inline --body '...', heredoc `$(cat <<'EOF' ... EOF)` "
+            "или /finalize-pr <PR_NUMBER>.\n"
         )
         return 1
 

@@ -187,13 +187,16 @@ PM соберёт из META итоговый JSON-блок и опубликуе
 > Вердикт, не опубликованный в PR, оператор игнорирует.
 
 ```bash
-# Через файл (предпочтительно для длинных отчётов):
-gh pr comment <NUMBER> --body-file <verdict-file>
-
-# Или inline:
-gh pr comment <NUMBER> --body "## Вердикт: [APPROVED / CHANGES_REQUESTED]
+# Inline через heredoc (единственный допустимый способ для длинных отчётов):
+gh pr comment <NUMBER> --body "$(cat <<'EOF'
+## Вердикт: [APPROVED / CHANGES_REQUESTED]
 ...
-— Reviewer ([Модель])"
+
+— Reviewer ([Модель])
+EOF
+)"
 ```
+
+> ⚠️ **Флаги `--body-file` / `-F` ЗАПРЕЩЕНЫ** для `gh pr comment` вне `/finalize-pr`: PreToolUse hook `.claude/hooks/check-merge-ready.py` блокирует их, потому что не может провалидировать содержимое файла. Используй inline `--body "..."` (для коротких отчётов) или `--body "$(cat <<'EOF' ... EOF)"` (heredoc для длинных).
 
 > ⚠️ **Только `gh pr comment`** — не `gh pr review`. Все агенты работают под аккаунтом оператора, а GitHub запрещает автору ревьюить свой PR.

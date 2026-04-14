@@ -1,8 +1,8 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-13
-**Фаза:** Sprint Pipeline v3.3 — реализация в ветке `claude/agent-pipeline-sprint-mxaQ1`, ожидает PR
-**last_checked_commit:** 6de6d01 (обновится после шага 12)
+**Обновлён:** 2026-04-14
+**Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`)
+**last_checked_commit:** 13ca122
 
 ---
 
