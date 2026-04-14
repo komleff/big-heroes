@@ -106,7 +106,7 @@ npx @openai/codex login status
 - **Два прохода Claude-субагента** против **одного и того же** PR:
   - **Проход 1 (стандартный):** Reviewer в обычном режиме, промпт как в Standard tier.
   - **Проход 2 (adversarial):** Reviewer с промптом «Ты adversarial reviewer. Твоя задача — найти то, что первый проход пропустил. Ищи baseline-слабые места: необработанные edge-cases, скрытые дубликаты, некорректные инварианты.»
-- **⚠️ В отчёте обязательна метка:** «⚠️ Degraded mode: adversarial diversity имитирована промптом, не обеспечена разными моделями. Не эквивалентно cross-model review.»
+- **⚠️ В отчёте обязательна метка:** «⚠️ Degraded mode с имитацией adversarial diversity. Не является cross-model review (формулировка из `.agents/pipeline-improvement-plan-v3.3.md`).»
 - Атрибуция: `— Reviewer (Claude Opus 4.6, standard)` и `— Reviewer (Claude Opus 4.6, adversarial)`.
 - Не маркировать как GPT.
 
@@ -174,7 +174,7 @@ npx @openai/codex review --base "$BASE_BRANCH"
 Задача: проверь PR #<PR_NUMBER>. Верни structured findings PM.
 ```
 
-Сохрани findings обоих проходов для collapsible блоков. **Обязательно** добавь в итоговый отчёт метку «⚠️ Degraded mode: adversarial diversity имитирована промптом, не эквивалентно cross-model review».
+Сохрани findings обоих проходов для collapsible блоков. **Обязательно** добавь в итоговый отчёт метку «⚠️ Degraded mode с имитацией adversarial diversity. Не является cross-model review».
 
 ### 3.3 Режим D — manual emergency
 
@@ -208,7 +208,7 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 |-------|--------------|--------------|-------|
 | A | `GPT-5.4` | `GPT-5.3-Codex` | — |
 | B | `дефолтная модель` | — (B не запускается) | — |
-| C | `Claude Opus 4.6 (standard)` | `Claude Opus 4.6 (adversarial)` | `⚠️ Degraded mode: adversarial diversity имитирована промптом, не эквивалентно cross-model review` |
+| C | `Claude Opus 4.6 (standard)` | `Claude Opus 4.6 (adversarial)` | `⚠️ Degraded mode с имитацией adversarial diversity. Не является cross-model review` |
 | D | По факту (например, `GPT-5.4 via Copilot Agent`) | — | `⚠️ Manual emergency mode. Adversarial diversity и воспроизводимость снижены` |
 
 ### 5.2 Защита findings — raw output в collapsible
