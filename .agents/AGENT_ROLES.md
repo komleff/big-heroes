@@ -180,10 +180,10 @@ Opus → Человек-оператор *(для production: Opus → GPT-5.3-C
 
 | Уровень | Когда | Кто ревьюит |
 |---------|-------|-------------|
-| **Light** | Документация, конфиги | Claude Reviewer (один проход) |
-| **Standard** | Фичи, рефакторинг | Claude Reviewer (все четыре аспекта) |
-| **Critical** | `shared/`, баланс, игровая логика | Claude Reviewer (два прохода, четыре аспекта) |
-| **Sprint Final** | Конец спринта, перед merge | Внешние модели через `/external-review`. **Обязателен перед merge.** |
+| **Light** | Только `.md`, конфиги без логики (НЕ hooks!) | Claude Reviewer (один проход, **2 аспекта: Архитектура + Гигиена кода**) |
+| **Standard** | Фичи, рефакторинг | Claude Reviewer (все 4 аспекта) |
+| **Critical** | `shared/`, `config/balance.json`, игровая логика, **нормативные артефакты пайплайна** (`.claude/settings.json` hooks, `.claude/hooks/*`, `.claude/skills/*`, `.claude/agents/*`) | Claude Reviewer (два прохода, все 4 аспекта) + Tester gate перед ревью |
+| **Sprint Final** | Конец спринта, перед merge в master | Добавляется к выбранному tier как отдельный gate. **Внешнее ревью через `/external-review` обязательно.** |
 
 ### Промпт активации
 
@@ -218,7 +218,7 @@ Opus → Человек-оператор *(для production: Opus → GPT-5.3-C
 ### Гигиена кода: [OK / ISSUE]
 [описание]
 
-### Итог
+### Итого
 [краткое резюме для оператора]
 
 — Reviewer ([Модель])
