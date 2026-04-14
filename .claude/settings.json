@@ -36,6 +36,8 @@
       "Bash(git push origin HEAD:master)",
       "Bash(git push * HEAD:master)",
       "Bash(gh pr merge *)",
+      "Bash(gh api *merge*)",
+      "Bash(gh api *pulls*merge*)",
       "Bash(gh repo delete *)",
       "Bash(gh api -X DELETE *)"
     ],
@@ -63,7 +65,7 @@
           },
           {
             "type": "command",
-            "command": "bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r .tool_input.command 2>/dev/null || echo \"\"); if [ -n \"${FINALIZE_PR_TOKEN:-}\" ]; then exit 0; fi; if echo \"$CMD\" | grep -iqE \"готов(о|а)?[[:space:]]+к[[:space:]]+merge|ready[[:space:]]+(to|for)[[:space:]]+merge|merge[-[:space:]]ready\"; then echo \"БЛОКИРОВКА: фразы 'готов к merge' / 'ready to merge' / 'merge-ready' разрешены только через /finalize-pr (см. .claude/skills/finalize-pr/SKILL.md). Используй /finalize-pr <PR_NUMBER>.\" >&2; exit 1; fi'"
+            "command": "python3 .claude/hooks/check-merge-ready.py"
           }
         ]
       }
