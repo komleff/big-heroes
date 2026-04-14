@@ -102,6 +102,14 @@ fi
 echo "Tier: $TIER"
 ```
 
+**Правила выбора при смешанных изменениях (не понижай tier):**
+
+- **Любое изменение в `shared/` или `config/balance.json`** → tier = `critical`, даже если 99% PR это документация. Игровая математика не может быть проревьюена поверхностно.
+- **Только `.md` / `.json` без логики (`settings.json` hooks — не «без логики»!)** → tier = `light` разрешается.
+- **Смешанные `client/` + `docs/`** → tier = `standard`.
+- **Изменения в `.claude/settings.json` hook-логики, `.claude/hooks/*`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`** → приравниваются к `critical` (нормативные артефакты пайплайна), даже если расширение `.json`/`.md`.
+- Для PR помеченного как **Sprint Final** (завершение спринта перед merge в master) — к выбранному tier добавляется обязательный `/external-review` в Фазе 3.
+
 > Если PR помечен как Sprint Final (метка `sprint-final` или явно в описании) — добавь обязательный `/external-review` в Фазе 3 поверх выбранного tier.
 
 ### Шаг 2.0.1: Tester gate для Critical (только Critical tier)
@@ -276,20 +284,43 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 
 4. Повтори `/external-review <PR_NUMBER>`
 
-Если вердикт `APPROVED` — переходи к Фазе 4.
+Если вердикт `APPROVED` — переходи к Фазе 3.5.
 
-## Фаза 4: Готовность к merge
+## Фаза 3.5: Triage замечаний (обязательно перед финализацией)
 
-Перед финальным отчётом убедись:
-- [ ] Все тесты зелёные
-- [ ] Внутреннее ревью: все аспекты APPROVED
-- [ ] Внешнее ревью: вердикт получен
-- [ ] Все review-pass опубликованы в PR
+Все findings из внутреннего и внешнего ревью должны получить явный статус. Это инвариант 4 v3.3 и предусловие `/finalize-pr` фаза 2.
 
-```bash
-gh pr comment <PR_NUMBER> --body "## ✅ Готов к merge
+| Статус | Действие PM | Валидация |
+|--------|-------------|-----------|
+| **fix now** | Developer исправляет, повторный review-pass на новом commit | Повторный APPROVED для затронутого аспекта |
+| **defer to Beads** | PM создаёт issue через `bd create`, фиксирует ID в PR | Обязателен Beads ID (`bd-[a-z0-9-]+`) |
+| **reject with rationale** | PM публикует обоснование в PR | Обоснование не пустое |
 
-Все проверки пройдены. Merge — на усмотрение оператора.
+Замечания без статуса = незавершённый цикл. `/finalize-pr` фаза 2 заблокирует финализацию.
 
-— PM (Claude Opus 4.6)"
+Если `defer_ratio > 50%` — это сигнал defer-abuse. Скилл `/finalize-pr` выведет предупреждение оператору, но merge не блокирует (план v3.3 секция 1.4).
+
+## Фаза 4: Финализация через `/finalize-pr`
+
+> ⛔ **Не публикуй «готов к merge» вручную.** Hook `.claude/hooks/check-merge-ready.py` блокирует такие формулировки в `gh pr comment` вне `/finalize-pr`. Даже если все проверки зелёные — финализация идёт только через скилл.
+
+Вызови скилл:
+
 ```
+/finalize-pr <PR_NUMBER>
+```
+
+`/finalize-pr` сам проверит:
+1. HEAD commit hash PR.
+2. `/verify` зелёный на этом commit.
+3. Internal review-pass привязан к этому commit.
+4. Если tier = Sprint Final — external review есть на этом commit.
+5. После CHANGES_REQUESTED был повторный review-pass на текущем commit.
+6. (фаза 2) У каждого замечания есть triage-статус (fix now / defer с Beads ID / reject с обоснованием).
+7. (фаза 2) Warning при `defer_ratio > 50%`.
+
+Если все проверки пройдены — скилл опубликует финальный комментарий `## ✅ Готов к merge` через inline-токен `FINALIZE_PR_TOKEN`, который обходит hook только для этого одного вызова.
+
+После публикации — сообщи оператору: «Опубликован финальный комментарий в PR #<N>. Решение о merge — за тобой.»
+
+> См. `.claude/skills/finalize-pr/SKILL.md` для полной логики, шаблонов и emergency override `--force`.
