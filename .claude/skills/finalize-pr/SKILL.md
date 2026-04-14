@@ -190,7 +190,7 @@ DEFER_RATIO=42                 # % defer от общего числа замеч
 Перед публикацией финального комментария **обязательно** перепроверь HEAD:
 
 ```bash
-HEAD_NOW=$(gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid' 2>/dev/null)
+HEAD_NOW=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid' 2>/dev/null)
 
 if [ "$HEAD_NOW" != "$HEAD_COMMIT" ]; then
   echo "СТОП: HEAD изменился во время выполнения /finalize-pr."
