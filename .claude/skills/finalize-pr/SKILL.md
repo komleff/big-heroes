@@ -20,7 +20,15 @@ user-invocable: true
 ### Шаг 1: Зафиксировать HEAD commit hash
 
 ```bash
-HEAD_COMMIT=$(gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')
+HEAD_COMMIT=$(gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid' 2>/dev/null)
+
+# null-guard: PR может быть закрыт/удалён/недоступен между шагами
+if [ -z "$HEAD_COMMIT" ] || [ "$HEAD_COMMIT" = "null" ]; then
+  echo "СТОП: не удалось получить HEAD commit PR #<PR_NUMBER>."
+  echo "Возможные причины: PR закрыт/удалён, нет прав, API недоступен."
+  exit 1
+fi
+
 echo "Финализируем PR #<PR_NUMBER> на commit $HEAD_COMMIT"
 ```
 
@@ -112,8 +120,10 @@ LAST_VERDICT=$(gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
 
 Скилл выгружает все review-pass комментарии PR, парсит таблицу замечаний и проверяет:
 - У каждого fix-now-замечания есть закрывающий APPROVED.
-- У каждого defer есть Beads ID в формате `bd-[a-z0-9]+` (проверка `bd show <id>` опциональна).
+- У каждого defer есть Beads ID в формате `bd-[a-z0-9-]+` (класс включает цифры и дефис — валидные примеры: `bd-001`, `bd-042`, `bd-pipeline-001`).
 - У каждого reject есть текстовое обоснование (не пустое).
+
+> **Проверка реального существования `bd show <id>` — опциональна и мягкая.** Скилл проверяет только формат. Если Beads локально доступен, PM может дополнительно вызвать `bd show <id>` для sanity-check, но это НЕ hard gate: недоступность Beads в среде не должна ломать `/finalize-pr`. Полная валидация «ID → реальная issue» — отдельная задача (см. `bd-pipeline-bdid-check`).
 
 Если хотя бы одно замечание без статуса/ID/обоснования — **СТОП**:
 ```
@@ -147,11 +157,12 @@ DEFER_RATIO=42                 # % defer от общего числа замеч
 
 ## Финальный комментарий
 
+> **Безопасность токена:** `FINALIZE_PR_TOKEN` передаётся как **inline-переменная** в один вызов `gh pr comment` и живёт только для этого процесса. Не используй `export` + `unset` — если скилл упадёт между ними, токен останется в окружении, и следующий ручной `gh pr comment --body "готов к merge"` обойдёт блокировку. Inline-форма `VAR=val cmd ...` устанавливает переменную только для подпроцесса `cmd`, это гарантия очистки без `trap`.
+
 ### Шаблон фазы 1 (до внедрения triage-протокола)
 
 ```bash
-export FINALIZE_PR_TOKEN=1
-gh pr comment <PR_NUMBER> --body "## ✅ Готов к merge
+FINALIZE_PR_TOKEN=1 gh pr comment <PR_NUMBER> --body "## ✅ Готов к merge
 
 Commit: $HEAD_COMMIT
 Verify: ✅
@@ -159,14 +170,12 @@ Internal review: ✅ (commit $HEAD_COMMIT)
 External review: <✅ (commit $HEAD_COMMIT) | N/A>
 
 — PM (Claude Opus 4.6), /finalize-pr"
-unset FINALIZE_PR_TOKEN
 ```
 
 ### Шаблон фазы 2 (после внедрения triage-протокола)
 
 ```bash
-export FINALIZE_PR_TOKEN=1
-gh pr comment <PR_NUMBER> --body "## ✅ Готов к merge
+FINALIZE_PR_TOKEN=1 gh pr comment <PR_NUMBER> --body "## ✅ Готов к merge
 
 Commit: $HEAD_COMMIT
 Verify: ✅
@@ -180,10 +189,9 @@ Deferred to Beads: $DEFERRED_LIST
 </если>
 
 — PM (Claude Opus 4.6), /finalize-pr"
-unset FINALIZE_PR_TOKEN
 ```
 
-Этот комментарий обходит hook блокировки «ready to merge» через переменную `FINALIZE_PR_TOKEN`. Не оставляй её установленной за пределами одного `gh pr comment` — иначе любая команда сможет писать «готов к merge» в обход проверок.
+Этот вызов обходит hook блокировки «ready to merge» только для одной команды. После завершения `gh pr comment` переменная автоматически исчезает из окружения — гарантия, которой `export`/`unset` не даёт при сбое между ними.
 
 ## Emergency override `--force`
 
