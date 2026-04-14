@@ -36,12 +36,25 @@ _MERGE_READY_PATTERN = re.compile(
 )
 
 
+class HookError(Exception):
+    """Сигнал безопасной остановки hook'а с блокировкой команды."""
+
+
 def extract_command(raw_stdin: str) -> str:
-    """Получить текст команды из payload hook'а Claude Code."""
+    """Получить текст команды из payload hook'а Claude Code.
+
+    Fail-secure: если JSON невалиден, бросаем исключение → hook блокирует
+    команду (exit 1). Возврат пустой строки был бы fail-open: команда
+    с merge-ready фразой прошла бы блокировку, потому что is_forbidden('')
+    = False.
+    """
     try:
         payload = json.loads(raw_stdin)
-    except json.JSONDecodeError:
-        return ""
+    except json.JSONDecodeError as exc:
+        raise HookError(
+            f"check-merge-ready: невалидный JSON на stdin ({exc}). "
+            "Hook блокирует команду fail-secure."
+        ) from exc
     tool_input = payload.get("tool_input") or {}
     return tool_input.get("command") or ""
 
@@ -60,7 +73,13 @@ def main() -> int:
         return 0
 
     raw = sys.stdin.read()
-    command = extract_command(raw)
+
+    try:
+        command = extract_command(raw)
+    except HookError as exc:
+        sys.stderr.write(str(exc) + "\n")
+        return 1
+
     if not command:
         return 0
 

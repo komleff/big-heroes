@@ -266,6 +266,8 @@ PM публикует второй консолидированный отчёт
 - Запрос Copilot re-review
 - PM консолидирует вывод и публикует отчёт в PR через `gh pr comment` (ручной шаг в скилле)
 
+> ⚠️ **Проверь режим работы.** `/external-review` автоматически выбирает режим по доступности Codex CLI. Режимы C (Codex недоступен → Claude adversarial degraded) и D (ручной emergency через Copilot Agent) **требуют явной метки в финальном отчёте** — см. таблицу в `external-review/SKILL.md` шаг 5.1. PM должен убедиться, что метка присутствует: «⚠️ Degraded mode» (C) или «⚠️ Manual emergency mode» (D). Без метки audit trail вводит в заблуждение — Sprint Final маркируется как cross-model review, хотя им не является.
+
 ### Шаг 3.2: Обработка результатов
 
 Если вердикт `CHANGES_REQUESTED`:

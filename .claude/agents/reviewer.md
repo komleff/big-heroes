@@ -126,10 +126,28 @@ META:
     sec:     <approved | changes_requested>
     qual:    <approved | changes_requested>
     hygiene: <approved | changes_requested>
+  triage_counts:            # подсчёт предложенных статусов для findings ЭТОГО прохода
+    fix_now:   <N>
+    deferred:  <N>          # каждый должен иметь Beads ID
+    rejected:  <N>          # каждый должен иметь обоснование
   regressions: <N>          # сколько замечаний — повтор того, что уже было фиксили в этом PR
   reopened_from_previous_iteration: <N>  # сколько замечаний из прошлой итерации стали актуальны снова
   timestamp: <ISO-8601 UTC, например 2026-04-13T10:00:00Z>
 ```
+
+### Формат таблицы findings (обязателен для finalize-pr парсинга)
+
+При возврате findings PM используй **строго табличный формат**, чтобы `/finalize-pr` фаза 2 смог корректно извлечь triage-статусы:
+
+```markdown
+| # | Severity | Заголовок | Файл:строка | Статус | Beads ID / Обоснование |
+|---|----------|-----------|-------------|--------|------------------------|
+| 1 | CRITICAL | ... | path:N | fix now | — |
+| 2 | WARNING | ... | path:N | defer to Beads | bd-pipeline-xyz |
+| 3 | INFO | ... | path:N | reject | <текст обоснования> |
+```
+
+Без такой таблицы `/finalize-pr` не сможет автоматически проверить, что у каждого замечания есть валидный статус. Свободный формат — fallback, но гарантий парсинга не даёт.
 
 > **regressions** и **reopened_from_previous_iteration** — самые важные метрики качества пайплайна (план v3.3 секция 1.6). Считай честно: если в первом проходе было замечание, оно стало `fix now`, потом во втором проходе оно снова всплыло — это **reopened**. Если в одном проходе одна и та же ошибка встречается дважды — это **regressions** в одном проходе.
 

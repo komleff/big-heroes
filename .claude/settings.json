@@ -65,7 +65,8 @@
           },
           {
             "type": "command",
-            "command": "python3 .claude/hooks/check-merge-ready.py"
+            "command": "python3 .claude/hooks/check-merge-ready.py",
+            "timeout": 5
           }
         ]
       }
