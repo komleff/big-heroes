@@ -19,13 +19,15 @@ user-invocable: true
 
 ### Шаг 1: Зафиксировать HEAD commit hash
 
+> Оборачивай все вызовы `gh pr view` в `timeout 10` — защита от зависания при медленном GitHub API.
+
 ```bash
-HEAD_COMMIT=$(gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid' 2>/dev/null)
+HEAD_COMMIT=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid' 2>/dev/null)
 
 # null-guard: PR может быть закрыт/удалён/недоступен между шагами
 if [ -z "$HEAD_COMMIT" ] || [ "$HEAD_COMMIT" = "null" ]; then
   echo "СТОП: не удалось получить HEAD commit PR #<PR_NUMBER>."
-  echo "Возможные причины: PR закрыт/удалён, нет прав, API недоступен."
+  echo "Возможные причины: PR закрыт/удалён, нет прав, API недоступен или таймаут."
   exit 1
 fi
 
@@ -61,7 +63,7 @@ PM публикует review-отчёты с JSON-метаданными в HTML
 Скилл выгружает все комментарии PR и ищет последний `review-pass` с `commit == $HEAD_COMMIT`:
 
 ```bash
-gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
+timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
   | grep -B 1 -A 30 'reviewer.*commit.*'"$HEAD_COMMIT" \
   | head -50
 ```
@@ -83,13 +85,35 @@ gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
 
 Если tier == `sprint-final`:
 ```bash
-gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
+timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
   | grep -B 1 -A 5 'Внешнее ревью.*Sprint Final.*commit.*'"$HEAD_COMMIT"
 ```
 
 - Если внешний review-pass на $HEAD_COMMIT есть — **OK**.
 - Если нет — **СТОП**: «External review обязателен для Sprint Final. Запусти `/external-review <PR_NUMBER>`».
 - `N/A` для Sprint Final **не допускается** — внешнее ревью обязательно.
+
+**Hard gate на метку Degraded/Manual mode (инвариант 6 → честный audit trail):**
+
+Если в METAданных external review-pass указан `mode: C-*` или `mode: D-*` (degraded режимы), в теле комментария **обязана** присутствовать метка:
+- Для режима C: `⚠️ Degraded mode`
+- Для режима D: `⚠️ Manual emergency mode`
+
+Без метки Sprint Final ложно маркируется как cross-model review. Финализация заблокирована:
+
+```bash
+EXT_COMMENT=$(timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
+  | awk '/Внешнее ревью/,/— PM/' | tail -200)
+
+if echo "$EXT_COMMENT" | grep -qE 'mode[":]*\s*"?(C|D)'; then
+  # Degraded/Manual режим — нужна метка
+  if ! echo "$EXT_COMMENT" | grep -qE '⚠️ (Degraded mode|Manual emergency mode)'; then
+    echo "СТОП: external review в режиме C/D без обязательной метки '⚠️ Degraded mode' / '⚠️ Manual emergency mode'."
+    echo "PM должен опубликовать новый external review-pass с меткой."
+    exit 1
+  fi
+fi
+```
 
 Если tier == `light`/`standard`/`critical` — external review **опционален**. Если он есть на $HEAD_COMMIT — отметить, если нет — `N/A`.
 
@@ -98,7 +122,7 @@ gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
 Если внешний review (или внутренний) когда-либо возвращал `CHANGES_REQUESTED`, после фиксов **обязателен** повторный review-pass на $HEAD_COMMIT.
 
 ```bash
-LAST_VERDICT=$(gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
+LAST_VERDICT=$(timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
   | grep -E 'Вердикт.*(APPROVED|CHANGES_REQUESTED)' | tail -1)
 ```
 
