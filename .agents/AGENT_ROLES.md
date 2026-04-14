@@ -181,7 +181,7 @@ Opus → Человек-оператор *(для production: Opus → GPT-5.3-C
 | Уровень | Когда | Кто ревьюит |
 |---------|-------|-------------|
 | **Light** | Только `.md`, конфиги без логики (НЕ hooks!) | Claude Reviewer (один проход, **2 аспекта: Архитектура + Гигиена кода**) |
-| **Standard** | Фичи, рефакторинг | Claude Reviewer (все 4 аспекта) |
+| **Standard** | Фичи, рефакторинг | Claude Reviewer (один проход, все 4 аспекта) |
 | **Critical** | `shared/`, `config/balance.json`, игровая логика, **нормативные артефакты пайплайна** (`.claude/settings.json` hooks, `.claude/hooks/*`, `.claude/skills/*`, `.claude/agents/*`) | Claude Reviewer (два прохода, все 4 аспекта) + Tester gate перед ревью |
 | **Sprint Final** | Конец спринта, перед merge в master | Добавляется к выбранному tier как отдельный gate. **Внешнее ревью через `/external-review` обязательно.** |
 

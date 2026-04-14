@@ -83,7 +83,7 @@ Tier выбирается по содержимому изменений PR:
 |------|-------|-------|
 | **Light** | Только документация (`.md`), конфиги без логики | Один проход, аспекты «Архитектура» и «Гигиена кода» |
 | **Standard** | Фичи, рефакторинг, обычные PR | Один проход, все 4 аспекта параллельно |
-| **Critical** | Изменения в `shared/`, `config/balance.json`, игровая логика, формулы | Tester gate + два прохода, все 4 аспекта |
+| **Critical** | Изменения в `shared/`, `config/balance.json`, игровая логика, формулы, **нормативные артефакты пайплайна** (`.claude/settings.json` hooks, `.claude/hooks/*`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`) | Tester gate + два прохода, все 4 аспекта |
 | **Sprint Final** | PR, завершающий спринт (готовится к merge в master) | Standard/Critical + обязательный `/external-review` |
 
 Определение tier:
