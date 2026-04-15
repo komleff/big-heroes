@@ -4,6 +4,9 @@ dist/
 .env.*
 *.local
 
+# Claude Code локальные настройки (могут содержать секреты — см. docs/setup/codex-auth.md)
+.claude/settings.local.json
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db
