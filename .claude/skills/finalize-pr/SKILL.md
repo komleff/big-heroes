@@ -190,18 +190,22 @@ if [ -z "$LAST_REVIEW_BODY" ]; then
   exit 1
 fi
 
-# Извлекаем последний вердикт из тела последнего review-pass на HEAD.
-LAST_VERDICT=$(echo "$LAST_REVIEW_BODY" | grep -oE '\b(APPROVED|CHANGES_REQUESTED)\b' | tail -1)
-
-if [ "$LAST_VERDICT" = "CHANGES_REQUESTED" ]; then
-  echo "СТОП: последний review-pass на $HEAD_COMMIT — CHANGES_REQUESTED."
-  echo "После CHANGES_REQUESTED обязателен повторный review-pass с APPROVED на текущем commit."
+# Нельзя брать «последний» вердикт по порядку строк:
+# в одном review-pass может быть несколько аспектов (Архитектура, Безопасность,
+# Качество, Гигиена) и/или несколько ревьюеров. `tail -1` дал бы `APPROVED`
+# даже когда один из аспектов помечен `CHANGES_REQUESTED`.
+# Для hard gate достаточно двух условий:
+# 1) в теле последнего review-pass на HEAD нет НИ ОДНОГО CHANGES_REQUESTED;
+# 2) в теле есть хотя бы один APPROVED.
+if echo "$LAST_REVIEW_BODY" | grep -qE '\bCHANGES_REQUESTED\b'; then
+  echo "СТОП: в последнем review-pass на $HEAD_COMMIT есть CHANGES_REQUESTED по одному из аспектов/ревьюеров."
+  echo "После CHANGES_REQUESTED обязателен повторный review-pass с APPROVED по всем аспектам на текущем commit."
   exit 1
 fi
 
-if [ "$LAST_VERDICT" != "APPROVED" ]; then
-  echo "СТОП: не удалось извлечь вердикт APPROVED/CHANGES_REQUESTED из последнего review-pass."
-  echo "Проверь, что отчёт публикуется по шаблону sprint-pr-cycle (явная строка 'Вердикт: APPROVED')."
+if ! echo "$LAST_REVIEW_BODY" | grep -qE '\bAPPROVED\b'; then
+  echo "СТОП: в последнем review-pass не найден APPROVED."
+  echo "Проверь, что отчёт публикуется по шаблону sprint-pr-cycle и содержит явный 'Вердикт: APPROVED' хотя бы по одному аспекту."
   exit 1
 fi
 ```

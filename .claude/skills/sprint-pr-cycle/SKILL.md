@@ -218,15 +218,15 @@ echo "Tier: $TIER"
 HEAD_COMMIT=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')
 ```
 
-Затем публикуй отчёт (внутри `--body` — heredoc, hook видит содержимое):
+Затем публикуй отчёт. **Используй quoted heredoc `<<'EOF'` + плейсхолдер**, чтобы bash не делал подстановок внутри тела (резюме reviewer-субагентов может содержать `$VAR`, `$(...)`, backticks — без quoted heredoc их раскроет shell и текст исказится). Подставь `$HEAD_COMMIT` после, через bash parameter expansion:
 
 ```bash
-gh pr comment <PR_NUMBER> --body "$(cat <<EOF
+BODY=$(cat <<'EOF'
 ## Внутреннее ревью (Claude) — review-pass
 
-Commit: \`$HEAD_COMMIT\`
+Commit: `__HEAD_COMMIT__`
 
-<!-- {"reviewer": "claude-opus-4-6", "commit": "$HEAD_COMMIT", "kind": "internal"} -->
+<!-- {"reviewer": "claude-opus-4-6", "commit": "__HEAD_COMMIT__", "kind": "internal"} -->
 
 ### Архитектура
 **Вердикт:** [APPROVED / CHANGES_REQUESTED]
@@ -246,7 +246,10 @@ Commit: \`$HEAD_COMMIT\`
 
 — PM (Claude Opus 4.6)
 EOF
-)"
+)
+# Безопасная подстановка commit hash (не через eval/cat <<EOF без кавычек):
+BODY="${BODY//__HEAD_COMMIT__/$HEAD_COMMIT}"
+gh pr comment <PR_NUMBER> --body "$BODY"
 ```
 
 ### Шаг 2.2.1: Pre-Chat Gate
