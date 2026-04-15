@@ -111,6 +111,8 @@ echo "Tier для финализации: $TIER"
 ```
 
 > Memory Bank как источник tier здесь **не используется**: hard gate должен опираться только на воспроизводимые PR-метаданные, иначе локальные расхождения дадут ложный пропуск external review.
+>
+> Канонический способ маркировать Sprint Final — строка `Tier: Sprint Final` в body PR. Шаблон создания PR в `.claude/skills/sprint-pr-cycle/SKILL.md` шаг 1.3 включает обязательное поле `Tier:`. Без этого маркера (и без label `sprint-final`) hard gate ошибочно классифицирует PR как `standard` и не потребует external review. Если PR создан вручную без `Tier:` — это эскалация к оператору, а не «finalize по тихому».
 
 Если `TIER == sprint-final`:
 ```bash

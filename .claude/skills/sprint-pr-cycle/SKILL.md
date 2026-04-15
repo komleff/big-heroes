@@ -55,10 +55,20 @@ BRANCH=$(git branch --show-current)
 gh pr list --head "$BRANCH" --json number,title --jq '.[0]'
 ```
 
-Если PR не найден — создай:
+Если PR не найден — создай. **Обязательно укажи `Tier:` в body** — `/finalize-pr` использует его для автодетекта Sprint Final (без маркера hard gate ошибочно классифицирует PR как `standard` и не потребует external review):
+
+| Tier в body | Когда указывать |
+|-------------|-----------------|
+| `Tier: Sprint Final` | PR завершает спринт и идёт к merge в master (требует `/external-review`) |
+| `Tier: Critical` | shared/, config/balance.json, нормативные артефакты пайплайна |
+| `Tier: Standard` | Фичи, рефакторинг, обычные PR |
+| `Tier: Light` | Только документация |
 
 ```bash
-gh pr create --title "Sprint N: [краткое описание]" --body "$(cat <<'EOF'
+TIER_LINE="Tier: Standard"  # или Sprint Final / Critical / Light — см. таблицу выше
+gh pr create --title "Sprint N: [краткое описание]" --body "$(cat <<EOF
+$TIER_LINE
+
 ## Summary
 - [список ключевых изменений]
 
@@ -72,6 +82,8 @@ gh pr create --title "Sprint N: [краткое описание]" --body "$(cat
 EOF
 )"
 ```
+
+> Sprint Final дополнительно полезно помечать GitHub-меткой `sprint-final` (если права позволяют) — `/finalize-pr` видит ОБА маркера: label ИЛИ `Tier: Sprint Final` в body. Достаточно одного, body-маркер канонический и работает без прав на labels.
 
 ## Фаза 2: Внутреннее ревью
 
