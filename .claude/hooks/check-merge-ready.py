@@ -25,14 +25,24 @@ import re
 import sys
 
 
-# Паттерны запрещённых формулировок готовности к merge
-# Части разнесены для читаемости; \s* допускает любые пробельные символы.
+# Паттерн точного маркера финального комментария readiness.
+# Почему так строго: поиск по подстроке даёт ложные блокировки на обсуждения
+# и отрицания вроде «не готов к merge», «почти готов к merge», «готов к merge,
+# если X». `/finalize-pr` публикует ровно заголовок `## ✅ Готов к merge`
+# (см. шаблон в finalize-pr/SKILL.md), поэтому требуем `##` + фразу + конец
+# строки/текста. Якорь `^` не подходит: внутри `gh pr comment ... --body "## ..."`
+# заголовок начинается в той же shell-строке после `--body "`, а не после `\n`.
 _MERGE_READY_PATTERN = re.compile(
-    r"готов[оа]?\s*к\s*merge"          # русская форма (любой регистр)
-    r"|ready\s*(?:to|for)\s*merge"     # английская "ready to/for merge"
-    r"|merge\s*ready"                  # английская "merge ready"
-    r"|merge\s*is\s*ready",            # английская "merge is ready"
-    re.IGNORECASE,
+    r"##\s*(?:✅\s*)?"
+    r"(?:готов[оа]?\s*к\s*merge"
+    r"|ready\s*(?:to|for)\s*merge"
+    r"|merge\s*ready"
+    r"|merge\s*is\s*ready)"
+    # Терминаторы фразы: конец строки body / newline / закрывающая shell-кавычка
+    # (`'` или `"`). Обычный пробел + текст («## Готов к merge после X») НЕ
+    # матчит — это не точный маркер, а продолжение предложения.
+    r"\s*(?:$|\n|['\"])",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 
@@ -44,9 +54,10 @@ def extract_command(raw_stdin: str) -> str:
     """Получить текст команды из payload hook'а Claude Code.
 
     Fail-secure: если JSON невалиден, бросаем исключение → hook блокирует
-    команду (exit 1). Возврат пустой строки был бы fail-open: команда
-    с merge-ready фразой прошла бы блокировку, потому что is_forbidden('')
-    = False.
+    команду (exit 1). Отсутствие `tool_input.command` — тоже HookError:
+    hook привязан matcher'ом `Bash(gh pr comment*)`, поэтому `command`
+    обязан присутствовать. Пустая строка была бы fail-open при изменении
+    формата payload.
     """
     try:
         payload = json.loads(raw_stdin)
@@ -56,7 +67,13 @@ def extract_command(raw_stdin: str) -> str:
             "Hook блокирует команду fail-secure."
         ) from exc
     tool_input = payload.get("tool_input") or {}
-    return tool_input.get("command") or ""
+    command = tool_input.get("command")
+    if not command:
+        raise HookError(
+            "check-merge-ready: в payload отсутствует tool_input.command. "
+            "Hook блокирует команду fail-secure."
+        )
+    return command
 
 
 # Флаги gh pr comment, передающие body через файл или stdin — hook не может
@@ -112,10 +129,14 @@ def uses_dangerous_substitution(command: str) -> bool:
 
 
 def is_forbidden(command: str) -> bool:
-    """True — если команда содержит запрещённую формулировку."""
-    # Нормализуем: подчёркивания и дефисы → пробелы, переносы строк → пробелы.
-    # Это закрывает обход через `ready_to_merge`, `ready-to-merge`, multiline.
-    normalized = re.sub(r"[_\-\n\r]+", " ", command)
+    """True — если команда содержит запрещённый заголовок readiness.
+
+    Нормализуем только `_` и `-` в пробелы — это закрывает обход через
+    `ready_to_merge`, `ready-to-merge`. Переносы строк НЕ нормализуем:
+    `_MERGE_READY_PATTERN` использует multiline-якоря `^`/`$`, которые
+    должны видеть реальные `\\n` в команде (shell-heredoc, multiline body).
+    """
+    normalized = re.sub(r"[_\-]+", " ", command)
     return bool(_MERGE_READY_PATTERN.search(normalized))
 
 
@@ -131,9 +152,6 @@ def main() -> int:
     except HookError as exc:
         sys.stderr.write(str(exc) + "\n")
         return 1
-
-    if not command:
-        return 0
 
     # Блокируем --body-file / -F для gh pr comment вне /finalize-pr: body
     # передаётся файлом/stdin и hook не может надёжно проверить содержимое.

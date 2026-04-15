@@ -118,17 +118,19 @@ fi
 
 **Hard gate на метку Degraded/Manual mode (инвариант 6 → честный audit trail):**
 
-Если в METAданных external review-pass указан `mode: C-*` или `mode: D-*` (degraded режимы), в теле комментария **обязана** присутствовать метка:
+Если в тексте последнего `external review-pass` найден маркер режима `C` или `D` (degraded режимы), в теле комментария **обязана** присутствовать метка:
 - Для режима C: `⚠️ Degraded mode`
 - Для режима D: `⚠️ Manual emergency mode`
+
+Здесь hard gate опирается именно на содержимое `$LAST_EXTERNAL`. Отдельного парсинга HTML-комментария META нет, поэтому учитываются только те маркеры, которые реально матчатся в тексте комментария (`Режим: C/D` как стабильный заголовок из шаблона `external-review` или `Mode: C/D` / `"mode": "C"` как fallback, если PM дополнительно включил машинный маркер в тело).
 
 Без метки Sprint Final ложно маркируется как cross-model review. Финализация заблокирована:
 
 ```bash
 # $LAST_EXTERNAL уже содержит тело последнего external review-pass на $HEAD_COMMIT
-# Матчим оба допустимых маркера режима:
+# Матчим допустимые текстовые маркеры режима в самом комментарии:
 #   1) человекочитаемый заголовок «Режим: C» / «Режим: D» (всегда в шаблоне external-review)
-#   2) машинный маркер «Mode: C» / `"mode": "C"` в META JSON (fallback)
+#   2) машинный маркер «Mode: C» / `"mode": "C"`, если он присутствует в тексте комментария
 if echo "$LAST_EXTERNAL" | grep -qE '(Режим|Mode)[:"]*\s*"?[CD]\b'; then
   # Degraded/Manual режим — нужна метка
   if ! echo "$LAST_EXTERNAL" | grep -qE '⚠️ (Degraded mode|Manual emergency mode)'; then
