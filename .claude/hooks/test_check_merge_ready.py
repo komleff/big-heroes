@@ -19,12 +19,13 @@ import json
 import os
 import subprocess
 import sys
+from typing import Optional
 
 
 HOOK = os.path.join(os.path.dirname(__file__), "check-merge-ready.py")
 
 
-def run(cmd: str | None, with_token: bool = False) -> int:
+def run(cmd: Optional[str], with_token: bool = False) -> int:
     """Запустить hook с payload и вернуть exit code."""
     env = {k: v for k, v in os.environ.items() if k != "FINALIZE_PR_TOKEN"}
     if with_token:

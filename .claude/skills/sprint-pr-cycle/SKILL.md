@@ -84,7 +84,7 @@ EOF
 ```bash
 # Все review-треды (комментарии, привязанные к строкам кода)
 timeout 10 gh pr view <PR_NUMBER> --json reviews \
-  | jq -r '.reviews[] | select(.author.login == "copilot-pull-request-reviewer") | .body' \
+  | jq -r '.reviews[] | select(.author.login | contains("copilot-pull-request-reviewer")) | .body' \
   | head -200
 
 # Комментарии на уровне файлов/строк — через MCP (или gh api)
@@ -210,9 +210,23 @@ echo "Tier: $TIER"
 
 ### Шаг 2.2: Публикация отчёта
 
+> **Commit binding обязателен.** `/finalize-pr` (фаза 1, шаг 3) ищет последний internal review-pass с `Commit: <hash>` ИЛИ `"commit": "<hash>"` в HTML META. Без этих маркеров скилл считает review-pass отсутствующим и блокирует финализацию. Формат идентичен external-review для единообразия.
+
+Перед публикацией зафиксируй HEAD commit:
+
 ```bash
-gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
-## Внутреннее ревью (Claude)
+HEAD_COMMIT=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')
+```
+
+Затем публикуй отчёт (внутри `--body` — heredoc, hook видит содержимое):
+
+```bash
+gh pr comment <PR_NUMBER> --body "$(cat <<EOF
+## Внутреннее ревью (Claude) — review-pass
+
+Commit: \`$HEAD_COMMIT\`
+
+<!-- {"reviewer": "claude-opus-4-6", "commit": "$HEAD_COMMIT", "kind": "internal"} -->
 
 ### Архитектура
 **Вердикт:** [APPROVED / CHANGES_REQUESTED]
@@ -335,7 +349,7 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 | Статус | Действие PM | Валидация |
 |--------|-------------|-----------|
 | **fix now** | Developer исправляет, повторный review-pass на новом commit | Повторный APPROVED для затронутого аспекта |
-| **defer to Beads** | PM создаёт issue через `bd create`, фиксирует ID в PR | Обязателен Beads ID: предпочти проверку через `bd show <id>`; если `bd` недоступен — fallback regex `[a-z][a-z-]+-[a-z0-9-]+` (ловит и `bd-…`, и `big-heroes-…`) |
+| **defer to Beads** | PM создаёт issue через `bd create`, фиксирует ID в PR | Обязателен Beads ID. Канонические правила валидации (приоритет `bd show <id>`, fallback regex, формат) — см. **`.claude/skills/finalize-pr/SKILL.md` фаза 2**. Не дублируй regex здесь, чтобы избежать drift |
 | **reject with rationale** | PM публикует обоснование в PR | Обоснование не пустое |
 
 Замечания без статуса = незавершённый цикл. `/finalize-pr` фаза 2 заблокирует финализацию.

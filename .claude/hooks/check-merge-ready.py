@@ -12,8 +12,8 @@ Hook: блокировка фраз merge-readiness в `gh pr comment` вне /f
   с Unicode, в отличие от grep -i в локали C).
 - Нормализация `_` и `-` в пробел, чтобы ловить `ready_to_merge`,
   `ready-to-merge`, `MERGE_READY`.
-- Нормализация переносов строк в пробел для multiline payload'ов.
-- Жадный \\s* между словами — ловит любые количества/типы пробелов и табов.
+- Переносы строк отдельно не нормализуются: жадный `\\s*` между словами
+  паттерна сам матчит пробелы, табы и переносы строк как whitespace.
 
 Возвращает:
 - exit 0  — команда разрешена (нет совпадения ИЛИ установлен FINALIZE_PR_TOKEN)
@@ -170,14 +170,16 @@ def main() -> int:
         return 1
 
     # Блокируем command substitution, скрывающие реальное содержимое body
-    # от hook'а: `$(cat /file)`, `$(<file)`, backticks, here-strings.
+    # от hook'а: `$(cat /file)`, `$(<file)`, backticks с чтением файла.
     # Legitimate heredoc `$(cat <<'EOF' ... EOF)` остаётся разрешённым
-    # (содержимое инлайн, regex его видит).
+    # (содержимое инлайн, regex его видит). Here-string `<<<` НЕ блокируется
+    # отдельно: `gh pr comment` не читает stdin без `--body-file -`,
+    # который уже блокируется выше.
     if uses_dangerous_substitution(command):
         sys.stderr.write(
             "БЛОКИРОВКА: для `gh pr comment` запрещены конструкции, "
             "скрывающие содержимое body от hook'а: "
-            "`$(cat file)`, `$(<file)`, backticks `cmd`, here-string `<<<`.\n"
+            "`$(cat file)`, `$(<file)`, backticks `cat file`.\n"
             "Используй inline --body '...', heredoc `$(cat <<'EOF' ... EOF)` "
             "или /finalize-pr <PR_NUMBER>.\n"
         )
