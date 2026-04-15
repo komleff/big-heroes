@@ -219,20 +219,65 @@ fi
 
 ### Шаг 6: статус каждого замечания
 
+> ⚠️ **Гибридный gate (часть автоматически, часть PM-вручную).** В отличие от фаз 1.1–1.5 (полностью bash+jq), здесь автоматика проверяет только **наличие и формат Beads ID** для строк-таблиц с `defer to Beads` и **наличие текста-обоснования** для `reject with rationale`. Связь fix-now-замечания с конкретным закрывающим APPROVED-аспектом, как и распознавание «обоснование не пустое», PM выполняет вручную — это явный manual-check, не автоматический hard gate. Не считай фазу 2 безусловным предохранителем.
+
 Каждое замечание из internal/external review должно иметь явный статус, проставленный PM:
 
 | Статус | Валидация |
 |--------|-----------|
-| **fix now** | Должен быть закрыт (повторный review-pass на $HEAD_COMMIT с APPROVED для затронутого аспекта) |
-| **defer to Beads** | **Обязателен Beads ID**. Формат валидируется через `bd show <id>` (приоритет); при недоступности `bd` CLI — fallback regex `[a-z][a-z-]+-[a-z0-9]+` (покрывает `big-heroes-*` и `bd-*`). Без ID или если `bd show` не находит задачу — замечание считается неразрешённым |
-| **reject with rationale** | **Обязательно обоснование** в PR comment |
+| **fix now** | Должен быть закрыт (повторный review-pass на $HEAD_COMMIT с APPROVED для затронутого аспекта) — **проверяет PM вручную** |
+| **defer to Beads** | **Обязателен Beads ID** (автопроверка: `bd show <id>` приоритет, fallback regex `[a-z][a-z-]+-[a-z0-9]+`) |
+| **reject with rationale** | **Обязательно обоснование** в PR comment — **проверяет PM вручную** (автоматика только убеждается, что в той же строке таблицы есть непустой текст после статуса) |
 
-Скилл выгружает все review-pass комментарии PR, парсит таблицу замечаний и проверяет:
-- У каждого fix-now-замечания есть закрывающий APPROVED.
-- У каждого defer есть **корректный Beads ID** согласно **фактическому формату проекта**. Валидация:
-  - **Мягкая hard-проверка через `bd show <id>`** — если команда находит issue, формат валиден. Это единственный надёжный способ, не завязанный на префикс.
-  - **Fallback regex** (если `bd` CLI недоступен): `[a-z][a-z-]+-[a-z0-9]+` — покрывает фактические форматы в проекте: `big-heroes-z3l`, `big-heroes-tgr`, `bd-pipeline-001`. Не хардкодит префикс `bd-`.
-- У каждого reject есть текстовое обоснование (не пустое).
+**Минимальная автоматика для defer/reject (выполняется скиллом):**
+
+```bash
+# Извлекаем все строки markdown-таблиц с triage-статусами из review-pass на $HEAD_COMMIT.
+# Шаблон reviewer.md фиксирует формат:
+#   | # | Severity | Заголовок | Файл:строка | Статус | Beads ID / Обоснование |
+TRIAGE_ROWS=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
+  | jq -r --arg head "$HEAD_COMMIT" '
+      .comments[]
+      | select(.body | test("review-pass|Внутреннее ревью|Внешнее ревью"; "i"))
+      | select(.body | test("\"commit\":\\s*\"" + $head + "\"|Commit:\\s*`?" + $head; "s"))
+      | .body
+    ' \
+  | grep -E '^\|.*\|(fix now|defer to Beads|reject with rationale)\|' || true)
+
+# Каждая строка triage: проверь пятую колонку (Статус) и шестую (Beads ID / Обоснование).
+echo "$TRIAGE_ROWS" | while IFS='|' read -r _ num severity title loc status payload _; do
+  status=$(echo "$status" | xargs)   # trim
+  payload=$(echo "$payload" | xargs)
+
+  case "$status" in
+    "defer to Beads")
+      # 1) Приоритет: проверка существования через bd show
+      if command -v bd >/dev/null 2>&1; then
+        if ! bd show "$payload" >/dev/null 2>&1; then
+          echo "СТОП: defer-замечание #$num ссылается на Beads ID '$payload', но bd show не находит задачу."
+          exit 1
+        fi
+      # 2) Fallback: regex без хардкода префикса
+      elif ! echo "$payload" | grep -qE '^[a-z][a-z-]+-[a-z0-9]+$'; then
+        echo "СТОП: defer-замечание #$num имеет невалидный Beads ID '$payload' (regex fallback)."
+        exit 1
+      fi
+      ;;
+    "reject with rationale")
+      # Пустое обоснование = неразрешённое замечание
+      if [ -z "$payload" ] || [ "$payload" = "—" ] || [ "$payload" = "-" ]; then
+        echo "СТОП: reject-замечание #$num не имеет обоснования в шестой колонке."
+        exit 1
+      fi
+      ;;
+  esac
+done
+```
+
+**PM-вручную (после автопроверок выше):**
+
+- Для каждого `fix now` пройдись по review-pass на `$HEAD_COMMIT` и убедись, что аспект, к которому относится замечание, имеет `APPROVED` (это ловит регрессии: фикс «починил архитектуру», но reviewer вернул `CHANGES_REQUESTED` по гигиене).
+- Для каждого `reject with rationale` прочитай payload и убедись, что обоснование осмысленное, а не «no» / «later». Автопроверка ловит только пустоту/прочерк.
 
 > **Почему не хардкодим `bd-*`:** в репозитории фактические Beads ID имеют префикс `big-heroes-*` (см. `.memory_bank/status.md`). Regex `bd-[a-z0-9]+` прошлой версии не покрывал их — все defer были бы ложно отвергнуты как «без ID». Правильный порядок проверки:
 > 1. Попробовать `bd show <id>` (если доступен) → если issue существует → OK.

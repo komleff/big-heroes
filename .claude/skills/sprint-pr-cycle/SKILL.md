@@ -66,8 +66,13 @@ gh pr list --head "$BRANCH" --json number,title --jq '.[0]'
 
 ```bash
 TIER_LINE="Tier: Standard"  # или Sprint Final / Critical / Light — см. таблицу выше
-gh pr create --title "Sprint N: [краткое описание]" --body "$(cat <<EOF
-$TIER_LINE
+
+# Quoted heredoc `<<'EOF'` блокирует shell-расширения внутри тела:
+# Summary/Issues могут содержать $VAR, $(...), backticks от пользовательских
+# значений — без кавычек bash раскроет их и исказит/выполнит подстановку.
+# $TIER_LINE подставляется через bash parameter expansion после.
+BODY=$(cat <<'EOF'
+__TIER_LINE__
 
 ## Summary
 - [список ключевых изменений]
@@ -80,7 +85,9 @@ $TIER_LINE
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
-)"
+)
+BODY="${BODY//__TIER_LINE__/$TIER_LINE}"
+gh pr create --title "Sprint N: [краткое описание]" --body "$BODY"
 ```
 
 > Sprint Final дополнительно полезно помечать GitHub-меткой `sprint-final` (если права позволяют) — `/finalize-pr` видит ОБА маркера: label ИЛИ `Tier: Sprint Final` в body. Достаточно одного, body-маркер канонический и работает без прав на labels.
