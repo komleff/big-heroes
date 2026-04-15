@@ -61,6 +61,8 @@ TESTS = [
     # === Fail-secure ===
     (None, 1, "нет tool_input.command"),
     # === Защита от bypass ===
+    ("gh\tpr\tcomment 1 --body '## ✅ Готов к merge'", 1, "tab whitespace bypass"),
+    ("gh \t pr  comment 1 --body-file x.md", 1, "mixed whitespace + body-file"),
     ("gh pr comment 1 --body-file x.md", 1, "--body-file"),
     ("gh pr comment 1 -F x.md", 1, "-F"),
     ("gh pr comment 1 --body \"$(cat /tmp/x)\"", 1, "$(cat /path)"),

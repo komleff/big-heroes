@@ -76,6 +76,13 @@ def extract_command(raw_stdin: str) -> str:
     return command
 
 
+# Детект `gh pr comment` через regex по токенам с любыми whitespace
+# между ними (пробелы, табы, переносы строк). Подстрочный поиск
+# `"gh pr comment" in command` обходился через `gh\tpr\tcomment ...`,
+# и hook пропускал команду без проверки --body-file / dangerous subst.
+_GH_PR_COMMENT = re.compile(r"\bgh\s+pr\s+comment\b")
+
+
 # Флаги gh pr comment, передающие body через файл или stdin — hook не может
 # надёжно провалидировать содержимое файла. Блокируем их полностью вне
 # /finalize-pr (защита инварианта hard gate от bypass'а).
@@ -112,7 +119,7 @@ _DANGEROUS_SUBST = re.compile(
 def uses_body_file(command: str) -> bool:
     """True — если команда gh pr comment передаёт body через файл/stdin."""
     # Проверяем только для gh pr comment — остальные команды не по нашей теме.
-    if "gh pr comment" not in command:
+    if not _GH_PR_COMMENT.search(command):
         return False
     return bool(_BODY_FILE_FLAGS.search(command))
 
@@ -126,7 +133,7 @@ def uses_dangerous_substitution(command: str) -> bool:
     `$(cat <<'EOF' ... EOF)` остаётся разрешённым: содержимое инлайн в
     команде и попадает в regex `_MERGE_READY_PATTERN`.
     """
-    if "gh pr comment" not in command:
+    if not _GH_PR_COMMENT.search(command):
         return False
     return bool(_DANGEROUS_SUBST.search(command))
 

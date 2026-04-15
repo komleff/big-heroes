@@ -168,45 +168,46 @@ fi
 
 ### Шаг 5: Повторный review после CHANGES_REQUESTED
 
-Если внешний review (или внутренний) когда-либо возвращал `CHANGES_REQUESTED`, после фиксов **обязателен** повторный review-pass на $HEAD_COMMIT с APPROVED.
+Если внешний review (или внутренний) когда-либо возвращал `CHANGES_REQUESTED`, после фиксов **обязателен** повторный review-pass на $HEAD_COMMIT с APPROVED — **отдельно для каждого канала** (internal и external).
 
-Берём последний по времени review-pass-комментарий, привязанный к `$HEAD_COMMIT` (через `Commit: <hash>` или META JSON), и проверяем его вердикт. Без сортировки по `createdAt` и без HEAD-binding `tail -1` может вернуть устаревший комментарий другого commit'а:
+> ⛔ **Нельзя проверять один общий «последний» review-pass среди internal+external.** Более поздний internal `APPROVED` может скрыть актуальный external `CHANGES_REQUESTED` на том же commit, и hard gate даст ложный пропуск. Каждый канал валидируется независимо: `LAST_INTERNAL` (из шага 3) и `LAST_EXTERNAL` (из шага 4).
 
 ```bash
-LAST_REVIEW_BODY=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
-  | jq -r --arg head "$HEAD_COMMIT" '
-      [ .comments[]
-        | select(.body | test("review-pass|Внутреннее ревью|Внешнее ревью"; "i"))
-        | select(.body | test("\"commit\":\\s*\"" + $head + "\"|Commit:\\s*`?" + $head; "s"))
-      ]
-      | sort_by(.createdAt)
-      | last
-      | .body // empty
-    ')
+# Хелпер: hard gate по одному review-pass-каналу на $HEAD_COMMIT.
+# Проверяет два условия (см. round 8 finding):
+#   1) в теле НЕТ ни одного CHANGES_REQUESTED (иначе один из аспектов
+#      или ревьюеров сигналит CHANGES_REQUESTED, скрытый поздним APPROVED);
+#   2) в теле есть хотя бы один APPROVED.
+validate_review_pass_body() {
+  local review_kind="$1"   # "internal" | "external"
+  local review_body="$2"
 
-if [ -z "$LAST_REVIEW_BODY" ]; then
-  echo "СТОП: на commit $HEAD_COMMIT нет ни одного review-pass с маркером Commit/META."
-  echo "Запусти /sprint-pr-cycle (и /external-review для Sprint Final) на текущем commit."
-  exit 1
-fi
+  if [ -z "$review_body" ]; then
+    echo "СТОП: не найден ${review_kind} review-pass на $HEAD_COMMIT."
+    echo "Hard gate требует отдельный review-pass на текущем commit для каждого обязательного канала."
+    exit 1
+  fi
 
-# Нельзя брать «последний» вердикт по порядку строк:
-# в одном review-pass может быть несколько аспектов (Архитектура, Безопасность,
-# Качество, Гигиена) и/или несколько ревьюеров. `tail -1` дал бы `APPROVED`
-# даже когда один из аспектов помечен `CHANGES_REQUESTED`.
-# Для hard gate достаточно двух условий:
-# 1) в теле последнего review-pass на HEAD нет НИ ОДНОГО CHANGES_REQUESTED;
-# 2) в теле есть хотя бы один APPROVED.
-if echo "$LAST_REVIEW_BODY" | grep -qE '\bCHANGES_REQUESTED\b'; then
-  echo "СТОП: в последнем review-pass на $HEAD_COMMIT есть CHANGES_REQUESTED по одному из аспектов/ревьюеров."
-  echo "После CHANGES_REQUESTED обязателен повторный review-pass с APPROVED по всем аспектам на текущем commit."
-  exit 1
-fi
+  if echo "$review_body" | grep -qE '\bCHANGES_REQUESTED\b'; then
+    echo "СТОП: в последнем ${review_kind} review-pass на $HEAD_COMMIT есть CHANGES_REQUESTED по одному из аспектов/ревьюеров."
+    echo "После CHANGES_REQUESTED обязателен повторный ${review_kind} review-pass с APPROVED по всем аспектам на текущем commit."
+    exit 1
+  fi
 
-if ! echo "$LAST_REVIEW_BODY" | grep -qE '\bAPPROVED\b'; then
-  echo "СТОП: в последнем review-pass не найден APPROVED."
-  echo "Проверь, что отчёт публикуется по шаблону sprint-pr-cycle и содержит явный 'Вердикт: APPROVED' хотя бы по одному аспекту."
-  exit 1
+  if ! echo "$review_body" | grep -qE '\bAPPROVED\b'; then
+    echo "СТОП: в последнем ${review_kind} review-pass не найден APPROVED."
+    echo "Проверь, что отчёт публикуется по шаблону sprint-pr-cycle и содержит явный 'Вердикт: APPROVED'."
+    exit 1
+  fi
+}
+
+# Internal review-pass обязателен всегда (LAST_INTERNAL получен в шаге 3).
+validate_review_pass_body "internal" "$LAST_INTERNAL"
+
+# External review-pass обязателен ТОЛЬКО для Sprint Final
+# (LAST_EXTERNAL получен в шаге 4 и пустой при TIER != sprint-final).
+if [ "$TIER" = "sprint-final" ]; then
+  validate_review_pass_body "external" "$LAST_EXTERNAL"
 fi
 ```
 
