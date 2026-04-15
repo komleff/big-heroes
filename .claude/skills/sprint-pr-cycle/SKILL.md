@@ -96,9 +96,13 @@ timeout 10 gh api repos/OWNER/REPO/pulls/<PR_NUMBER>/comments \
 - Если валиден → добавь в triage как `fix now` / `defer to Beads` / `reject with rationale`.
 - Помечай в консолидированном отчёте как `**[Copilot]**` (атрибуция источника).
 
-### Шаг 2.0b: Запрос повторного Copilot re-review после фиксов
+### Шаг 2.0b: Запрос повторного Copilot re-review после фиксов (ОБЯЗАТЕЛЬНО)
 
-После push фиксов можно запросить Copilot повторно:
+> ⛔ **Инвариант auto-loop.** После КАЖДОГО push с фиксами Copilot findings PM **немедленно** запрашивает re-review — без напоминания оператора, в том же сообщении, что и сам push. Без явного запроса Copilot не реагирует на push автоматически: review-loop тихо останавливается, и оператор видит «жду ответа», когда на самом деле ничего не запрошено.
+>
+> Реальный случай (PR #9): за сессию дважды пришлось вручную напоминать «ты запросил re-review?» — каждый пропуск саботирует автоматизацию пайплайна. Это hard rule, не soft guideline.
+
+Сразу после `git push` (без промежуточных шагов):
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
@@ -109,6 +113,8 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 ```
 
 Через MCP (если `gh` недоступен): `mcp__github__request_copilot_review`.
+
+> ⛔ Сообщение оператору вида «жду Copilot re-review» **запрещено**, если запрос фактически не отправлен. Если запрос не отправляется (нет прав, ошибка API) — это эскалация, а не «жду».
 
 ### Шаг 2.0: Определение review tier (ОБЯЗАТЕЛЬНО)
 
