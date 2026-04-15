@@ -128,6 +128,11 @@ gh pr diff <PR_NUMBER> --name-only > /tmp/pr-files.txt
 # Critical, если есть изменения в shared/ или config/balance.json
 if grep -qE '^(shared/|config/balance\.json)' /tmp/pr-files.txt; then
   TIER="critical"
+# Critical, если затронуты нормативные артефакты пайплайна — .claude/settings.json,
+# hooks, skills, agents. Эта проверка идёт ДО light-ветки, потому что такие файлы
+# имеют расширение .json/.md и иначе были бы ложно классифицированы как light.
+elif grep -qE '^\.claude/(settings\.json|hooks/|skills/|agents/)' /tmp/pr-files.txt; then
+  TIER="critical"
 # Light, если только .md/.json без логики
 elif ! grep -qvE '\.(md|json)$' /tmp/pr-files.txt; then
   TIER="light"

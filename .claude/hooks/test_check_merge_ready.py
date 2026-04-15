@@ -7,7 +7,9 @@
 - Точный маркер `## ✅ Готов к merge` → блокируется
 - Обсуждения/цитаты с «готов к merge» → пропускаются
 - Обход через --body-file / -F → блокируется
-- Обход через $(cat file) / $(<file) / backtick subst / here-string → блокируется
+- Обход через $(cat file) / $(<file) / backtick subst → блокируется
+- `<<<` (here-string) НЕ блокируется: gh pr comment не читает stdin без --body-file -,
+  а false-positive на текст body с `<<<` был бы критичнее
 - Legitimate markdown с backticks → пропускается
 - Heredoc `$(cat <<'EOF'...EOF)` — содержимое видно, блокируется/пропускается по контенту
 - FINALIZE_PR_TOKEN → bypass
@@ -63,10 +65,10 @@ TESTS = [
     ("gh pr comment 1 --body \"$(cat /tmp/x)\"", 1, "$(cat /path)"),
     ("gh pr comment 1 --body \"$(<file.md)\"", 1, "$(<file)"),
     ("gh pr comment 1 --body \"`cat /tmp/x`\"", 1, "backtick cat"),
-    ("gh pr comment 1 --body <<<\"hidden\"", 1, "here-string"),
     # === Legitimate markdown ===
     ("gh pr comment 1 --body 'использует `bd show` для проверки'", 0, "inline backticks"),
     ("gh pr comment 1 --body 'regex `bd-[a-z]+` захардкожен'", 0, "markdown regex"),
+    ("gh pr comment 1 --body 'пример here-string: cmd <<<\"input\" в bash'", 0, "<<< внутри body — текст"),
     # === Heredoc: содержимое видно hook'у ===
     ("gh pr comment 1 --body \"$(cat <<'EOF'\n## ✅ Готов к merge\nEOF\n)\"", 1, "heredoc final"),
     ("gh pr comment 1 --body \"$(cat <<'EOF'\nLooks good\nEOF\n)\"", 0, "heredoc clean"),

@@ -90,6 +90,11 @@ _BODY_FILE_FLAGS = re.compile(
 # block, потому что читают внешний файл, который hook не видит.
 # Обычные markdown-backticks не блокируем: они легитимны в отчётах
 # (inline-код в PR-комментариях встречается повсеместно).
+#
+# Why не блокируем `<<<` (here-string): `gh pr comment` не читает stdin без
+# `--body-file -` (который уже блокируется выше _BODY_FILE_FLAGS). Значит
+# `<<<` не создаёт реального bypass, а любая подстрока `<<<` в самом body
+# (например, в обсуждении bash-синтаксиса) давала бы ложные блокировки.
 _DANGEROUS_SUBST = re.compile(
     r"""(
         \$\(\s*cat\s+[^<\s]                      # $(cat /path/…) или $(cat  file)
@@ -99,8 +104,6 @@ _DANGEROUS_SUBST = re.compile(
         (?<!\\)`\s*cat\s+[^<\s`][^`]*(?<!\\)`    # `cat /path` — backtick subst с чтением файла
         |
         (?<!\\)`\s*<\s*[^`\s][^`]*(?<!\\)`       # `<file` — backtick subst с редиректом
-        |
-        <<<                                      # here-string — читает переменную/файл
     )""",
     re.VERBOSE,
 )
