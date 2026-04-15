@@ -19,7 +19,7 @@ fi
 # Ключа нет — предупреждение, но не ошибка (для работ без внешнего ревью).
 if [ -z "${OPENAI_API_KEY:-}" ]; then
   echo "[codex-login] OPENAI_API_KEY не установлен — /external-review работать не будет." >&2
-  echo "[codex-login] Добавь ключ в Claude Code Secrets (см. docs/setup/codex-auth.md)." >&2
+  echo "[codex-login] Добавь ключ в Claude Code Secrets (см. .agents/CODEX_AUTH.md)." >&2
   exit 0
 fi
 
