@@ -69,17 +69,21 @@ _BODY_FILE_FLAGS = re.compile(
 
 # Паттерны bash-subst, скрывающие реальное содержимое --body от hook'а.
 # Legitimate heredoc `$(cat <<'EOF' ... EOF)` НЕ блокируется: содержимое
-# инлайн в команде, hook его видит. А `$(cat /tmp/x)` — block, файл вне
-# команды.
+# инлайн в команде, hook его видит. А `$(cat /tmp/x)` и ``cat /tmp/x`` —
+# block, потому что читают внешний файл, который hook не видит.
+# Обычные markdown-backticks не блокируем: они легитимны в отчётах
+# (inline-код в PR-комментариях встречается повсеместно).
 _DANGEROUS_SUBST = re.compile(
     r"""(
-        \$\(\s*cat\s+[^<\s]    # $(cat /path/…) или $(cat  file) — не heredoc
+        \$\(\s*cat\s+[^<\s]                      # $(cat /path/…) или $(cat  file)
         |
-        \$\(\s*<               # $(<file) — file redirection
+        \$\(\s*<                                 # $(<file) — file redirection
         |
-        (?<!\\)`               # backtick substitution (не экранированный)
+        (?<!\\)`\s*cat\s+[^<\s`][^`]*(?<!\\)`    # `cat /path` — backtick subst с чтением файла
         |
-        <<<                    # here-string — читает переменную/файл
+        (?<!\\)`\s*<\s*[^`\s][^`]*(?<!\\)`       # `<file` — backtick subst с редиректом
+        |
+        <<<                                      # here-string — читает переменную/файл
     )""",
     re.VERBOSE,
 )

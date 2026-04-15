@@ -275,18 +275,18 @@ gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
 <details>
 <summary>Ревьюер A: MODEL_A_NAME — raw</summary>
 
-\`\`\`
+<pre><code>
 <вставить raw-вывод ревьюера A целиком, без редактуры>
-\`\`\`
+</code></pre>
 
 </details>
 
 <details>
 <summary>Ревьюер B: MODEL_B_NAME — raw</summary>
 
-\`\`\`
+<pre><code>
 <вставить raw-вывод ревьюера B целиком, без редактуры>
-\`\`\`
+</code></pre>
 
 </details>
 

@@ -330,7 +330,7 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 | Статус | Действие PM | Валидация |
 |--------|-------------|-----------|
 | **fix now** | Developer исправляет, повторный review-pass на новом commit | Повторный APPROVED для затронутого аспекта |
-| **defer to Beads** | PM создаёт issue через `bd create`, фиксирует ID в PR | Обязателен Beads ID (`bd-[a-z0-9-]+`) |
+| **defer to Beads** | PM создаёт issue через `bd create`, фиксирует ID в PR | Обязателен Beads ID: предпочти проверку через `bd show <id>`; если `bd` недоступен — fallback regex `[a-z][a-z-]+-[a-z0-9-]+` (ловит и `bd-…`, и `big-heroes-…`) |
 | **reject with rationale** | PM публикует обоснование в PR | Обоснование не пустое |
 
 Замечания без статуса = незавершённый цикл. `/finalize-pr` фаза 2 заблокирует финализацию.

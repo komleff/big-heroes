@@ -60,7 +60,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'BRANCH=$(git branch --show-current); PR=$(gh pr list --head \"$BRANCH\" --json number --jq \".[0].number\" 2>/dev/null); if [ -z \"$PR\" ] || [ \"$PR\" = \"null\" ]; then echo \"БЛОКИРОВКА: PR не найден для ветки $BRANCH. Сначала создай PR через gh pr create.\" >&2; exit 1; fi'"
+            "command": "bash -c 'BRANCH=$(git branch --show-current); PR=$(timeout 10 gh pr list --head \"$BRANCH\" --json number --jq \".[0].number\" 2>/dev/null); if [ -z \"$PR\" ] || [ \"$PR\" = \"null\" ]; then echo \"БЛОКИРОВКА: PR не найден для ветки $BRANCH. Сначала создай PR через gh pr create.\" >&2; exit 1; fi'",
+            "timeout": 15
           },
           {
             "type": "command",
