@@ -86,12 +86,33 @@ echo "$LAST_INTERNAL" | head -30
 
 ### Шаг 4: External review для Sprint Final
 
-Определи tier текущего PR. Sprint Final — это PR, который завершает спринт и готовится к merge в master. Признаки:
+Tier определяется автоматически из PR-метаданных, чтобы hard gate не зависел от ручной интерпретации. Sprint Final — это PR, который завершает спринт и готовится к merge в master. Признаки (любой ⇒ `sprint-final`):
 - Метка `sprint-final` на PR;
-- В описании PR явно указано `Tier: Sprint Final`;
-- PM в ходе оркестрации зафиксировал tier=`sprint-final` в Memory Bank.
+- В описании PR (`body`) встречается строка `Tier: Sprint Final` (case-insensitive).
 
-Если tier == `sprint-final`:
+```bash
+PR_META=$(timeout 10 gh pr view <PR_NUMBER> --json labels,body 2>/dev/null)
+
+# null-guard: PR может быть закрыт/удалён между шагами
+if [ -z "$PR_META" ]; then
+  echo "СТОП: не удалось получить метаданные PR #<PR_NUMBER> (labels/body)."
+  exit 1
+fi
+
+HAS_LABEL=$(echo "$PR_META" | jq -r '.labels[]?.name | select(. == "sprint-final")' | head -1)
+HAS_BODY_MARKER=$(echo "$PR_META" | jq -r '.body // ""' | grep -iE '^Tier:\s*Sprint Final\b' | head -1)
+
+if [ -n "$HAS_LABEL" ] || [ -n "$HAS_BODY_MARKER" ]; then
+  TIER="sprint-final"
+else
+  TIER="standard"  # фактический tier (light/standard/critical) проверяется в /sprint-pr-cycle, здесь важно лишь != sprint-final
+fi
+echo "Tier для финализации: $TIER"
+```
+
+> Memory Bank как источник tier здесь **не используется**: hard gate должен опираться только на воспроизводимые PR-метаданные, иначе локальные расхождения дадут ложный пропуск external review.
+
+Если `TIER == sprint-final`:
 ```bash
 LAST_EXTERNAL=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
   | jq -r --arg head "$HEAD_COMMIT" '
@@ -143,18 +164,47 @@ fi
 
 > **Почему два маркера.** Шаблон `external-review/SKILL.md` использует человекочитаемый заголовок «**Режим: [A/B/C/D]**» — это стабильный якорь (проверено Copilot в раунде 2: предыдущий паттерн `mode: C|D` не матчился ни с одним реальным отчётом). Регексп с альтернативой `(Режим|Mode)` закрывает оба варианта — включая случай, когда PM дополнительно включает `Mode: C` в META JSON.
 
-Если tier == `light`/`standard`/`critical` — external review **опционален**. Если он есть на $HEAD_COMMIT — отметить, если нет — `N/A`.
+Если `TIER != sprint-final` — external review **опционален**. Если он есть на $HEAD_COMMIT — отметить, если нет — `N/A`.
 
 ### Шаг 5: Повторный review после CHANGES_REQUESTED
 
-Если внешний review (или внутренний) когда-либо возвращал `CHANGES_REQUESTED`, после фиксов **обязателен** повторный review-pass на $HEAD_COMMIT.
+Если внешний review (или внутренний) когда-либо возвращал `CHANGES_REQUESTED`, после фиксов **обязателен** повторный review-pass на $HEAD_COMMIT с APPROVED.
+
+Берём последний по времени review-pass-комментарий, привязанный к `$HEAD_COMMIT` (через `Commit: <hash>` или META JSON), и проверяем его вердикт. Без сортировки по `createdAt` и без HEAD-binding `tail -1` может вернуть устаревший комментарий другого commit'а:
 
 ```bash
-LAST_VERDICT=$(timeout 10 gh pr view <PR_NUMBER> --json comments --jq '.comments[].body' \
-  | grep -E 'Вердикт.*(APPROVED|CHANGES_REQUESTED)' | tail -1)
-```
+LAST_REVIEW_BODY=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
+  | jq -r --arg head "$HEAD_COMMIT" '
+      [ .comments[]
+        | select(.body | test("review-pass|Внутреннее ревью|Внешнее ревью"; "i"))
+        | select(.body | test("\"commit\":\\s*\"" + $head + "\"|Commit:\\s*`?" + $head; "s"))
+      ]
+      | sort_by(.createdAt)
+      | last
+      | .body // empty
+    ')
 
-Если последний вердикт = `CHANGES_REQUESTED` — **СТОП**: «После CHANGES_REQUESTED нужен повторный review-pass на текущем commit».
+if [ -z "$LAST_REVIEW_BODY" ]; then
+  echo "СТОП: на commit $HEAD_COMMIT нет ни одного review-pass с маркером Commit/META."
+  echo "Запусти /sprint-pr-cycle (и /external-review для Sprint Final) на текущем commit."
+  exit 1
+fi
+
+# Извлекаем последний вердикт из тела последнего review-pass на HEAD.
+LAST_VERDICT=$(echo "$LAST_REVIEW_BODY" | grep -oE '\b(APPROVED|CHANGES_REQUESTED)\b' | tail -1)
+
+if [ "$LAST_VERDICT" = "CHANGES_REQUESTED" ]; then
+  echo "СТОП: последний review-pass на $HEAD_COMMIT — CHANGES_REQUESTED."
+  echo "После CHANGES_REQUESTED обязателен повторный review-pass с APPROVED на текущем commit."
+  exit 1
+fi
+
+if [ "$LAST_VERDICT" != "APPROVED" ]; then
+  echo "СТОП: не удалось извлечь вердикт APPROVED/CHANGES_REQUESTED из последнего review-pass."
+  echo "Проверь, что отчёт публикуется по шаблону sprint-pr-cycle (явная строка 'Вердикт: APPROVED')."
+  exit 1
+fi
+```
 
 ## Фаза 2: triage-проверки
 
