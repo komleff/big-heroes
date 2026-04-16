@@ -226,6 +226,11 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 
 ```bash
 HEAD_COMMIT=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')
+if [[ -z "$HEAD_COMMIT" || "$HEAD_COMMIT" == "null" || ! "$HEAD_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  # Не публикуем review с битым commit binding — /finalize-pr не сможет сопоставить.
+  echo "ERROR: не удалось получить валидный HEAD commit для PR <PR_NUMBER>" >&2
+  exit 1
+fi
 ```
 
 Публикация отчёта (quoted heredoc + bash parameter expansion, чтобы body-содержимое не проходило shell-расширения):

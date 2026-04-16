@@ -107,6 +107,15 @@ TESTS = [
     ("gh pr comment 1 --body \"${BODY}\"", 1, "--body \"${BODY}\""),
     ("gh pr comment 1 --body \"${BODY:-default}\"", 1, "--body default-expansion"),
     ("gh pr comment 1 --body=$BODY", 1, "--body=$BODY (=syntax)"),
+    # === Copilot round 24: concatenation bypass — $VAR в любой позиции ===
+    # Прежний regex ловил только `--body "$VAR"` (переменная в начале).
+    # `--body "Prefix: $BODY"` проходил — фраза в переменной невидима hook'у.
+    ("gh pr comment 1 --body \"Prefix: $BODY\"", 1, "concat: prefix + $BODY"),
+    ("gh pr comment 1 --body \"Result: ${BODY}\"", 1, "concat: prefix + ${BODY}"),
+    ("gh pr comment 1 --body \"## Title\n$BODY\"", 1, "concat: title + newline + $BODY"),
+    ("gh pr comment 1 --body=prefix$BODY", 1, "concat: unquoted prefix$BODY"),
+    # Single-quoted: $BODY — литерал, не раскрывается shell'ом, не блокируем.
+    ("gh pr comment 1 --body 'Prefix: $BODY'", 0, "single-quoted $BODY — literal, pass"),
     # === Legitimate markdown ===
     ("gh pr comment 1 --body 'использует `bd show` для проверки'", 0, "inline backticks"),
     ("gh pr comment 1 --body 'regex `bd-[a-z]+` захардкожен'", 0, "markdown regex"),
