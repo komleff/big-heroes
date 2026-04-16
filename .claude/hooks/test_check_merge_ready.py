@@ -88,6 +88,30 @@ TESTS = [
     # === Heredoc: содержимое видно hook'у ===
     ("gh pr comment 1 --body \"$(cat <<'EOF'\n## ✅ Готов к merge\nEOF\n)\"", 1, "heredoc final"),
     ("gh pr comment 1 --body \"$(cat <<'EOF'\nLooks good\nEOF\n)\"", 0, "heredoc clean"),
+    # === Heredoc-awareness: review-pass публикация через $BODY=heredoc ===
+    # Codex GPT-5.4 P1 (round 13): _OPAQUE_VAR_BODY блокировал шаблон PM-публикации
+    # review-pass в sprint-pr-cycle:325 и external-review:319, делая pipeline
+    # нефункциональным. Heredoc-присваивание делает содержимое видимым hook'у —
+    # is_forbidden проверит фразу по raw команде.
+    (
+        "BODY=$(cat <<'EOF'\n## Внутреннее ревью (Claude) — review-pass\nCommit: abc123\nОтчёт по 4 аспектам.\nEOF\n)\n"
+        "gh pr comment 1 --body \"$BODY\"",
+        0,
+        "review-pass publish (heredoc + $BODY)",
+    ),
+    (
+        "BODY=$(cat <<'EOF'\n## Внешнее ревью (Sprint Final) — Режим: B\nCommit: abc123\nEOF\n)\n"
+        "gh pr comment 1 --body \"$BODY\"",
+        0,
+        "external review publish (heredoc + $BODY)",
+    ),
+    # Даже с heredoc и $BODY — merge-ready фраза в heredoc ловится is_forbidden.
+    (
+        "BODY=$(cat <<'EOF'\n## ✅ Готов к merge\nEOF\n)\n"
+        "gh pr comment 1 --body \"$BODY\"",
+        1,
+        "heredoc+$BODY с merge-ready — блокируется",
+    ),
 ]
 
 

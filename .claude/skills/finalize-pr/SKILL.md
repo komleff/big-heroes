@@ -101,8 +101,14 @@ fi
 
 HAS_LABEL=$(echo "$PR_META" | jq -r '.labels[]?.name | select(. == "sprint-final")' | head -1)
 # Любой `Tier:` в body — Sprint Final, Critical, Standard, Light.
+# Наличие маркера (для обязательной эскалации при его отсутствии):
 TIER_BODY_LINE=$(echo "$PR_META" | jq -r '.body // ""' | grep -iE '^Tier:\s*(Sprint Final|Critical|Standard|Light)\b' | head -1)
-HAS_SPRINT_FINAL_BODY=$(echo "$TIER_BODY_LINE" | grep -iE 'Sprint Final' | head -1)
+# Sprint Final ищем среди ВСЕХ Tier-строк, а не только первой.
+# Bug: `head -1` на общем grep прятал Sprint Final, если в body раньше
+# встречался `Tier: Standard` (двойной маркер, старая строка + новая, цитата
+# чужого PR). Silent downgrade → Sprint Final тихо классифицировался как
+# standard и external review пропускался. Class: regression от round 1 fix.
+HAS_SPRINT_FINAL_BODY=$(echo "$PR_META" | jq -r '.body // ""' | grep -iE '^Tier:\s*Sprint Final\b' | head -1)
 
 # Критический случай: нет НИ label, НИ строки Tier в body. Прежде чем
 # молча классифицировать как standard (и пропустить external review),
@@ -249,6 +255,8 @@ fi
 # Извлекаем все строки markdown-таблиц с triage-статусами из review-pass на $HEAD_COMMIT.
 # Шаблон reviewer.md фиксирует формат:
 #   | # | Severity | Заголовок | Файл:строка | Статус | Beads ID / Обоснование |
+# Regex допускает пробелы вокруг статуса (шаблон в reviewer.md публикует
+# `| fix now |` именно с пробелами — строгое сопоставление даёт silent skip).
 TRIAGE_ROWS=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
   | jq -r --arg head "$HEAD_COMMIT" '
       .comments[]
@@ -256,10 +264,19 @@ TRIAGE_ROWS=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
       | select(.body | test("\"commit\":\\s*\"" + $head + "\"|Commit:\\s*`?" + $head; "s"))
       | .body
     ' \
-  | grep -E '^\|.*\|(fix now|defer to Beads|reject with rationale)\|' || true)
+  | grep -E '^\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|\s*(fix now|defer to Beads|reject with rationale)\s*\|' || true)
 
 # Каждая строка triage: проверь пятую колонку (Статус) и шестую (Beads ID / Обоснование).
-echo "$TRIAGE_ROWS" | while IFS='|' read -r _ num severity title loc status payload _; do
+#
+# ⚠️ Используем here-string `<<<`, не pipe `echo "$TRIAGE_ROWS" |`, чтобы
+# `exit 1` завершал родительский процесс скилла, а не только subshell
+# pipeline'а. Pipe-форма создаёт subshell → `exit 1` внутри while
+# выходит ТОЛЬКО из subshell, skill продолжает выполнение и публикует
+# `## ✅ Готов к merge` несмотря на невалидный Beads ID / пустой rationale.
+# Это fake gate (GPT-5.4 round 13 CRITICAL).
+TRIAGE_FAILED=0
+while IFS='|' read -r _ num severity title loc status payload _; do
+  [ -z "$num" ] && continue   # пропускаем пустые строки (шапки/separators)
   status=$(echo "$status" | xargs)   # trim
   payload=$(echo "$payload" | xargs)
 
@@ -269,23 +286,27 @@ echo "$TRIAGE_ROWS" | while IFS='|' read -r _ num severity title loc status payl
       if command -v bd >/dev/null 2>&1; then
         if ! bd show "$payload" >/dev/null 2>&1; then
           echo "СТОП: defer-замечание #$num ссылается на Beads ID '$payload', но bd show не находит задачу."
-          exit 1
+          TRIAGE_FAILED=1
         fi
       # 2) Fallback: regex без хардкода префикса
       elif ! echo "$payload" | grep -qE '^[a-z][a-z-]+-[a-z0-9]+$'; then
         echo "СТОП: defer-замечание #$num имеет невалидный Beads ID '$payload' (regex fallback)."
-        exit 1
+        TRIAGE_FAILED=1
       fi
       ;;
     "reject with rationale")
       # Пустое обоснование = неразрешённое замечание
       if [ -z "$payload" ] || [ "$payload" = "—" ] || [ "$payload" = "-" ]; then
         echo "СТОП: reject-замечание #$num не имеет обоснования в шестой колонке."
-        exit 1
+        TRIAGE_FAILED=1
       fi
       ;;
   esac
-done
+done <<< "$TRIAGE_ROWS"
+
+if [ "$TRIAGE_FAILED" = "1" ]; then
+  exit 1
+fi
 ```
 
 **PM-вручную (после автопроверок выше):**

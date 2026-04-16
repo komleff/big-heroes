@@ -161,6 +161,16 @@ _OPAQUE_VAR_BODY = re.compile(
 )
 
 
+# Heredoc-присваивание `VAR=$(cat <<'EOF' ... EOF)` — содержимое body инлайн
+# в команде, hook видит его целиком. Если `--body "$VAR"` ссылается на
+# такую переменную, opaque-blocker даёт ложное срабатывание: шаблоны
+# публикации review-pass в sprint-pr-cycle/SKILL.md и external-review/SKILL.md
+# используют ровно эту форму. Детектим heredoc-любой формы (quoted/unquoted,
+# `<<-`), снимая opaque-блокировку — is_forbidden всё равно пройдёт по raw
+# команде и поймает запрещённую фразу, если она лежит в heredoc.
+_HEREDOC_PRESENT = re.compile(r"<<-?\s*[\"']?[A-Za-z_][A-Za-z0-9_]*")
+
+
 def uses_body_file(command: str) -> bool:
     """True — если команда gh pr comment передаёт body через файл/stdin."""
     # Проверяем только для gh pr comment — остальные команды не по нашей теме.
@@ -176,7 +186,7 @@ def uses_dangerous_substitution(command: str) -> bool:
     Закрывает bypass: `--body "$(cat /tmp/x)"` — hook видит только литерал
     `$(cat /tmp/x)`, не содержимое файла. Легитимный heredoc
     `$(cat <<'EOF' ... EOF)` остаётся разрешённым: содержимое инлайн в
-    команде и попадает в regex `_MERGE_READY_PATTERN`.
+    команде и попадает в regex `_MERGE_READY_CANDIDATE`.
     """
     if not _GH_PR_COMMENT.search(command):
         return False
@@ -192,8 +202,17 @@ def uses_opaque_variable_body(command: str) -> bool:
     оставался реальным, для `gh pr comment` без FINALIZE_PR_TOKEN запрещено
     подставлять body из переменной — допустимы только inline string или
     heredoc `$(cat <<'EOF' ... EOF)`, где содержимое физически в команде.
+
+    Exception: heredoc в той же команде делает содержимое видимым hook'у
+    (even через переменную — BODY=$(cat <<'EOF' ... EOF); --body "$BODY").
+    Именно эту форму используют шаблоны review-pass в sprint-pr-cycle
+    и external-review — без исключения hook ломает pipeline целиком.
+    Фраза merge-ready в heredoc поймается is_forbidden по raw команде.
     """
     if not _GH_PR_COMMENT.search(command):
+        return False
+    if _HEREDOC_PRESENT.search(command):
+        # Heredoc делает содержимое видимым — is_forbidden проверит его.
         return False
     return bool(_OPAQUE_VAR_BODY.search(command))
 
