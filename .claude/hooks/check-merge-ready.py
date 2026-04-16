@@ -171,6 +171,30 @@ _OPAQUE_VAR_BODY = re.compile(
 _HEREDOC_PRESENT = re.compile(r"<<-?\s*[\"']?[A-Za-z_][A-Za-z0-9_]*")
 
 
+# Bypass через ЛЮБОЙ command substitution `$(...)` в позиции --body:
+# `--body "$(echo $BODY)"`, `--body "$(printf %s $BODY)"`, `--body "$(head
+# /tmp/x)"`, `--body "$(tail /tmp/x)"`, и т.д. — всё что раскрывает
+# содержимое через shell, скрыто от hook'а.
+#
+# Whitelist-подход: блокируем любой `$(` сразу после --body (с опциональной
+# кавычкой). Heredoc-исключение уже делается выше через _HEREDOC_PRESENT:
+# если в той же команде присутствует heredoc-присваивание (BODY=$(cat <<'EOF'
+# ... EOF)), считаем, что содержимое видно — is_forbidden пройдёт по raw
+# команде. Без heredoc любой $(...) в --body = непрозрачное расширение = block.
+#
+# Это закрывает класс атак целиком (не только head/tail/sed/awk, но и
+# echo $VAR, printf, process substitution, любой future command).
+# Источник: GPT-5.3-Codex round 14 CRITICAL + D-02 из round 13 deferred.
+_OPAQUE_COMMAND_SUBST_BODY = re.compile(
+    r"""
+    (?:^|\s)--body(?:=|\s+)             # флаг --body
+    "?                                    # опциональная открывающая кавычка
+    \$\(                                  # $( — начало command substitution
+    """,
+    re.VERBOSE,
+)
+
+
 def uses_body_file(command: str) -> bool:
     """True — если команда gh pr comment передаёт body через файл/stdin."""
     # Проверяем только для gh pr comment — остальные команды не по нашей теме.
@@ -215,6 +239,27 @@ def uses_opaque_variable_body(command: str) -> bool:
         # Heredoc делает содержимое видимым — is_forbidden проверит его.
         return False
     return bool(_OPAQUE_VAR_BODY.search(command))
+
+
+def uses_opaque_command_substitution_body(command: str) -> bool:
+    """True — если `--body` получает значение из command substitution `$(...)`.
+
+    Закрывает bypass через любую shell-команду, скрывающую содержимое:
+    `$(echo $BODY)`, `$(printf %s $BODY)`, `$(head /tmp/x)`, `$(tail ...)`,
+    `$(sed ...)`, `$(awk ...)`, `$(xxd ...)`, `$(perl ...)`, `$(python ...)`
+    и любой будущий инструмент. Whitelist-подход: блокируем любой `$(`
+    сразу после `--body`.
+
+    Exception: heredoc в той же команде (BODY=$(cat <<'EOF' ... EOF))
+    — содержимое видно hook'у через heredoc. is_forbidden проверит его.
+
+    Источник: GPT-5.3-Codex round 14 CRITICAL + D-02 deferred.
+    """
+    if not _GH_PR_COMMENT.search(command):
+        return False
+    if _HEREDOC_PRESENT.search(command):
+        return False
+    return bool(_OPAQUE_COMMAND_SUBST_BODY.search(command))
 
 
 def is_forbidden(command: str) -> bool:
@@ -293,6 +338,21 @@ def main() -> int:
             "переменной (`--body \"$VAR\"`, `--body ${VAR}`): hook видит "
             "только имя переменной, не её содержимое.\n"
             "Используй inline --body '...', heredoc `$(cat <<'EOF' ... EOF)` "
+            "или /finalize-pr <PR_NUMBER>.\n"
+        )
+        return 1
+
+    # Блокируем любой command substitution `$(...)` в позиции --body:
+    # `$(echo $VAR)`, `$(printf ...)`, `$(head file)`, `$(awk ...)` и т.д.
+    # Закрывает класс bypass'ов через shell-инструменты (Codex round 14 CR-1 + D-02).
+    # Исключение — heredoc (BODY=$(cat <<'EOF'...EOF)) — обрабатывается внутри функции.
+    if uses_opaque_command_substitution_body(command):
+        sys.stderr.write(
+            "БЛОКИРОВКА: для `gh pr comment` нельзя подставлять body через "
+            "command substitution (`--body \"$(...)\"`): hook видит только "
+            "литерал подстановки, не её результат.\n"
+            "Используй inline --body '...', heredoc `BODY=$(cat <<'EOF' ... EOF)` "
+            "+ `--body \"$BODY\"` (heredoc содержимое видно hook'у), "
             "или /finalize-pr <PR_NUMBER>.\n"
         )
         return 1

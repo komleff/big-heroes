@@ -229,14 +229,24 @@ HEAD_COMMIT=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRef
 
 ```bash
 BODY=$(cat <<'EOF'
-## Внешнее ревью (Sprint Final) — Режим: [A/B/C/D]
+## Внешнее ревью (Sprint Final) — Режим: __MODE__
 
 Commit: `__HEAD_COMMIT__`
 
-<!-- {"reviewer": "__MODEL_NAME__", "commit": "__HEAD_COMMIT__", "kind": "external", "mode": "__MODE__"} -->
+<!-- {"reviewer": "__MODEL_NAME__", "commit": "__HEAD_COMMIT__", "kind": "external", "mode": "__MODE__", "iteration": __ITERATION__} -->
 
 <!-- Если режим C или D — обязательная метка: -->
 ⚠️ [Degraded mode / Manual emergency mode] — <описание из таблицы 5.1>
+
+### Findings (обязательная таблица для /finalize-pr фазы 2 triage)
+
+> Если вердикт APPROVED без замечаний — оставь таблицу с единственной строкой `| — | — | нет замечаний | — | — | — |`. Пустая таблица недопустима: `/finalize-pr` отличает «нет findings» от «парсинг сломался».
+
+| # | Severity | Заголовок | Файл:строка | Статус | Beads ID / Обоснование |
+|---|----------|-----------|-------------|--------|------------------------|
+| 1 | CRITICAL | ... | path:N | fix now | — |
+| 2 | WARNING | ... | path:N | defer to Beads | bd-xyz-123 |
+| 3 | INFO | ... | path:N | reject with rationale | <обоснование> |
 
 ### Консолидация (PM)
 
@@ -316,6 +326,7 @@ EOF
 BODY="${BODY//__HEAD_COMMIT__/$HEAD_COMMIT}"
 BODY="${BODY//__MODEL_NAME__/$MODEL_NAME}"    # например, "gpt-5.4" или "gpt-5.3-codex"
 BODY="${BODY//__MODE__/$MODE}"                # A / B / C / D
+BODY="${BODY//__ITERATION__/$ITERATION}"       # номер прохода внешнего ревью
 gh pr comment <PR_NUMBER> --body "$BODY"
 ```
 

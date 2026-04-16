@@ -124,10 +124,33 @@ fi
 
 if [ -n "$HAS_LABEL" ] || [ -n "$HAS_SPRINT_FINAL_BODY" ]; then
   TIER="sprint-final"
+elif echo "$PR_META" | jq -r '.body // ""' | grep -qiE '^Tier:\s*Critical\b'; then
+  TIER="critical"   # Critical без Sprint Final: второй проход обязателен, external опционален
 else
-  TIER="standard"  # явно маркирован как Critical/Standard/Light — external review опционален
+  TIER="standard"  # явно маркирован как Standard/Light — и iteration 2, и external опциональны
 fi
 echo "Tier для финализации: $TIER"
+
+# Hard gate: iteration >= 2 для Critical и Sprint Final.
+# AGENT_ROLES.md и sprint-pr-cycle.md требуют два прохода внутреннего ревью
+# для Critical tier (первый — полный, второй — adversarial с фокусом на
+# пропущенном/регрессиях). GPT-5.4 round 14 CRITICAL #3: без этой проверки
+# workflow требует два прохода, но hard gate верифицирует только один.
+# Критерий: в META JSON последнего internal review-pass поле iteration >= 2.
+if [ "$TIER" = "critical" ] || [ "$TIER" = "sprint-final" ]; then
+  ITERATION=$(echo "$LAST_INTERNAL" \
+    | grep -oE '"iteration"\s*:\s*[0-9]+' \
+    | head -1 \
+    | grep -oE '[0-9]+$')
+  if [ -z "$ITERATION" ] || [ "$ITERATION" -lt 2 ]; then
+    echo "СТОП: tier=$TIER требует iteration >= 2 для internal review (adversarial second pass)."
+    echo "Текущий iteration в META: '${ITERATION:-не найден}'."
+    echo "Запусти второй проход через /sprint-pr-cycle шаг 2.4 (Critical — второй проход)."
+    echo "Каждый повторный review-pass увеличивает iteration в META JSON."
+    exit 1
+  fi
+  echo "iteration check: ✅ (iteration=$ITERATION >= 2)"
+fi
 ```
 
 > Memory Bank как источник tier здесь **не используется**: hard gate должен опираться только на воспроизводимые PR-метаданные, иначе локальные расхождения дадут ложный пропуск external review.

@@ -153,12 +153,16 @@ gh pr diff <PR_NUMBER> --name-only > /tmp/pr-files.txt
 # Critical, если есть изменения в shared/ или config/balance.json
 if grep -qE '^(shared/|config/balance\.json)' /tmp/pr-files.txt; then
   TIER="critical"
-# Critical, если затронуты нормативные артефакты пайплайна — .claude/settings.json,
-# hooks, skills, agents. Эта проверка идёт ДО light-ветки, потому что такие файлы
-# имеют расширение .json/.md и иначе были бы ложно классифицированы как light.
-elif grep -qE '^\.claude/(settings\.json|hooks/|skills/|agents/)' /tmp/pr-files.txt; then
+# Critical, если затронуты нормативные артефакты пайплайна:
+# - .claude/settings.json, hooks, skills, agents
+# - .agents/*.md (AGENT_ROLES, PM_ROLE, PIPELINE, HOW_TO_USE, PIPELINE_ADR, план)
+# Эта проверка идёт ДО light-ветки, потому что такие файлы имеют расширение
+# .json/.md и иначе были бы ложно классифицированы как light. GPT-5.4 round 14
+# CRITICAL: ранее .agents/*.md не учитывался, PR с только .agents/ изменениями
+# уходил в Light и пропускал Tester gate + второй Critical pass.
+elif grep -qE '^(\.claude/(settings\.json|hooks/|skills/|agents/)|\.agents/)' /tmp/pr-files.txt; then
   TIER="critical"
-# Light, если только .md/.json без логики
+# Light, если только .md/.json без логики (и не .agents/ — см. выше)
 elif ! grep -qvE '\.(md|json)$' /tmp/pr-files.txt; then
   TIER="light"
 else
@@ -170,9 +174,9 @@ echo "Tier: $TIER"
 **Правила выбора при смешанных изменениях (не понижай tier):**
 
 - **Любое изменение в `shared/` или `config/balance.json`** → tier = `critical`, даже если 99% PR это документация. Игровая математика не может быть проревьюена поверхностно.
-- **Только `.md` / `.json` без логики (`settings.json` hooks — не «без логики»!)** → tier = `light` разрешается.
+- **Только `.md` / `.json` без логики (`settings.json` hooks — не «без логики»!, `.agents/*.md` — нормативные!)** → tier = `light` разрешается.
 - **Смешанные `client/` + `docs/`** → tier = `standard`.
-- **Изменения в `.claude/settings.json` hook-логики, `.claude/hooks/*`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`** → приравниваются к `critical` (нормативные артефакты пайплайна), даже если расширение `.json`/`.md`.
+- **Изменения в `.claude/settings.json` hook-логики, `.claude/hooks/*`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.agents/*.md`** → приравниваются к `critical` (нормативные артефакты пайплайна), даже если расширение `.json`/`.md`.
 - Для PR помеченного как **Sprint Final** (завершение спринта перед merge в master) — к выбранному tier добавляется обязательный `/external-review` в Фазе 3.
 
 > Если PR помечен как Sprint Final (метка `sprint-final` или явно в описании) — добавь обязательный `/external-review` в Фазе 3 поверх выбранного tier.
@@ -186,12 +190,21 @@ echo "Tier: $TIER"
 **Определи класс** по `gh pr diff --name-only`:
 
 ```bash
-if grep -qE '^(shared/|config/balance\.json)' /tmp/pr-files.txt; then
+# Два независимых флага — корректно ловит mixed PR (shared/ + .claude/*).
+# Ранее if/elif: первая ветка game-math выигрывала, pipeline-artifacts
+# промпт не запускался даже для mixed — Tester gate работал формально
+# (Tester CRIT #6 из round 13 deferred, затем GPT-5.4 round 14 critical).
+HAS_GAME=$(grep -qE '^(shared/|config/balance\.json)' /tmp/pr-files.txt && echo 1 || echo 0)
+HAS_PIPE=$(grep -qE '^(\.claude/(settings\.json|hooks/|skills/|agents/)|\.agents/)' /tmp/pr-files.txt && echo 1 || echo 0)
+
+if [ "$HAS_GAME" = "1" ] && [ "$HAS_PIPE" = "1" ]; then
+  CRITICAL_CLASS="mixed"
+elif [ "$HAS_GAME" = "1" ]; then
   CRITICAL_CLASS="game-math"
-elif grep -qE '^(\.claude/(settings\.json|hooks/|skills/|agents/)|\.agents/)' /tmp/pr-files.txt; then
+elif [ "$HAS_PIPE" = "1" ]; then
   CRITICAL_CLASS="pipeline-artifacts"
 else
-  CRITICAL_CLASS="mixed"
+  CRITICAL_CLASS="mixed"   # fallback для не классифицированных Critical PR
 fi
 ```
 
@@ -299,7 +312,17 @@ BODY=$(cat <<'EOF'
 
 Commit: `__HEAD_COMMIT__`
 
-<!-- {"reviewer": "claude-opus-4-6", "commit": "__HEAD_COMMIT__", "kind": "internal"} -->
+<!-- {"reviewer": "claude-opus-4-6", "commit": "__HEAD_COMMIT__", "kind": "internal", "iteration": __ITERATION__, "tier": "__TIER__"} -->
+
+### Findings (обязательная таблица для /finalize-pr фазы 2 triage)
+
+> Если вердикт APPROVED без замечаний — оставь таблицу с единственной строкой `| — | — | нет замечаний | — | — | — |`. Пустая таблица недопустима: `/finalize-pr` отличает «нет findings» от «парсинг сломался».
+
+| # | Severity | Заголовок | Файл:строка | Статус | Beads ID / Обоснование |
+|---|----------|-----------|-------------|--------|------------------------|
+| 1 | CRITICAL | ... | path:N | fix now | — |
+| 2 | WARNING | ... | path:N | defer to Beads | bd-xyz-123 |
+| 3 | INFO | ... | path:N | reject with rationale | <обоснование> |
 
 ### Архитектура
 **Вердикт:** [APPROVED / CHANGES_REQUESTED]
@@ -311,7 +334,7 @@ Commit: `__HEAD_COMMIT__`
 
 ### Качество
 **Вердикт:** [APPROVED / CHANGES_REQUESTED]
-[резюме]
+[резюме, включая проверку Verification Contract]
 
 ### Гигиена кода
 **Вердикт:** [APPROVED / CHANGES_REQUESTED]
@@ -320,8 +343,11 @@ Commit: `__HEAD_COMMIT__`
 — PM (Claude Opus 4.6)
 EOF
 )
-# Безопасная подстановка commit hash (не через eval/cat <<EOF без кавычек):
+# Безопасная подстановка маркеров через bash parameter expansion.
+# Тело отчёта остаётся буквальным (quoted heredoc), shell-расширений нет.
 BODY="${BODY//__HEAD_COMMIT__/$HEAD_COMMIT}"
+BODY="${BODY//__ITERATION__/$ITERATION}"    # номер прохода: 1, 2, 3...
+BODY="${BODY//__TIER__/$TIER}"              # standard | critical | sprint-final | light
 gh pr comment <PR_NUMBER> --body "$BODY"
 ```
 

@@ -112,6 +112,33 @@ TESTS = [
         1,
         "heredoc+$BODY с merge-ready — блокируется",
     ),
+    # === Command substitution в --body без heredoc — block ===
+    # Codex round 14 CRITICAL + D-02: bypass через $(echo $VAR), $(head/tail/sed/awk/xxd),
+    # $(printf %s $VAR), $(perl/python/node -e ...) — любой инструмент кроме heredoc-cat.
+    ("gh pr comment 1 --body \"$(echo $BODY)\"", 1, "$(echo $VAR) bypass"),
+    ("gh pr comment 1 --body \"$(printf %s $BODY)\"", 1, "$(printf %s $VAR) bypass"),
+    ("gh pr comment 1 --body \"$(head /tmp/x)\"", 1, "$(head file) bypass"),
+    ("gh pr comment 1 --body \"$(tail -1 /tmp/x)\"", 1, "$(tail file) bypass"),
+    ("gh pr comment 1 --body \"$(sed -n 1p /tmp/x)\"", 1, "$(sed file) bypass"),
+    ("gh pr comment 1 --body \"$(awk 1 /tmp/x)\"", 1, "$(awk file) bypass"),
+    ("gh pr comment 1 --body \"$(xxd /tmp/x)\"", 1, "$(xxd file) bypass"),
+    ("gh pr comment 1 --body \"$(perl -e 'print qq/ready to merge/')\"", 1, "$(perl) bypass"),
+    ("gh pr comment 1 --body \"$(python3 -c 'print(\"x\")')\"", 1, "$(python) bypass"),
+    ("gh pr comment 1 --body=$(echo $BODY)", 1, "--body=$(echo) without quotes"),
+    # Heredoc в той же команде — снимает command-subst блокировку (содержимое heredoc
+    # видно hook'у через raw команду; is_forbidden проверит фразу в heredoc).
+    (
+        "BODY=$(cat <<'EOF'\n## Clean review\nEOF\n)\n"
+        "gh pr comment 1 --body \"$(echo $BODY)\"",
+        0,
+        "heredoc + $(echo $BODY) без merge-ready — pass (raw heredoc виден)",
+    ),
+    (
+        "BODY=$(cat <<'EOF'\n## ✅ Готов к merge\nEOF\n)\n"
+        "gh pr comment 1 --body \"$(echo $BODY)\"",
+        1,
+        "heredoc + $(echo $BODY) с merge-ready — block (is_forbidden ловит raw)",
+    ),
 ]
 
 
