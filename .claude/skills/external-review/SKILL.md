@@ -238,8 +238,9 @@ Commit: `__HEAD_COMMIT__`
 
 <!-- {"reviewer": "__MODEL_NAME__", "commit": "__HEAD_COMMIT__", "kind": "external", "mode": "__MODE__", "iteration": __ITERATION__} -->
 
-<!-- Если режим C или D — обязательная метка: -->
-⚠️ [Degraded mode / Manual emergency mode] — <описание из таблицы 5.1>
+<!-- Для режимов A/B удали обе строки ниже. Для режима C оставь только строку `⚠️ Degraded mode`. Для режима D оставь только строку `⚠️ Manual emergency mode`. Не оставляй обе одновременно. -->
+⚠️ Degraded mode — <описание из таблицы 5.1>
+⚠️ Manual emergency mode — <описание из таблицы 5.1>
 
 ### Findings (обязательная таблица для /finalize-pr фазы 2 triage)
 
@@ -324,6 +325,20 @@ CRITICAL: N, WARNING: N
 — PM (Claude Opus 4.6), по результатам внешнего ревью
 EOF
 )
+# Вычисление обязательных полей публикации.
+# Без них HTML META будет невалидным и /finalize-pr не распознает review-pass.
+# MODE определяется из шага 2 (A/B/C/D); MODEL_NAME — из таблицы 5.1.
+# ITERATION — порядковый номер прохода внешнего ревью.
+if [ -z "${MODE:-}" ]; then
+  echo "MODE не задан. Установи переменную MODE перед публикацией (A/B/C/D)." >&2
+  exit 1
+fi
+if [ -z "${MODEL_NAME:-}" ]; then
+  echo "MODEL_NAME не задан. Установи переменную MODEL_NAME перед публикацией." >&2
+  exit 1
+fi
+ITERATION="${ITERATION:-1}"
+
 # Безопасная подстановка маркеров — тело отчёта остаётся буквальным (quoted heredoc),
 # bash-расширений в findings/raw-output не происходит.
 BODY="${BODY//__HEAD_COMMIT__/$HEAD_COMMIT}"
