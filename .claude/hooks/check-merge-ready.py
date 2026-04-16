@@ -20,6 +20,7 @@ Hook: блокировка фраз merge-readiness в `gh pr comment` вне /f
 - exit 1  — блокировка (найдена запрещённая фраза)
 """
 import json
+import html
 import os
 import re
 import sys
@@ -360,11 +361,20 @@ def is_forbidden(command: str) -> bool:
     паттерн использует multiline-якоря `^`/`$`, которые должны видеть
     реальные `\\n` в команде (shell-heredoc, multiline body).
 
+    Copilot round 28: дополнительно удаляем zero-width символы и
+    декодируем HTML entities, чтобы `ready&#x200b;to merge` и подобные
+    обходы не проходили.
+
     Двухстадийный matcher (см. комментарий к _MERGE_READY_CANDIDATE):
     candidate → проверка префикса на отрицание → True только если
     префикс чист.
     """
-    normalized = re.sub(r"[_\-]+", " ", command)
+    # Декодируем HTML entities: &#x200b; → символ, &nbsp; → пробел и т.д.
+    normalized = html.unescape(command)
+    # Удаляем zero-width и невидимые Unicode символы, которые GitHub рендерит
+    # как пустое место, но regex не видит.
+    normalized = re.sub(r"[\u200b-\u200f\u2028-\u202f\ufeff\u00ad\u2060]", "", normalized)
+    normalized = re.sub(r"[_\-]+", " ", normalized)
     for match in _MERGE_READY_CANDIDATE.finditer(normalized):
         prefix = match.group("prefix") or ""
         if _NEGATION_WORDS.search(prefix):

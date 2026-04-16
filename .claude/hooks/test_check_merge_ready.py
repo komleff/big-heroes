@@ -73,6 +73,11 @@ TESTS = [
     ("gh pr comment 1 --body '## ✅ Готов к merge.'", 1, "final marker RU + dot"),
     ("gh pr comment 1 --body '## ✅ Готов к merge!'", 1, "final marker RU + bang"),
     ("gh pr comment 1 --body '## ✅ Готов к merge?'", 1, "final marker RU + question"),
+    # === Copilot round 28: zero-width char / HTML entity bypass ===
+    ("gh pr comment 1 --body 'ready\u200bto merge'", 1, "zero-width space bypass"),
+    ("gh pr comment 1 --body '## ✅ Готов\u200b к merge'", 1, "ZWSP in RU marker"),
+    ("gh pr comment 1 --body 'ready&#x200b;to merge'", 1, "HTML entity ZWSP bypass"),
+    ("gh pr comment 1 --body 'ready\ufeffto merge'", 1, "BOM char bypass"),
     # === Пропуск: обсуждения и цитаты ===
     ("gh pr comment 1 --body 'не готов к merge — тесты красные'", 0, "отрицание"),
     ("gh pr comment 1 --body 'почти готов к merge, жду review'", 0, "«почти готов»"),
