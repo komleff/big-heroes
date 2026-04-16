@@ -65,7 +65,7 @@
           },
           {
             "type": "command",
-            "command": "python3 .claude/hooks/check-merge-ready.py",
+            "command": "bash -c 'HOOK=.claude/hooks/check-merge-ready.py; for cmd in py python3 python; do if command -v \"$cmd\" >/dev/null 2>&1; then if [ \"$cmd\" = \"py\" ]; then \"$cmd\" -3 \"$HOOK\"; else \"$cmd\" \"$HOOK\"; fi; exit $?; fi; done; echo \"БЛОКИРОВКА: Python-интерпретатор не найден (py/python3/python). Hook не может выполниться fail-secure.\" >&2; exit 1'",
             "timeout": 5
           }
         ]

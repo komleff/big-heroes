@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Unit-тесты для check-merge-ready.py.
 
-Запуск: python3 .claude/hooks/test_check_merge_ready.py
+Запуск (кросс-платформенно):
+  - Linux/macOS:  python3 .claude/hooks/test_check_merge_ready.py
+  - Windows:      py -3 .claude/hooks/test_check_merge_ready.py
+                  (или `python .claude/hooks/test_check_merge_ready.py`)
+
+На Windows `python3` — Microsoft Store alias, который не является валидным
+интерпретатором и возвращает exit 9009. Используй `py -3` или `python`.
 
 Тестовое покрытие:
 - Точный маркер `## ✅ Готов к merge` → блокируется
