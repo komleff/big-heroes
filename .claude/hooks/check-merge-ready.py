@@ -69,6 +69,28 @@ _NEGATION_WORDS = re.compile(
 )
 
 
+# Markdown blockquote — цитата из обсуждения/ревью, не декларация готовности.
+# GPT-5.4 external review round 15: prefix `> ` перед фразой readiness выдавал
+# false positive и блокировал легитимные review-комментарии, которые цитировали
+# предыдущие вердикты или обсуждения («> Reviewer cited: ready to merge»).
+#
+# Два варианта blockquote:
+#   1) Строка многострочного body начинается с `>` (опциональные пробелы, один
+#      или несколько `>` для nested quotes, затем пробел).
+#   2) Однострочный body, открывающийся сразу с blockquote: `--body '> ...`.
+# Важно: is_forbidden работает на normalized строке, где `-_` уже заменены
+# на пробелы. `--body` → `  body`, `--body=` → `  body=`. Поэтому в regex
+# ищем литерал `body` без `--`, с разделителем `=`/пробел и кавычкой.
+_BLOCKQUOTE_MARKER = re.compile(
+    r"""
+    ^\s*>+\s                          # строка-цитата в multi-line body
+    |
+    body(?:=|\s+)['"]\s*>+\s           # single-line body: кавычка + `>` + пробел
+    """,
+    re.VERBOSE,
+)
+
+
 class HookError(Exception):
     """Сигнал безопасной остановки hook'а с блокировкой команды."""
 
@@ -281,6 +303,11 @@ def is_forbidden(command: str) -> bool:
             # «не готов к merge», «почти ready to merge», «PR будет готов…»
             # — это обсуждение, не декларация. Продолжаем искать другие
             # кандидаты в той же команде.
+            continue
+        if _BLOCKQUOTE_MARKER.search(prefix):
+            # markdown blockquote (`> ...`) — цитата из ревью/обсуждения, не
+            # объявление. Финальный комментарий /finalize-pr публикуется как
+            # `## ✅ Готов к merge`, без blockquote — реального bypass не создаёт.
             continue
         return True
     return False

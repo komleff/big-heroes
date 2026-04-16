@@ -65,7 +65,9 @@ ls -1 .claude/settings.json
 
 ### 3.1 Имена ролей
 
-Должны быть везде одинаковыми: `PM`, `Architect`, `Developer`, `Reviewer`, `Tester`, `Planner`. Без вариаций (`Project Manager` vs `PM` — допустимо в заголовке секции, но не как разные сущности).
+Должны быть везде одинаковыми: `PM`, `Architect`, `Developer`, `Reviewer`, `Tester`. Без вариаций (`Project Manager` vs `PM` — допустимо в заголовке секции, но не как разные сущности).
+
+`Planner` — субагент в `.claude/agents/planner.md` и ссылается из `Developer`/Memory Bank, но не самостоятельная роль в `AGENT_ROLES.md`. В audit не ищется как роль; проверь только что файл `.claude/agents/planner.md` существует и ссылки на него валидны в пункте 5 (Валидность ссылок).
 
 ### 3.2 Имена скиллов
 

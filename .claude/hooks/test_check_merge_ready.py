@@ -34,8 +34,10 @@ def run(cmd: Optional[str], with_token: bool = False) -> int:
         payload = json.dumps({"tool_input": {}})
     else:
         payload = json.dumps({"tool_input": {"command": cmd}})
+    # sys.executable — кросс-платформенно: Linux/macOS найдут python3, Windows
+    # использует текущий интерпретатор вместо несуществующего `python3`.
     result = subprocess.run(
-        ["python3", HOOK],
+        [sys.executable, HOOK],
         input=payload,
         capture_output=True,
         text=True,
@@ -64,6 +66,17 @@ TESTS = [
     ("gh pr comment 1 --body 'готов к merge, если X'", 0, "фраза без ##"),
     ("gh pr comment 1 --body '## Готов к merge после исправлений'", 0, "## + продолжение"),
     ("gh pr comment 1 --body '## Готов к merge, если X'", 0, "## + запятая"),
+    # === Пропуск: markdown blockquote (GPT-5.4 round 15 WARNING) ===
+    ("gh pr comment 1 --body '> ready to merge'", 0, "blockquote bare EN"),
+    ("gh pr comment 1 --body '> готов к merge'", 0, "blockquote bare RU"),
+    ("gh pr comment 1 --body '> Вердикт: ready to merge'", 0, "blockquote с префиксом"),
+    ("gh pr comment 1 --body \"> Reviewer cited: ready to merge\"", 0, "blockquote double-quote"),
+    ("gh pr comment 1 --body '>> nested quote ready to merge'", 0, "nested blockquote"),
+    (
+        "gh pr comment 1 --body 'Контекст обсуждения\n> cited ready to merge\nпродолжение'",
+        0,
+        "multi-line body: blockquote строка внутри",
+    ),
     # === Fail-secure ===
     (None, 1, "нет tool_input.command"),
     # === Защита от bypass ===

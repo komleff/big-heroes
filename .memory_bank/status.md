@@ -1,8 +1,8 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-14
+**Обновлён:** 2026-04-16
 **Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`)
-**last_checked_commit:** 13ca122
+**last_checked_commit:** f634d9f
 
 ---
 
@@ -34,11 +34,13 @@
 - big-heroes-e0n (P2) — sprint-pr-cycle Critical review level → добавлена tier-логика + tester gate.
 - big-heroes-fkv (P2) — split source of truth → AGENT_ROLES.md, PM_ROLE.md, PIPELINE.md, HOW_TO_USE.md, sprint-pr-cycle и reviewer/planner согласованы.
 
+**Текущий review-цикл (PR #9 открыт, round 15):**
+- Раунды 1–14: закрыто ~40 CRITICAL/WARNING от Copilot + GPT-5.4 + Codex.
+- Round 15 (2026-04-16): GPT-5.4 CHANGES_REQUESTED — 3 WARNING закрыты fix now (blockquote false positive в hook, Planner-drift в pipeline-audit, stale status.md).
+
 **Что осталось оператору:**
-- Открыть PR из ветки `claude/agent-pipeline-sprint-mxaQ1` в master.
-- Запустить `/sprint-pr-cycle` для самоприменения нового пайплайна (dogfooding).
 - Прогнать `/pipeline-audit` — ожидаемый результат `OK` по всем 7 инвариантам.
-- При APPROVED — `/finalize-pr <PR>` (фаза 2 уже доступна).
+- При APPROVED по всем ревьюерам — `/finalize-pr 9` (фаза 2 доступна).
 
 ### Sprint 4 (предыдущий, MERGED)
 
