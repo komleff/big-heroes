@@ -197,9 +197,14 @@ fi
 # Матчим допустимые текстовые маркеры режима в самом комментарии:
 #   1) человекочитаемый заголовок «Режим: C» / «Режим: D» (всегда в шаблоне external-review)
 #   2) машинный маркер «Mode: C» / `"mode": "C"`, если он присутствует в тексте комментария
-if echo "$LAST_EXTERNAL" | grep -qE '(Режим|Mode)[:"]*\s*"?[CD]\b'; then
+#
+# Copilot round 26: сначала убираем HTML-комментарии, чтобы grep не матчился на
+# неактивные шаблонные метки `⚠️ ...` внутри <!-- ... --> (после round 25
+# обе строки по умолчанию внутри HTML-комментария).
+VISIBLE_EXTERNAL=$(echo "$LAST_EXTERNAL" | sed '/<!--/,/-->/d')
+if echo "$VISIBLE_EXTERNAL" | grep -qE '(Режим|Mode)[:"]*\s*"?[CD]\b'; then
   # Degraded/Manual режим — нужна метка
-  if ! echo "$LAST_EXTERNAL" | grep -qE '⚠️ (Degraded mode|Manual emergency mode)'; then
+  if ! echo "$VISIBLE_EXTERNAL" | grep -qE '⚠️ (Degraded mode|Manual emergency mode)'; then
     echo "СТОП: external review в режиме C/D без обязательной метки '⚠️ Degraded mode' / '⚠️ Manual emergency mode'."
     echo "PM должен опубликовать новый external review-pass с меткой."
     exit 1
