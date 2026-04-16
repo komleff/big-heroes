@@ -2,7 +2,7 @@
 
 **Обновлён:** 2026-04-17
 **Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`)
-**last_reviewed_commit:** 4cc8a3a (round 29 Copilot COMMENTED 3 findings; 1 fix now, 2 defer; pending commit)
+**last_reviewed_commit:** f8c4d9f (round 30 Copilot COMMENTED 2 findings; 1 fix now, 1 defer; pending commit)
 
 > Семантика `last_reviewed_commit`: HEAD, на который есть опубликованный внешний review-verdict. Это НЕ `git rev-parse HEAD` ветки — текущий HEAD всегда впереди на один fix-коммит, пока round не закрыт следующим reviewer'ом. Self-reference невозможен, поэтому формат drift-free.
 > Текущий HEAD ветки проверяй через `git rev-parse HEAD` или `gh pr view 9 --json headRefOid`.
@@ -55,6 +55,7 @@
 - Round 27 (2026-04-17, 5e9feaa): Copilot COMMENTED — 4 findings: (1) WARNING `_OPAQUE_COMMAND_SUBST_BODY` не ловил `$(` в неначальной позиции body — fix now: regex расширен аналогично round 24, (2) WARNING regression-тесты для cmd-subst prefix — fix now: +4 кейса (suite 77/77), (3) WARNING external-review MODE/MODEL_NAME auto-computation — defer (повтор round 24 #4), (4) WARNING status.md stale header — fix now.
 - Round 28 (2026-04-17, 4c2fce9): Copilot COMMENTED — 1 finding: WARNING `is_forbidden()` не нормализовал zero-width символы и HTML entities — fix now: добавлены `html.unescape()` + strip `\u200b-\u200f`, `\u2028-\u202f`, `\ufeff`, `\u00ad`, `\u2060` + 4 regression-теста (suite 81/81).
 - Round 29 (2026-04-17, 4cc8a3a): Copilot COMMENTED — 3 findings: (1) WARNING finalize-pr Tier detect в code block — defer (requires markdown parser), (2) WARNING finalize-pr triage rows без статуса — defer (structural validation), (3) WARNING reviewer.md `|` в ячейках ломает IFS-парсинг — fix now: добавлено предупреждение в docs.
+- Round 30 (2026-04-17, f8c4d9f): Copilot COMMENTED — 2 findings: (1) WARNING finalize-pr iteration>=2 только для critical, не sprint-final — defer (design trade-off, operator decision), (2) WARNING finalize-pr bd show без timeout — fix now: обёрнуто в timeout 10 с fail-secure exit.
 
 **Что осталось оператору:**
 - Ожидать re-review от Copilot на новый HEAD (round 30 запрашивается).

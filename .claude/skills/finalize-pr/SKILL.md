@@ -310,11 +310,17 @@ while IFS='|' read -r _ num severity title loc status payload _; do
 
   case "$status" in
     "defer to Beads")
-      # 1) Приоритет: проверка существования через bd show
+      # 1) Приоритет: проверка существования через bd show (с timeout — защита от зависания)
       if command -v bd >/dev/null 2>&1; then
-        if ! bd show "$payload" >/dev/null 2>&1; then
-          echo "СТОП: defer-замечание #$num ссылается на Beads ID '$payload', но bd show не находит задачу."
-          TRIAGE_FAILED=1
+        if ! timeout 10 bd show "$payload" >/dev/null 2>&1; then
+          bd_exit=$?
+          if [ "$bd_exit" -eq 124 ]; then
+            echo "СТОП: defer-замечание #$num — timeout при проверке Beads ID '$payload'. Проверь окружение Beads и повтори /finalize-pr."
+            TRIAGE_FAILED=1
+          else
+            echo "СТОП: defer-замечание #$num ссылается на Beads ID '$payload', но bd show не находит задачу."
+            TRIAGE_FAILED=1
+          fi
         fi
       # 2) Fallback: regex без хардкода префикса
       elif ! echo "$payload" | grep -qE '^[a-z][a-z-]+-[a-z0-9]+$'; then
