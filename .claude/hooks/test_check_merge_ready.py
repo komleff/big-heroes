@@ -52,6 +52,12 @@ TESTS = [
     ("gh pr comment 1 --body '## merge-ready'", 1, "EN merge-ready"),
     ("gh pr comment 1 --body '## READY TO MERGE'", 1, "uppercase"),
     ("gh pr comment 1 --body '## ready_to_merge'", 1, "underscores"),
+    # GPT-5.4 external review (round 12) — CRITICAL bypass прежнего H2-only:
+    # фраза без `##` на отдельной строке должна блокироваться.
+    ("gh pr comment 1 --body 'ready to merge'", 1, "bare ready to merge"),
+    ("gh pr comment 1 --body 'Готов к merge'", 1, "bare готов к merge"),
+    ("gh pr comment 1 --body 'merge ready'", 1, "bare merge ready"),
+    ("gh pr comment 1 --body 'PR is ready to merge'", 1, "PR is ready to merge"),
     # === Пропуск: обсуждения и цитаты ===
     ("gh pr comment 1 --body 'не готов к merge — тесты красные'", 0, "отрицание"),
     ("gh pr comment 1 --body 'почти готов к merge, жду review'", 0, "«почти готов»"),
@@ -68,6 +74,13 @@ TESTS = [
     ("gh pr comment 1 --body \"$(cat /tmp/x)\"", 1, "$(cat /path)"),
     ("gh pr comment 1 --body \"$(<file.md)\"", 1, "$(<file)"),
     ("gh pr comment 1 --body \"`cat /tmp/x`\"", 1, "backtick cat"),
+    # Bypass через непрозрачную переменную — запрещённая фраза в $BODY,
+    # hook видит только имя переменной. Основной случай Copilot round 12.
+    ("gh pr comment 1 --body \"$BODY\"", 1, "--body \"$BODY\" (opaque var)"),
+    ("gh pr comment 1 --body $BODY", 1, "--body $BODY без кавычек"),
+    ("gh pr comment 1 --body \"${BODY}\"", 1, "--body \"${BODY}\""),
+    ("gh pr comment 1 --body \"${BODY:-default}\"", 1, "--body default-expansion"),
+    ("gh pr comment 1 --body=$BODY", 1, "--body=$BODY (=syntax)"),
     # === Legitimate markdown ===
     ("gh pr comment 1 --body 'использует `bd show` для проверки'", 0, "inline backticks"),
     ("gh pr comment 1 --body 'regex `bd-[a-z]+` захардкожен'", 0, "markdown regex"),

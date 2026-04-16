@@ -143,22 +143,68 @@
 - пушится в `claude/agent-pipeline-sprint-mxaQ1` отдельно — оператор может остановить в любой момент;
 - описание на русском, в стиле проекта.
 
-## Verification
+## Verification Contract
 
-После всех коммитов:
+> Следует формату из `.agents/AGENT_ROLES.md` секция Planner: acceptance criteria, expected behaviors, edge cases, error cases, invariants, explicit test list. Ревью без этой секции в плане = автоматический quality fail (введено этим же PR).
 
-1. **Вручную:** пройтись по шагам `/finalize-pr` на тестовом PR, проверить что:
-   - при mismatch commit hash скилл останавливается;
-   - при отсутствии external review для Sprint Final — СТОП;
-   - при попытке вручную написать «готов к merge» — блокировка hook'ом.
-2. **`/pipeline-audit`:** запустить, ожидаемый результат — `OK` (все инварианты 1–7 отражены в документах без противоречий).
-3. **`/verify`:** прогоняется после каждого коммита и зелёный перед push.
-4. **Cross-check документов:** убедиться, что `AGENT_ROLES.md`, `PM_ROLE.md`, `PIPELINE.md`, реализованные скиллы и agents-файлы говорят одно и то же про:
-   - владельца публикации (PM);
-   - число аспектов ревью (4);
-   - tier-ы ревью (Light / Standard / Critical / Sprint Final);
-   - обязательность external review для Sprint Final.
-5. **Коммит-бюджет:** при обнаружении ошибок — не amend, а новый коммит (правило проекта).
+### Acceptance criteria
+
+1. `/finalize-pr <PR>` публикует финальный комментарий **только** если:
+   - `HEAD_COMMIT` зафиксирован и совпадает с локальным `HEAD`;
+   - `/verify` зелёный на этом commit;
+   - internal review-pass на `$HEAD_COMMIT` с APPROVED по всем аспектам;
+   - для Sprint Final: external review-pass на `$HEAD_COMMIT` с APPROVED;
+   - нет ни одного `CHANGES_REQUESTED` в последних review-pass на HEAD (internal и external валидируются раздельно);
+   - каждое замечание имеет triage-статус (fix now закрыт / defer с Beads ID / reject с обоснованием).
+2. `/pipeline-audit` возвращает `OK` на `master` после merge — ни одного противоречия между `AGENT_ROLES.md`, `PM_ROLE.md`, `PIPELINE.md`, скиллами, hook'ом и шаблонами.
+3. `.claude/hooks/check-merge-ready.py` блокирует любую форму объявления готовности (H2 заголовок, bare фраза, `ready_to_merge`, `merge-ready`, переменные `--body $VAR`, `--body-file`, `$(cat /file)`) вне контекста `FINALIZE_PR_TOKEN`.
+4. Шаблон `sprint-pr-cycle` шаг 1.3 и шаблоны обоих review-pass публикуют `Commit: <hash>` и META JSON одинакового формата; `/finalize-pr` ловит оба маркера одним regex.
+
+### Expected behaviors
+
+- PM автоматически запрашивает Copilot re-review после каждого push (инвариант `push → request_copilot_review`).
+- PM автоматически читает Copilot findings и Включает их в triage `[Copilot]`.
+- При `CHANGES_REQUESTED` от любого канала ревью — обязательный повторный review-pass на новом HEAD.
+- Degraded/Manual mode external review публикуется с обязательной меткой `⚠️ Degraded mode` / `⚠️ Manual emergency mode`.
+
+### Edge cases
+
+- PR без `Tier:` маркера и без label `sprint-final` → `/finalize-pr` эскалирует (не тихий standard).
+- Более поздний internal `APPROVED` поверх более раннего external `CHANGES_REQUESTED` на том же commit → блокировка (каналы проверяются раздельно).
+- Один review-pass содержит несколько аспектов с разными вердиктами → блокировка, если есть хоть один `CHANGES_REQUESTED`.
+- Bypass hook через `--body "$BODY"`, `--body-file`, `$(cat /file)`, `gh\tpr\tcomment` (табы) → всё блокируется.
+- `<<<` и одиночные backticks в тексте body → НЕ блокируются (legitimate).
+- Обсуждения с негациями («не готов», «почти готов», «not yet ready») → НЕ блокируются.
+
+### Error cases
+
+- PR закрыт/удалён во время работы `/finalize-pr` → exit 1 с понятным сообщением, не hang.
+- HEAD изменился во время работы скилла → блокировка перед публикацией финального комментария.
+- GitHub API недоступен → `timeout 10` вокруг каждого `gh pr view`, fail-secure exit 1.
+- Codex CLI не залогинен → `/external-review` fallback на Режим C/D с честной меткой.
+- `tool_input.command` отсутствует в payload hook'а → fail-secure блокировка.
+
+### Invariants (7 → всегда держим)
+
+1. **Commit binding:** все артефакты ревью привязаны к конкретному `$HEAD_COMMIT`.
+2. **Single gate:** финализация идёт только через `/finalize-pr` (enforced hook'ом).
+3. **Verifiable triage:** каждое замечание имеет явный статус, проверяемый автоматически или гибридно.
+4. **Owner of publication:** PM единственный публикует review-pass в PR; reviewer-субагенты возвращают findings.
+5. **Cross-model diversity:** Sprint Final требует минимум один не-Claude ревьюер (или честная метка degraded).
+6. **Honest audit trail:** все режимы C/D помечены явно, не маскируются как A/B.
+7. **Auto-loop:** push → request_copilot_review → read findings → triage → fix → repeat.
+
+### Explicit test list
+
+| # | Тест | Где |
+|---|------|-----|
+| T1 | `python3 .claude/hooks/test_check_merge_ready.py` — 34/34 зелёных | ручной запуск / CI |
+| T2 | `npm run build && npm test` — 168/168 зелёных | `/verify` |
+| T3 | Ручной прогон `/finalize-pr 9` на тестовом PR — проверка всех hard gates | оператор |
+| T4 | `/pipeline-audit` на HEAD — OK (7 инвариантов, 0 противоречий) | ручной запуск |
+| T5 | Ручной bypass-attempt: `gh pr comment 9 --body 'ready to merge'` → блокировка | оператор |
+| T6 | Ручной bypass: `BODY='...'; gh pr comment 9 --body "$BODY"` → блокировка | оператор |
+| T7 | Cross-check документов: пройти по acceptance criteria 4 и убедиться в единстве формата | оператор |
 
 ## Риски и как их снимаем
 

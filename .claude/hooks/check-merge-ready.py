@@ -25,24 +25,47 @@ import re
 import sys
 
 
-# Паттерн точного маркера финального комментария readiness.
-# Почему так строго: поиск по подстроке даёт ложные блокировки на обсуждения
-# и отрицания вроде «не готов к merge», «почти готов к merge», «готов к merge,
-# если X». `/finalize-pr` публикует ровно заголовок `## ✅ Готов к merge`
-# (см. шаблон в finalize-pr/SKILL.md), поэтому требуем `##` + фразу + конец
-# строки/текста. Якорь `^` не подходит: внутри `gh pr comment ... --body "## ..."`
-# заголовок начинается в той же shell-строке после `--body "`, а не после `\n`.
-_MERGE_READY_PATTERN = re.compile(
-    r"##\s*(?:✅\s*)?"
-    r"(?:готов[оа]?\s*к\s*merge"
+# Паттерны маркера финального комментария readiness.
+#
+# GPT-5.4 external review (round 12) показал CRITICAL bypass прежнего
+# H2-only варианта: `gh pr comment 1 --body 'ready to merge'` проходил.
+# Теперь две стадии:
+#
+#   1) _MERGE_READY_CANDIDATE — ловит фразу на своей строке (с опциональным
+#      ## и ✅). Разрешает префикс перед фразой на той же строке, чтобы не
+#      расщеплять «The PR is ready to merge».
+#   2) _NEGATION_WORDS — постфильтр: если префикс содержит отрицание / «почти»,
+#      это обсуждение, не декларация готовности. Пропускаем.
+#
+# Терминаторы фразы строгие: конец строки / newline / закрывающая shell-кавычка.
+# Продолжение предложения («готов к merge после X», «ready to merge, если Y»)
+# не матчится — это именно точный маркер готовности.
+_MERGE_READY_CANDIDATE = re.compile(
+    r"(?im)^(?P<prefix>[^\n]*?)"
+    r"(?:##\s*(?:✅\s*)?)?"
+    r"(?P<phrase>"
+    r"готов[оа]?\s*к\s*merge"
     r"|ready\s*(?:to|for)\s*merge"
     r"|merge\s*ready"
-    r"|merge\s*is\s*ready)"
-    # Терминаторы фразы: конец строки body / newline / закрывающая shell-кавычка
-    # (`'` или `"`). Обычный пробел + текст («## Готов к merge после X») НЕ
-    # матчит — это не точный маркер, а продолжение предложения.
+    r"|merge\s*is\s*ready"
+    r")"
     r"\s*(?:$|\n|['\"])",
-    re.IGNORECASE | re.MULTILINE,
+)
+
+# Слова-отрицания перед фразой — снимают блокировку. Покрывают частые паттерны
+# обсуждений: «не готов», «not ready», «почти готов», «almost ready»,
+# «still not», «PR будет готов», «not yet ready».
+_NEGATION_WORDS = re.compile(
+    r"(?i)\b("
+    r"не(?:\s+ещё|\s+еще)?"
+    r"|нет"
+    r"|почти"
+    r"|not(?:\s+yet)?"
+    r"|still\s+not"
+    r"|almost"
+    r"|будет"
+    r"|yet\s+to"
+    r")\b"
 )
 
 
@@ -116,6 +139,28 @@ _DANGEROUS_SUBST = re.compile(
 )
 
 
+# Bypass через переменную: `--body "$BODY"` / `--body $BODY` / `--body "${BODY}"`.
+# Hook видит только литерал `$BODY`, не содержимое переменной, — запрещённая
+# фраза «готов к merge» в $BODY останется невидимой, и блокировка не сработает.
+# Блокируем любое значение флага --body, которое СРАЗУ начинается с shell-
+# переменной ($var, ${var}, ${var:-default}). Command substitution `$(...)`
+# (включая heredoc `$(cat <<'EOF'...)` для legitimate длинных отчётов) НЕ
+# матчится: после `$` идёт `(`, а regex ждёт `{` или букву/подчёркивание.
+_OPAQUE_VAR_BODY = re.compile(
+    r"""
+    (?:^|\s)--body(?:=|\s+)              # флаг --body, затем `=` или пробел
+    "?                                    # опциональная открывающая кавычка
+    \$                                    # доллар — начало переменной
+    (?:
+        \{[^}]+\}                         # ${VAR} / ${VAR:-default}
+        |
+        [A-Za-z_]\w*                      # $VAR
+    )
+    """,
+    re.VERBOSE,
+)
+
+
 def uses_body_file(command: str) -> bool:
     """True — если команда gh pr comment передаёт body через файл/stdin."""
     # Проверяем только для gh pr comment — остальные команды не по нашей теме.
@@ -138,16 +183,43 @@ def uses_dangerous_substitution(command: str) -> bool:
     return bool(_DANGEROUS_SUBST.search(command))
 
 
+def uses_opaque_variable_body(command: str) -> bool:
+    """True — если `--body` получает значение из непрозрачной переменной.
+
+    Закрывает bypass: `BODY="## ✅ Готов к merge"; gh pr comment 1 --body "$BODY"`.
+    В payload tool_input.command виден только литерал `$BODY` — фраза «готов
+    к merge» лежит в переменной и hook её не увидит. Чтобы hard gate
+    оставался реальным, для `gh pr comment` без FINALIZE_PR_TOKEN запрещено
+    подставлять body из переменной — допустимы только inline string или
+    heredoc `$(cat <<'EOF' ... EOF)`, где содержимое физически в команде.
+    """
+    if not _GH_PR_COMMENT.search(command):
+        return False
+    return bool(_OPAQUE_VAR_BODY.search(command))
+
+
 def is_forbidden(command: str) -> bool:
     """True — если команда содержит запрещённый заголовок readiness.
 
     Нормализуем только `_` и `-` в пробелы — это закрывает обход через
     `ready_to_merge`, `ready-to-merge`. Переносы строк НЕ нормализуем:
-    `_MERGE_READY_PATTERN` использует multiline-якоря `^`/`$`, которые
-    должны видеть реальные `\\n` в команде (shell-heredoc, multiline body).
+    паттерн использует multiline-якоря `^`/`$`, которые должны видеть
+    реальные `\\n` в команде (shell-heredoc, multiline body).
+
+    Двухстадийный matcher (см. комментарий к _MERGE_READY_CANDIDATE):
+    candidate → проверка префикса на отрицание → True только если
+    префикс чист.
     """
     normalized = re.sub(r"[_\-]+", " ", command)
-    return bool(_MERGE_READY_PATTERN.search(normalized))
+    for match in _MERGE_READY_CANDIDATE.finditer(normalized):
+        prefix = match.group("prefix") or ""
+        if _NEGATION_WORDS.search(prefix):
+            # «не готов к merge», «почти ready to merge», «PR будет готов…»
+            # — это обсуждение, не декларация. Продолжаем искать другие
+            # кандидаты в той же команде.
+            continue
+        return True
+    return False
 
 
 def main() -> int:
@@ -187,6 +259,20 @@ def main() -> int:
             "БЛОКИРОВКА: для `gh pr comment` запрещены конструкции, "
             "скрывающие содержимое body от hook'а: "
             "`$(cat file)`, `$(<file)`, backticks `cat file`.\n"
+            "Используй inline --body '...', heredoc `$(cat <<'EOF' ... EOF)` "
+            "или /finalize-pr <PR_NUMBER>.\n"
+        )
+        return 1
+
+    # Блокируем `--body "$VAR"` / `--body $VAR` / `--body "${VAR}"` —
+    # body берётся из переменной, hook видит только литерал имени переменной,
+    # а реальный текст ему недоступен. Это bypass: запрещённая фраза легко
+    # прячется в переменную (`BODY="## ✅ Готов к merge"; gh pr comment 1 --body "$BODY"`).
+    if uses_opaque_variable_body(command):
+        sys.stderr.write(
+            "БЛОКИРОВКА: для `gh pr comment` нельзя подставлять body из "
+            "переменной (`--body \"$VAR\"`, `--body ${VAR}`): hook видит "
+            "только имя переменной, не её содержимое.\n"
             "Используй inline --body '...', heredoc `$(cat <<'EOF' ... EOF)` "
             "или /finalize-pr <PR_NUMBER>.\n"
         )

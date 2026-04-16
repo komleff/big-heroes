@@ -180,12 +180,26 @@ echo "Tier: $TIER"
 ### Шаг 2.0.1: Tester gate для Critical (только Critical tier)
 
 > Применяется **до** запуска reviewer'ов. Цель: найти непокрытые edge-cases ДО ревью кода.
+>
+> Промпт Tester-субагенту различается по **классу Critical-изменений**: игровая математика (`shared/`, `config/balance.json`) vs нормативные артефакты пайплайна (`.claude/settings.json`, `.claude/hooks/*`, `.claude/skills/*`, `.claude/agents/*`, `.agents/*`, шаблоны review-pass). Для каждого класса — свой промпт: тестер должен знать, что именно искать, иначе gate работает формально и пропускает реальные bypass/drift (этот gap нашёл GPT-5.4 external review round 12).
 
-Промпт Tester-субагенту:
+**Определи класс** по `gh pr diff --name-only`:
+
+```bash
+if grep -qE '^(shared/|config/balance\.json)' /tmp/pr-files.txt; then
+  CRITICAL_CLASS="game-math"
+elif grep -qE '^(\.claude/(settings\.json|hooks/|skills/|agents/)|\.agents/)' /tmp/pr-files.txt; then
+  CRITICAL_CLASS="pipeline-artifacts"
+else
+  CRITICAL_CLASS="mixed"
+fi
+```
+
+**Промпт Tester-субагенту — game-math:**
 ```
 Ты Tester. Прочитай .agents/AGENT_ROLES.md секция "4. Tester".
-Задача: проверь PR #<PR_NUMBER>. Tier: Critical.
-Контекст: PR трогает shared/ или config/balance.json — игровая математика.
+Задача: проверь PR #<PR_NUMBER>. Tier: Critical, класс: игровая математика.
+Контекст: PR трогает shared/ или config/balance.json.
 Найди:
 - Edge cases из Verification Contract плана (docs/plans/<sprint>.md), не покрытые тестами
 - Граничные значения из config/balance.json без покрытия
@@ -193,7 +207,41 @@ echo "Tier: $TIER"
 Верни findings PM (НЕ публикуй в PR).
 ```
 
-Если Tester нашёл **непокрытые edge-cases** — PM делегирует Developer'у написать тесты, затем повторный `/verify`. Только после этого — переход к шагу 2.1.
+**Промпт Tester-субагенту — pipeline-artifacts:**
+```
+Ты Tester. Прочитай .agents/AGENT_ROLES.md секция "4. Tester".
+Задача: проверь PR #<PR_NUMBER>. Tier: Critical, класс: нормативные артефакты пайплайна.
+Контекст: PR трогает .claude/settings.json / .claude/hooks/* / .claude/skills/* /
+.claude/agents/* / .agents/* / шаблоны review-pass. Это hard-gate инфраструктура,
+и ошибки класса «bypass», «drift между продьюсером и консьюмером», «silent downgrade»
+здесь критичны сильнее, чем в обычном коде.
+
+Найди:
+- Bypass hook'ов: можно ли обойти `check-merge-ready.py` через переменные
+  (`--body "$VAR"`), через непрозрачные подстановки (`$(cat /file)`, `--body-file`),
+  через альтернативные формы фразы (ready to merge без ##, bare merge-ready,
+  ready_to_merge, локализованные варианты), через разные whitespace между
+  токенами (`gh\tpr\tcomment`), через здоровые markdown-конструкции
+  (blockquote с запрещённой фразой).
+- Drift между скиллами: шаблон producer'а и regex consumer'а расходятся.
+  Пример: шаблон публикации external-review печатает `**Commit:**`, а /finalize-pr
+  ищет `Commit:` — такие mismatch'и скилл не ловит, но они ломают commit binding.
+- Silent downgrade: проверь автодетект tier в /finalize-pr — что происходит,
+  если PR не имеет ни label `sprint-final`, ни `Tier:` строки в body. Должно быть
+  эскалация, а не тихая классификация как standard.
+- Verification Contract: есть ли он в плане спринта? Полный (acceptance criteria,
+  expected behaviors, edge cases, error cases, invariants, test list) или только
+  `## Verification`? Последнее = автоматический quality fail.
+- Непокрытые unit-тестами сценарии для hook'а (bypass-матрица) и для скиллов.
+
+Верни findings PM с конкретными путями:строками и репродьюсерами (например,
+точная команда `gh pr comment ... --body '...'`, которая проходит hook вместо блокировки).
+НЕ публикуй в PR.
+```
+
+**Промпт Tester-субагенту — mixed:** объединить оба промпта (оба класса применимы).
+
+Если Tester нашёл **непокрытые edge-cases** — PM делегирует Developer'у написать тесты / закрыть bypass / унифицировать шаблоны, затем повторный `/verify`. Только после этого — переход к шагу 2.1.
 
 ### Шаг 2.1: Запуск reviewer субагентов (параллельно)
 

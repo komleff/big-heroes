@@ -100,12 +100,26 @@ if [ -z "$PR_META" ]; then
 fi
 
 HAS_LABEL=$(echo "$PR_META" | jq -r '.labels[]?.name | select(. == "sprint-final")' | head -1)
-HAS_BODY_MARKER=$(echo "$PR_META" | jq -r '.body // ""' | grep -iE '^Tier:\s*Sprint Final\b' | head -1)
+# Любой `Tier:` в body — Sprint Final, Critical, Standard, Light.
+TIER_BODY_LINE=$(echo "$PR_META" | jq -r '.body // ""' | grep -iE '^Tier:\s*(Sprint Final|Critical|Standard|Light)\b' | head -1)
+HAS_SPRINT_FINAL_BODY=$(echo "$TIER_BODY_LINE" | grep -iE 'Sprint Final' | head -1)
 
-if [ -n "$HAS_LABEL" ] || [ -n "$HAS_BODY_MARKER" ]; then
+# Критический случай: нет НИ label, НИ строки Tier в body. Прежде чем
+# молча классифицировать как standard (и пропустить external review),
+# требуем явной эскалации. Это CRITICAL из external review GPT-5.4 round 12.
+if [ -z "$HAS_LABEL" ] && [ -z "$TIER_BODY_LINE" ]; then
+  echo "СТОП: PR #<PR_NUMBER> не маркирован tier'ом — нет ни label 'sprint-final',"
+  echo "ни строки 'Tier: <Sprint Final|Critical|Standard|Light>' в body."
+  echo "Добавь маркер через редактирование PR body (см. шаблон в"
+  echo ".claude/skills/sprint-pr-cycle/SKILL.md шаг 1.3) и перезапусти /finalize-pr."
+  echo "Тихая классификация как 'standard' запрещена — возможен пропуск external review."
+  exit 1
+fi
+
+if [ -n "$HAS_LABEL" ] || [ -n "$HAS_SPRINT_FINAL_BODY" ]; then
   TIER="sprint-final"
 else
-  TIER="standard"  # фактический tier (light/standard/critical) проверяется в /sprint-pr-cycle, здесь важно лишь != sprint-final
+  TIER="standard"  # явно маркирован как Critical/Standard/Light — external review опционален
 fi
 echo "Tier для финализации: $TIER"
 ```

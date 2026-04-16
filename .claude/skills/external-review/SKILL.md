@@ -217,13 +217,23 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 
 ### 5.3 Шаблон комментария
 
+> ⚠️ **Commit binding — без `**` и с META JSON.** `/finalize-pr` ищет маркер через regex `Commit:\s*\`?<hash>` ИЛИ JSON `"commit": "<hash>"`. Шаблон `**Commit:**` (bold markdown) **не** матчится (между `Commit:` и хэшем идёт `**`, не whitespace) — это drift, найденный GPT-5.4 external review (round 12). Используй простой `Commit: <hash>` и добавь HTML META с JSON — дублирование на случай, если кто-то изменит markdown-форматирование.
+
+Перед публикацией зафиксируй HEAD commit:
+
 ```bash
-gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
+HEAD_COMMIT=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')
+```
+
+Публикация отчёта (quoted heredoc + bash parameter expansion, чтобы body-содержимое не проходило shell-расширения):
+
+```bash
+BODY=$(cat <<'EOF'
 ## Внешнее ревью (Sprint Final) — Режим: [A/B/C/D]
 
-**Commit:** `<HEAD_COMMIT_HASH>`
+Commit: `__HEAD_COMMIT__`
 
-> ⚠️ **Обязательная строка `Commit: <hash>` сразу под заголовком** — это стабильный маркер для `/finalize-pr` commit binding. Без неё скилл не сможет привязать отчёт к конкретному commit и заблокирует финализацию. Хэш получить через `HEAD_COMMIT=$(gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')` ДО запуска ревьюеров.
+<!-- {"reviewer": "__MODEL_NAME__", "commit": "__HEAD_COMMIT__", "kind": "external", "mode": "__MODE__"} -->
 
 <!-- Если режим C или D — обязательная метка: -->
 ⚠️ [Degraded mode / Manual emergency mode] — <описание из таблицы 5.1>
@@ -300,7 +310,13 @@ CRITICAL: N, WARNING: N
 
 — PM (Claude Opus 4.6), по результатам внешнего ревью
 EOF
-)"
+)
+# Безопасная подстановка маркеров — тело отчёта остаётся буквальным (quoted heredoc),
+# bash-расширений в findings/raw-output не происходит.
+BODY="${BODY//__HEAD_COMMIT__/$HEAD_COMMIT}"
+BODY="${BODY//__MODEL_NAME__/$MODEL_NAME}"    # например, "gpt-5.4" или "gpt-5.3-codex"
+BODY="${BODY//__MODE__/$MODE}"                # A / B / C / D
+gh pr comment <PR_NUMBER> --body "$BODY"
 ```
 
 > ⚠️ Raw output публикуется **без редактуры**. Если он слишком длинный — собрать как artifact и приложить ссылкой, но **не** сокращать пересказом.
