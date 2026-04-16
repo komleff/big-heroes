@@ -131,6 +131,25 @@ TESTS = [
         1,
         "heredoc+$BODY с merge-ready — блокируется",
     ),
+    # === Copilot round 20 CRITICAL: heredoc-lookalike bypass ===
+    # Прежний _HEREDOC_PRESENT ловил любой `<<TOKEN`. Достаточно было
+    # дописать `# <<EOF` в команду — hook считал heredoc присутствующим,
+    # снимал opaque-body блокировку, merge-ready в $BODY проходил.
+    (
+        "gh pr comment 1 --body \"$BODY\" # heredoc-lookalike <<EOF",
+        1,
+        "bypass heredoc-lookalike в комментарии",
+    ),
+    (
+        "gh pr comment 1 --body \"$BODY\" # harmless <<TOKEN text",
+        1,
+        "bypass heredoc-lookalike с TOKEN",
+    ),
+    (
+        "FAKE=<<EOF\ngh pr comment 1 --body \"$BODY\"",
+        1,
+        "bypass через literal <<EOF без cat",
+    ),
     # === Command substitution в --body без heredoc — block ===
     # Codex round 14 CRITICAL + D-02: bypass через $(echo $VAR), $(head/tail/sed/awk/xxd),
     # $(printf %s $VAR), $(perl/python/node -e ...) — любой инструмент кроме heredoc-cat.

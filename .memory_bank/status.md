@@ -2,7 +2,7 @@
 
 **Обновлён:** 2026-04-16
 **Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`)
-**last_reviewed_commit:** ef4030d (round 19 GPT-5.4 CRITICAL review-verdict; далее fix в новом коммите)
+**last_reviewed_commit:** 62d7ce1 (round 20 Copilot COMMENTED 5 findings + GPT-5.4 APPROVED; далее fix в новом коммите)
 
 > Семантика `last_reviewed_commit`: HEAD, на который есть опубликованный внешний review-verdict. Это НЕ `git rev-parse HEAD` ветки — текущий HEAD всегда впереди на один fix-коммит, пока round не закрыт следующим reviewer'ом. Self-reference невозможен, поэтому формат drift-free.
 > Текущий HEAD ветки проверяй через `git rev-parse HEAD` или `gh pr view 9 --json headRefOid`.
@@ -37,13 +37,15 @@
 - big-heroes-e0n (P2) — sprint-pr-cycle Critical review level → добавлена tier-логика + tester gate.
 - big-heroes-fkv (P2) — split source of truth → AGENT_ROLES.md, PM_ROLE.md, PIPELINE.md, HOW_TO_USE.md, sprint-pr-cycle и reviewer/planner согласованы.
 
-**Текущий review-цикл (PR #9 открыт, round 19 closed в этом коммите, round 20 запрошен):**
+**Текущий review-цикл (PR #9 открыт, round 20 closed в этом коммите, round 21 запрошен):**
 - Раунды 1–14: закрыто ~40 CRITICAL/WARNING от Copilot + GPT-5.4 + Codex.
 - Round 15 (2026-04-16, 89ece50): GPT-5.4 CHANGES_REQUESTED — 3 WARNING закрыты fix now (blockquote false positive в hook, Planner-drift в pipeline-audit, stale status.md).
 - Round 16 (2026-04-16, 8226e5b): GPT-5.4 CHANGES_REQUESTED — 1 CRITICAL + 1 WARNING закрыты fix now (cross-platform hook wrapper `py`→`python3`→`python`, Verification Contract T1 55/55).
 - Round 17 (2026-04-16, b9a7a8d): GPT-5.4 CHANGES_REQUESTED — 1 WARNING закрыто fix now (status.md reopened от round 15).
 - Round 18 (2026-04-16, ef4030d): GPT-5.4 CHANGES_REQUESTED — 1 WARNING закрыто fix now (status.md:5,37 снова reopened).
 - Round 19 (2026-04-16, ef4030d): GPT-5.4 CHANGES_REQUESTED — 1 WARNING корневая причина цикла: `last_checked_commit` ссылалось на HEAD ветки (self-reference). Переформулировано в `last_reviewed_commit` = последний HEAD с review-verdict. Drift-free by format.
+- Round 19.5 (62d7ce1): GPT-5.4 APPROVED после format-level fix — цикл разорван. Pipeline-audit на 62d7ce1: ✅ OK (0 drift).
+- Round 20 (2026-04-17, 62d7ce1): Copilot COMMENTED — 5 findings закрыты fix now: (1) CRITICAL hook bypass через literal `<<TOKEN` вне heredoc-присваивания (`_HEREDOC_PRESENT` сужен до `$(cat <<TOKEN`), (2) WARNING pipeline-audit 3.3 false drift на Light tier (уточнено 4/2 аспекта), (3) WARNING pipeline-audit 5. ссылки не покрывали .claude/hooks/ и .memory_bank/ (grep расширен), (4) WARNING sprint-pr-cycle хардкод `/tmp/pr-files.txt` (mktemp + trap), (5) WARNING sprint-pr-cycle HEAD_COMMIT без null-guard.
 
 **Что осталось оператору:**
 - Прогнать `/pipeline-audit` — ожидаемый результат `OK` по всем 7 инвариантам.

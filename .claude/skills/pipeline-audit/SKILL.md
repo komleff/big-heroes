@@ -83,9 +83,12 @@ ls -1 .claude/settings.json
 
 ### 3.3 Аспекты ревью
 
-Везде должно быть **ровно 4 аспекта**: Архитектура, Безопасность, Качество, Гигиена кода. В таком же порядке.
+Для `Standard`, `Critical`, `Sprint Final` — **ровно 4 аспекта** в порядке: Архитектура, Безопасность, Качество, Гигиена кода.
 
-Если где-то 3 или 5 — `DRIFT: число аспектов не равно 4 в <файл>`.
+Для `Light` — **ровно 2 аспекта** в порядке: Архитектура, Гигиена кода (Light пропускает Безопасность и Качество по `AGENT_ROLES.md:183`).
+
+Если в Standard/Critical/Sprint Final не 4 — `DRIFT: число аспектов не равно 4 для non-Light tier в <файл>`.
+Если в Light не 2 или состав отличается от «Архитектура + Гигиена кода» — `DRIFT: Light tier должен содержать только Архитектура + Гигиена кода в <файл>`.
 
 ### 3.4 Tier-ы ревью
 
@@ -114,12 +117,12 @@ ls -1 .claude/settings.json
 
 ## Шаг 5: Валидность ссылок между документами
 
-Для каждой ссылки вида `.agents/X.md`, `.claude/agents/X.md`, `.claude/skills/X/SKILL.md` проверь:
+Для каждой ссылки вида `.agents/X.md`, `.claude/agents/X.md`, `.claude/skills/X/SKILL.md`, `.claude/hooks/X.(md|py)`, `.memory_bank/X.md`, `.claude/rules/X.md` проверь:
 
 ```bash
 # Извлечь все упомянутые пути
-grep -rEo '\.(agents|claude/agents|claude/skills|memory_bank|claude/rules)/[^ )"]*\.(md|json)' \
-  .agents/ .claude/agents/ .claude/skills/ .claude/rules/ 2>/dev/null | sort -u
+grep -rEo '\.(agents|claude/agents|claude/skills|claude/hooks|memory_bank|claude/rules)/[^ )"]*\.(md|json|py)' \
+  .agents/ .claude/agents/ .claude/skills/ .claude/hooks/ .claude/rules/ .memory_bank/ 2>/dev/null | sort -u
 ```
 
 Для каждого пути — проверь существование файла. Если файл не существует — `DRIFT: <файл-источник> ссылается на несуществующий <файл-цель>`.

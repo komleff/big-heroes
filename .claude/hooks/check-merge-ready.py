@@ -187,10 +187,20 @@ _OPAQUE_VAR_BODY = re.compile(
 # в команде, hook видит его целиком. Если `--body "$VAR"` ссылается на
 # такую переменную, opaque-blocker даёт ложное срабатывание: шаблоны
 # публикации review-pass в sprint-pr-cycle/SKILL.md и external-review/SKILL.md
-# используют ровно эту форму. Детектим heredoc-любой формы (quoted/unquoted,
-# `<<-`), снимая opaque-блокировку — is_forbidden всё равно пройдёт по raw
-# команде и поймает запрещённую фразу, если она лежит в heredoc.
-_HEREDOC_PRESENT = re.compile(r"<<-?\s*[\"']?[A-Za-z_][A-Za-z0-9_]*")
+# используют ровно эту форму.
+#
+# GPT Copilot round 20: прежний широкий regex `<<-?\s*TOKEN` был bypass.
+# Достаточно было добавить в команду литерал `# <<EOF` — hook решал, что
+# heredoc присутствует, снимал opaque-блокировку, и merge-ready в $BODY
+# проходил. Теперь требуем именно heredoc-присваивание формата
+# `VAR=$(cat <<TOKEN` — только так содержимое реально видно hook'у.
+_HEREDOC_PRESENT = re.compile(
+    r"""
+    \$\(\s*cat\b\s*                       # требуем именно $(cat ...)
+    <<-?\s*[\"']?[A-Za-z_][A-Za-z0-9_]*   # heredoc-маркер
+    """,
+    re.VERBOSE,
+)
 
 
 # Bypass через ЛЮБОЙ command substitution `$(...)` в позиции --body:

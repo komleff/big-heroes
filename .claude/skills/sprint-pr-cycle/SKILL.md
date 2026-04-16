@@ -148,10 +148,14 @@ Tier выбирается по содержимому изменений PR:
 
 Определение tier:
 ```bash
-gh pr diff <PR_NUMBER> --name-only > /tmp/pr-files.txt
+# Copilot round 20: хардкоженый /tmp/pr-files.txt ломал параллельные
+# запуски и не работает на окружениях без /tmp. mktemp + trap cleanup.
+PR_FILES="$(mktemp)"
+trap 'rm -f "$PR_FILES"' EXIT
+gh pr diff <PR_NUMBER> --name-only > "$PR_FILES"
 
 # Critical, если есть изменения в shared/ или config/balance.json
-if grep -qE '^(shared/|config/balance\.json)' /tmp/pr-files.txt; then
+if grep -qE '^(shared/|config/balance\.json)' "$PR_FILES"; then
   TIER="critical"
 # Critical, если затронуты нормативные артефакты пайплайна:
 # - .claude/settings.json, hooks, skills, agents
@@ -160,10 +164,10 @@ if grep -qE '^(shared/|config/balance\.json)' /tmp/pr-files.txt; then
 # .json/.md и иначе были бы ложно классифицированы как light. GPT-5.4 round 14
 # CRITICAL: ранее .agents/*.md не учитывался, PR с только .agents/ изменениями
 # уходил в Light и пропускал Tester gate + второй Critical pass.
-elif grep -qE '^(\.claude/(settings\.json|hooks/|skills/|agents/)|\.agents/)' /tmp/pr-files.txt; then
+elif grep -qE '^(\.claude/(settings\.json|hooks/|skills/|agents/)|\.agents/)' "$PR_FILES"; then
   TIER="critical"
 # Light, если только .md/.json без логики (и не .agents/ — см. выше)
-elif ! grep -qvE '\.(md|json)$' /tmp/pr-files.txt; then
+elif ! grep -qvE '\.(md|json)$' "$PR_FILES"; then
   TIER="light"
 else
   TIER="standard"
@@ -194,8 +198,8 @@ echo "Tier: $TIER"
 # Ранее if/elif: первая ветка game-math выигрывала, pipeline-artifacts
 # промпт не запускался даже для mixed — Tester gate работал формально
 # (Tester CRIT #6 из round 13 deferred, затем GPT-5.4 round 14 critical).
-HAS_GAME=$(grep -qE '^(shared/|config/balance\.json)' /tmp/pr-files.txt && echo 1 || echo 0)
-HAS_PIPE=$(grep -qE '^(\.claude/(settings\.json|hooks/|skills/|agents/)|\.agents/)' /tmp/pr-files.txt && echo 1 || echo 0)
+HAS_GAME=$(grep -qE '^(shared/|config/balance\.json)' "$PR_FILES" && echo 1 || echo 0)
+HAS_PIPE=$(grep -qE '^(\.claude/(settings\.json|hooks/|skills/|agents/)|\.agents/)' "$PR_FILES" && echo 1 || echo 0)
 
 if [ "$HAS_GAME" = "1" ] && [ "$HAS_PIPE" = "1" ]; then
   CRITICAL_CLASS="mixed"
@@ -302,6 +306,12 @@ fi
 
 ```bash
 HEAD_COMMIT=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')
+# Copilot round 20: без null-guard пустой/null commit попадал в review-pass,
+# и /finalize-pr не мог найти commit-binding. Валидируем формат SHA сразу.
+if [[ -z "$HEAD_COMMIT" || "$HEAD_COMMIT" == "null" || ! "$HEAD_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  echo "Не удалось получить валидный HEAD_COMMIT для PR <PR_NUMBER>. Публикация review-pass остановлена." >&2
+  exit 1
+fi
 ```
 
 Затем публикуй отчёт. **Используй quoted heredoc `<<'EOF'` + плейсхолдер**, чтобы bash не делал подстановок внутри тела (резюме reviewer-субагентов может содержать `$VAR`, `$(...)`, backticks — без quoted heredoc их раскроет shell и текст исказится). Подставь `$HEAD_COMMIT` после, через bash parameter expansion:
