@@ -2,7 +2,7 @@
 
 **Обновлён:** 2026-04-17
 **Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`)
-**last_reviewed_commit:** ca6bfc8 (round 20 Copilot COMMENTED 5 findings + round 21 Copilot COMMENTED 3 findings + GPT-5.4 APPROVED; далее fix в 858b5ea)
+**last_reviewed_commit:** 858b5ea (round 22 Copilot COMMENTED 4 findings + GPT-5.4 Critical APPROVED; далее fix в e4f7714)
 
 > Семантика `last_reviewed_commit`: HEAD, на который есть опубликованный внешний review-verdict. Это НЕ `git rev-parse HEAD` ветки — текущий HEAD всегда впереди на один fix-коммит, пока round не закрыт следующим reviewer'ом. Self-reference невозможен, поэтому формат drift-free.
 > Текущий HEAD ветки проверяй через `git rev-parse HEAD` или `gh pr view 9 --json headRefOid`.
@@ -47,11 +47,12 @@
 - Round 19.5 (62d7ce1): GPT-5.4 APPROVED после format-level fix — цикл разорван. Pipeline-audit на 62d7ce1: ✅ OK (0 drift).
 - Round 20 (2026-04-17, 62d7ce1): Copilot COMMENTED — 5 findings закрыты fix now в ca6bfc8: (1) CRITICAL hook bypass через literal `<<TOKEN` вне heredoc-присваивания, (2–5) 4 WARNING по pipeline-audit и sprint-pr-cycle.
 - Round 21 (2026-04-17, ca6bfc8): Copilot COMMENTED — 3 findings закрыты fix now в 858b5ea: (1) CRITICAL alien-heredoc bypass (`_HEREDOC_PRESENT` снимал opaque-block при heredoc для другой переменной; заменён на `_body_var_has_heredoc` + `_BODY_DIRECT_HEREDOC_CAT`), (2) WARNING regression-тесты (+4 кейса, suite 62/62), (3) WARNING pipeline-audit step 1 не собирал hooks (добавлен `ls -1 .claude/hooks/*.py`). GPT-5.4 Standard APPROVED на ca6bfc8 (дополнительный, не заменяет Critical).
+- Round 22 (2026-04-17, 858b5ea): GPT-5.4 Critical APPROVED + Copilot COMMENTED — 4 findings закрыты fix now в e4f7714: (1) CRITICAL punctuation bypass (`.!?` после фразы обходил regex-терминатор; добавлен `[.!?]`), (2) WARNING regression-тесты (+6 EN/RU, suite 68/68), (3) WARNING `$ITERATION` не задавался в sprint-pr-cycle (добавлено вычисление через `gh pr view --jq`), (4) WARNING external-review codex login status без timeout (добавлен `timeout 15`).
 
 **Что осталось оператору:**
-- Ожидать re-review на `858b5ea` (round 22 запрошен).
-- Прогнать `/pipeline-audit` — ожидаемый результат `OK` по всем 7 инвариантам.
-- При APPROVED по всем ревьюерам — `/finalize-pr 9` (фаза 2 доступна).
+- Ожидать re-review от Copilot на `e4f7714` (round 23 запрошен).
+- При Copilot APPROVED → `/pipeline-audit` → `/finalize-pr 9`.
+- GPT-5.4 Critical APPROVED уже получен на `858b5ea`.
 
 ### Sprint 4 (предыдущий, MERGED)
 
