@@ -163,19 +163,51 @@ TESTS = [
     ("gh pr comment 1 --body \"$(perl -e 'print qq/ready to merge/')\"", 1, "$(perl) bypass"),
     ("gh pr comment 1 --body \"$(python3 -c 'print(\"x\")')\"", 1, "$(python) bypass"),
     ("gh pr comment 1 --body=$(echo $BODY)", 1, "--body=$(echo) without quotes"),
-    # Heredoc в той же команде — снимает command-subst блокировку (содержимое heredoc
-    # видно hook'у через raw команду; is_forbidden проверит фразу в heredoc).
+    # Heredoc в той же команде — снимает command-subst блокировку, ТОЛЬКО если
+    # heredoc-cat непосредственно в позиции --body. Посторонний heredoc для другой
+    # переменной НЕ снимает блокировку (Copilot round 21 CRITICAL).
+    #
+    # Паттерн `--body "$(echo $BODY)"` блокируется даже при наличии heredoc для
+    # BODY — $(echo ...) скрывает реальное содержимое. Легитимный способ:
+    # `--body "$BODY"` (opaque-var-check проверит привязку heredoc к BODY).
     (
         "BODY=$(cat <<'EOF'\n## Clean review\nEOF\n)\n"
         "gh pr comment 1 --body \"$(echo $BODY)\"",
-        0,
-        "heredoc + $(echo $BODY) без merge-ready — pass (raw heredoc виден)",
+        1,
+        "heredoc+cmd-subst: $(echo) скрывает содержимое даже с heredoc для BODY",
     ),
     (
         "BODY=$(cat <<'EOF'\n## ✅ Готов к merge\nEOF\n)\n"
         "gh pr comment 1 --body \"$(echo $BODY)\"",
         1,
-        "heredoc + $(echo $BODY) с merge-ready — block (is_forbidden ловит raw)",
+        "heredoc + $(echo $BODY) с merge-ready — block (cmd-subst opaque)",
+    ),
+    # === Copilot round 21 CRITICAL: «посторонний» (alien) heredoc bypass ===
+    # Heredoc для переменной X НЕ должен снимать opaque-блокировку для $BODY.
+    (
+        "X=$(cat <<'EOF'\ninnocent text\nEOF\n)\n"
+        "gh pr comment 1 --body \"$BODY\"",
+        1,
+        "alien heredoc X= не снимает opaque-block для $BODY",
+    ),
+    (
+        "X=$(cat <<'EOF'\ninnocent text\nEOF\n)\n"
+        "gh pr comment 1 --body \"${BODY}\"",
+        1,
+        "alien heredoc X= не снимает opaque-block для ${BODY}",
+    ),
+    (
+        "X=$(cat <<'EOF'\ninnocent text\nEOF\n)\n"
+        "gh pr comment 1 --body \"$(echo $BODY)\"",
+        1,
+        "alien heredoc X= не снимает cmd-subst block",
+    ),
+    # Правильная привязка: heredoc для BODY + --body "$BODY" — ОК.
+    (
+        "BODY=$(cat <<'EOF'\n## Clean review\nEOF\n)\n"
+        "gh pr comment 1 --body \"$BODY\"",
+        0,
+        "heredoc BODY= + --body $BODY — привязка корректна, pass",
     ),
 ]
 

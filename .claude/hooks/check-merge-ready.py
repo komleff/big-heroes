@@ -183,21 +183,54 @@ _OPAQUE_VAR_BODY = re.compile(
 )
 
 
-# Heredoc-присваивание `VAR=$(cat <<'EOF' ... EOF)` — содержимое body инлайн
-# в команде, hook видит его целиком. Если `--body "$VAR"` ссылается на
-# такую переменную, opaque-blocker даёт ложное срабатывание: шаблоны
-# публикации review-pass в sprint-pr-cycle/SKILL.md и external-review/SKILL.md
-# используют ровно эту форму.
-#
-# GPT Copilot round 20: прежний широкий regex `<<-?\s*TOKEN` был bypass.
-# Достаточно было добавить в команду литерал `# <<EOF` — hook решал, что
-# heredoc присутствует, снимал opaque-блокировку, и merge-ready в $BODY
-# проходил. Теперь требуем именно heredoc-присваивание формата
-# `VAR=$(cat <<TOKEN` — только так содержимое реально видно hook'у.
-_HEREDOC_PRESENT = re.compile(
+# Извлечение имени переменной из --body "$VAR" / --body "${VAR}" / --body $VAR.
+# Нужно для привязки heredoc-исключения к конкретной переменной (round 21 fix).
+_BODY_VAR_NAME = re.compile(
     r"""
-    \$\(\s*cat\b\s*                       # требуем именно $(cat ...)
-    <<-?\s*[\"']?[A-Za-z_][A-Za-z0-9_]*   # heredoc-маркер
+    (?:^|\s)--body(?:=|\s+)              # флаг --body
+    "?                                    # опциональная кавычка
+    \$                                    # доллар
+    (?:
+        \{([A-Za-z_]\w*)                 # ${VAR} → группа 1
+        |
+        ([A-Za-z_]\w*)                    # $VAR → группа 2
+    )
+    """,
+    re.VERBOSE,
+)
+
+
+def _body_var_has_heredoc(command: str) -> bool:
+    """True если переменная из --body "$VAR" присвоена через heredoc $(cat <<TOKEN).
+
+    Copilot round 21 CRITICAL: прежний глобальный _HEREDOC_PRESENT снимал
+    opaque-блокировку при наличии ЛЮБОГО $(cat <<TOKEN) в команде. Bypass:
+    X=$(cat <<'EOF'\ninnocent\nEOF\n)\ngh pr comment 1 --body "$BODY"
+    — heredoc кормит X, а $BODY остаётся непрозрачным.
+
+    Теперь проверяем, что heredoc присваивается ИМЕННО переменной из --body.
+    """
+    m = _BODY_VAR_NAME.search(command)
+    if not m:
+        return False
+    var_name = m.group(1) or m.group(2)
+    if not var_name:
+        return False
+    # Ищем VAR=$(cat <<TOKEN — heredoc присваивается именно этой переменной
+    pattern = re.compile(
+        rf"(?:^|\n)\s*{re.escape(var_name)}=\$\(\s*cat\b\s*<<-?\s*[\"']?[A-Za-z_][A-Za-z0-9_]*"
+    )
+    return bool(pattern.search(command))
+
+
+# Heredoc-cat непосредственно в позиции --body: --body "$(cat <<'EOF'...)"
+# Содержимое heredoc'а инлайн в команде — hook видит его через raw текст,
+# is_forbidden проверит на запрещённые фразы.
+_BODY_DIRECT_HEREDOC_CAT = re.compile(
+    r"""
+    (?:^|\s)--body(?:=|\s+)              # флаг --body
+    "?\$\(\s*cat\b\s*                     # $(cat
+    <<-?\s*[\"']?[A-Za-z_][A-Za-z0-9_]*  # heredoc-маркер
     """,
     re.VERBOSE,
 )
@@ -209,10 +242,10 @@ _HEREDOC_PRESENT = re.compile(
 # содержимое через shell, скрыто от hook'а.
 #
 # Whitelist-подход: блокируем любой `$(` сразу после --body (с опциональной
-# кавычкой). Heredoc-исключение уже делается выше через _HEREDOC_PRESENT:
-# если в той же команде присутствует heredoc-присваивание (BODY=$(cat <<'EOF'
-# ... EOF)), считаем, что содержимое видно — is_forbidden пройдёт по raw
-# команде. Без heredoc любой $(...) в --body = непрозрачное расширение = block.
+# кавычкой). Heredoc-исключение: если --body сам является heredoc-cat
+# (`--body "$(cat <<'EOF'...)"`) — содержимое видно hook'у инлайн,
+# is_forbidden проверит. Посторонний heredoc для другой переменной
+# НЕ снимает блокировку (Copilot round 21 CRITICAL fix).
 #
 # Это закрывает класс атак целиком (не только head/tail/sed/awk, но и
 # echo $VAR, printf, process substitution, любой future command).
@@ -267,8 +300,9 @@ def uses_opaque_variable_body(command: str) -> bool:
     """
     if not _GH_PR_COMMENT.search(command):
         return False
-    if _HEREDOC_PRESENT.search(command):
-        # Heredoc делает содержимое видимым — is_forbidden проверит его.
+    if _body_var_has_heredoc(command):
+        # Heredoc кормит ИМЕННО переменную из --body — содержимое видно hook'у.
+        # Copilot round 21: привязка к имени переменной закрывает alien-heredoc bypass.
         return False
     return bool(_OPAQUE_VAR_BODY.search(command))
 
@@ -282,14 +316,18 @@ def uses_opaque_command_substitution_body(command: str) -> bool:
     и любой будущий инструмент. Whitelist-подход: блокируем любой `$(`
     сразу после `--body`.
 
-    Exception: heredoc в той же команде (BODY=$(cat <<'EOF' ... EOF))
-    — содержимое видно hook'у через heredoc. is_forbidden проверит его.
+    Exception: --body "$(cat <<'EOF' ... EOF)" — heredoc-cat непосредственно
+    в позиции --body, содержимое инлайн в команде, is_forbidden проверит.
+    Посторонний heredoc для другой переменной НЕ снимает блокировку
+    (Copilot round 21 CRITICAL fix).
 
     Источник: GPT-5.3-Codex round 14 CRITICAL + D-02 deferred.
     """
     if not _GH_PR_COMMENT.search(command):
         return False
-    if _HEREDOC_PRESENT.search(command):
+    if _BODY_DIRECT_HEREDOC_CAT.search(command):
+        # --body "$(cat <<TOKEN...)" — heredoc-cat IS the body, content visible.
+        # Copilot round 21: посторонний heredoc для другой переменной НЕ снимает block.
         return False
     return bool(_OPAQUE_COMMAND_SUBST_BODY.search(command))
 

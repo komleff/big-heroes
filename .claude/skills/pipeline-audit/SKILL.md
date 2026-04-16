@@ -35,6 +35,9 @@ ls -1 .claude/skills/*/SKILL.md
 # Правила
 ls -1 .claude/rules/*.md
 
+# Hooks: код и тесты hard gates (v3.3)
+ls -1 .claude/hooks/*.py
+
 # Конфиг harness
 ls -1 .claude/settings.json
 ```
