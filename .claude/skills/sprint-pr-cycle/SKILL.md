@@ -317,6 +317,15 @@ fi
 Затем публикуй отчёт. **Используй quoted heredoc `<<'EOF'` + плейсхолдер**, чтобы bash не делал подстановок внутри тела (резюме reviewer-субагентов может содержать `$VAR`, `$(...)`, backticks — без quoted heredoc их раскроет shell и текст исказится). Подставь `$HEAD_COMMIT` после, через bash parameter expansion:
 
 ```bash
+# Copilot round 22: ITERATION должна быть задана явно.
+# Определяем номер прохода: ищем последний iteration в PR comments, +1.
+# Если нет — первый проход.
+ITERATION=$(gh pr view <PR_NUMBER> --json comments \
+  --jq '[.comments[].body | capture("\"iteration\":\\s*(?<n>[0-9]+)") | .n | tonumber] | max // 0 | . + 1')
+if [[ -z "$ITERATION" || "$ITERATION" == "null" ]]; then
+  ITERATION=1
+fi
+
 BODY=$(cat <<'EOF'
 ## Внутреннее ревью (Claude) — review-pass
 

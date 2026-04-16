@@ -66,6 +66,13 @@ TESTS = [
     ("gh pr comment 1 --body 'Готов к merge'", 1, "bare готов к merge"),
     ("gh pr comment 1 --body 'merge ready'", 1, "bare merge ready"),
     ("gh pr comment 1 --body 'PR is ready to merge'", 1, "PR is ready to merge"),
+    # === Copilot round 22 CRITICAL: пунктуация `.!?` обходила терминатор ===
+    ("gh pr comment 1 --body 'PR is ready to merge.'", 1, "PR is ready to merge + dot"),
+    ("gh pr comment 1 --body 'PR is ready to merge!'", 1, "PR is ready to merge + bang"),
+    ("gh pr comment 1 --body 'PR is ready to merge?'", 1, "PR is ready to merge + question"),
+    ("gh pr comment 1 --body '## ✅ Готов к merge.'", 1, "final marker RU + dot"),
+    ("gh pr comment 1 --body '## ✅ Готов к merge!'", 1, "final marker RU + bang"),
+    ("gh pr comment 1 --body '## ✅ Готов к merge?'", 1, "final marker RU + question"),
     # === Пропуск: обсуждения и цитаты ===
     ("gh pr comment 1 --body 'не готов к merge — тесты красные'", 0, "отрицание"),
     ("gh pr comment 1 --body 'почти готов к merge, жду review'", 0, "«почти готов»"),

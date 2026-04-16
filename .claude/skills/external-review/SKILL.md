@@ -74,7 +74,10 @@ fi
 ### 1.4 Проверка Codex CLI
 
 ```bash
-npx @openai/codex login status
+# Copilot round 22: timeout предотвращает зависание при OAuth-проблемах.
+# При таймауте/ошибке — переход в режим C (degraded) или D (manual).
+CODEX_STATUS=$(timeout 15 npx @openai/codex login status 2>&1) || CODEX_STATUS="timeout/error"
+echo "$CODEX_STATUS"
 ```
 
 ## Шаг 2: Определение режима работы
@@ -83,7 +86,7 @@ npx @openai/codex login status
 
 ### Режим A: API key login (полная adversarial diversity)
 
-Если `npx @openai/codex login status` показывает "API key":
+Если вывод содержит "API key":
 
 - **Ревьюер A:** `-c model='"gpt-5.4"'` — сильное рассуждение
 - **Ревьюер B:** `-c model='"gpt-5.3-codex"'` — фокус на коде
@@ -92,7 +95,7 @@ npx @openai/codex login status
 
 ### Режим B: ChatGPT login (fallback)
 
-Если `npx @openai/codex login status` показывает "ChatGPT":
+Если вывод содержит "ChatGPT":
 
 - **Один проход:** `codex review --base "$BASE_BRANCH"` (дефолтная модель из `~/.codex/config.toml`)
 - Ограничение CLI: `--base` нельзя комбинировать с промптом, поэтому два прохода с разным фокусом невозможны
