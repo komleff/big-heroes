@@ -179,6 +179,13 @@ TESTS = [
     ("gh pr comment 1 --body \"$(perl -e 'print qq/ready to merge/')\"", 1, "$(perl) bypass"),
     ("gh pr comment 1 --body \"$(python3 -c 'print(\"x\")')\"", 1, "$(python) bypass"),
     ("gh pr comment 1 --body=$(echo $BODY)", 1, "--body=$(echo) without quotes"),
+    # === Copilot round 27: command substitution в неначальной позиции body ===
+    # Прежний regex ловил только `--body "$(..."` (cmd-subst в начале).
+    # `--body "Prefix $(head /tmp/x)"` проходил — содержимое скрыто от hook'а.
+    ("gh pr comment 1 --body \"Prefix $(head /tmp/x)\"", 1, "cmd-subst with prefix"),
+    ("gh pr comment 1 --body \"$(head /tmp/x) suffix\"", 1, "cmd-subst with suffix"),
+    ("gh pr comment 1 --body \"## Title\n$(head /tmp/x)\"", 1, "cmd-subst after newline"),
+    ("gh pr comment 1 --body=prefix$(echo test)", 1, "cmd-subst unquoted with prefix"),
     # Heredoc в той же команде — снимает command-subst блокировку, ТОЛЬКО если
     # heredoc-cat непосредственно в позиции --body. Посторонний heredoc для другой
     # переменной НЕ снимает блокировку (Copilot round 21 CRITICAL).

@@ -2,7 +2,7 @@
 
 **Обновлён:** 2026-04-17
 **Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`)
-**last_reviewed_commit:** 00ef44e (round 26 Copilot COMMENTED 1 finding; fix now; pending commit)
+**last_reviewed_commit:** 5e9feaa (round 27 Copilot COMMENTED 4 findings; 3 fix now, 1 defer; pending commit)
 
 > Семантика `last_reviewed_commit`: HEAD, на который есть опубликованный внешний review-verdict. Это НЕ `git rev-parse HEAD` ветки — текущий HEAD всегда впереди на один fix-коммит, пока round не закрыт следующим reviewer'ом. Self-reference невозможен, поэтому формат drift-free.
 > Текущий HEAD ветки проверяй через `git rev-parse HEAD` или `gh pr view 9 --json headRefOid`.
@@ -37,7 +37,7 @@
 - big-heroes-e0n (P2) — sprint-pr-cycle Critical review level → добавлена tier-логика + tester gate.
 - big-heroes-fkv (P2) — split source of truth → AGENT_ROLES.md, PM_ROLE.md, PIPELINE.md, HOW_TO_USE.md, sprint-pr-cycle и reviewer/planner согласованы.
 
-**Текущий review-цикл (PR #9 открыт, round 21 closed, round 22 запрошен):**
+**Текущий review-цикл (PR #9 открыт):**
 - Раунды 1–14: закрыто ~40 CRITICAL/WARNING от Copilot + GPT-5.4 + Codex.
 - Round 15 (2026-04-16, 89ece50): GPT-5.4 CHANGES_REQUESTED — 3 WARNING закрыты fix now (blockquote false positive в hook, Planner-drift в pipeline-audit, stale status.md).
 - Round 16 (2026-04-16, 8226e5b): GPT-5.4 CHANGES_REQUESTED — 1 CRITICAL + 1 WARNING закрыты fix now (cross-platform hook wrapper `py`→`python3`→`python`, Verification Contract T1 55/55).
@@ -52,9 +52,10 @@
 - Round 24 (2026-04-17, 96b8847): Copilot COMMENTED — 4 findings: (1) WARNING `_OPAQUE_VAR_BODY` не ловил concatenation `--body "Prefix: $BODY"` — fix now: regex расширен на любую позицию $VAR + 5 regression-тестов (suite 73/73), (2) WARNING `FINALIZE_PR_TOKEN` honor-system — reject: design trade-off, (3) WARNING external-review HEAD_COMMIT без null-guard — fix now: добавлен `[[ -z || null || !regex ]]` + exit 1, (4) WARNING external-review MODE/MODEL_NAME нет auto-computation — defer: round 23 guards sufficient.
 - Round 25 (2026-04-17, 2d4cfe4): Copilot COMMENTED — 1 finding: WARNING external-review mode labels активны по умолчанию — fix now: обе `⚠️` строки перенесены в HTML-комментарий, чтобы PM добавлял явно только для C/D.
 - Round 26 (2026-04-17, 00ef44e): Copilot COMMENTED — 1 finding: WARNING finalize-pr grep `⚠️` матчится на неактивные метки внутри HTML-комментария — fix now: добавлен `sed '/<!--/,/-->/d'` для стрипа HTML-комментариев перед grep.
+- Round 27 (2026-04-17, 5e9feaa): Copilot COMMENTED — 4 findings: (1) WARNING `_OPAQUE_COMMAND_SUBST_BODY` не ловил `$(` в неначальной позиции body — fix now: regex расширен аналогично round 24, (2) WARNING regression-тесты для cmd-subst prefix — fix now: +4 кейса (suite 77/77), (3) WARNING external-review MODE/MODEL_NAME auto-computation — defer (повтор round 24 #4), (4) WARNING status.md stale header — fix now.
 
 **Что осталось оператору:**
-- Ожидать re-review от Copilot на новый HEAD (round 27 запрашивается).
+- Ожидать re-review от Copilot на новый HEAD (round 28 запрашивается).
 - При Copilot APPROVED → `/pipeline-audit` → `/finalize-pr 9`.
 - GPT-5.4 Critical APPROVED уже получен на `e11e44f`.
 

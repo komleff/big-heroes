@@ -263,10 +263,17 @@ _BODY_DIRECT_HEREDOC_CAT = re.compile(
 # Это закрывает класс атак целиком (не только head/tail/sed/awk, но и
 # echo $VAR, printf, process substitution, любой future command).
 # Источник: GPT-5.3-Codex round 14 CRITICAL + D-02 из round 13 deferred.
+# Copilot round 27: расширен с «только начало» до «в любой позиции» (аналог
+# round 24 fix для _OPAQUE_VAR_BODY). `--body "Prefix $(head /tmp/x)"`
+# раньше проходил, теперь блокируется.
 _OPAQUE_COMMAND_SUBST_BODY = re.compile(
     r"""
     (?:^|\s)--body(?:=|\s+)             # флаг --body
-    "?                                    # опциональная открывающая кавычка
+    (?:
+        "(?:[^"\\]|\\.)*?               # double-quoted: любой префикс до $(
+        |
+        [^\s'"]*                         # unquoted: любой префикс
+    )
     \$\(                                  # $( — начало command substitution
     """,
     re.VERBOSE,
