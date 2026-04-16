@@ -2,7 +2,7 @@
 
 **Обновлён:** 2026-04-17
 **Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`)
-**last_reviewed_commit:** 96b8847 (round 24 Copilot COMMENTED 4 findings; 2 fix now, 1 reject, 1 defer; далее fix pending commit)
+**last_reviewed_commit:** 2d4cfe4 (round 25 Copilot COMMENTED 1 finding; fix now; pending commit)
 
 > Семантика `last_reviewed_commit`: HEAD, на который есть опубликованный внешний review-verdict. Это НЕ `git rev-parse HEAD` ветки — текущий HEAD всегда впереди на один fix-коммит, пока round не закрыт следующим reviewer'ом. Self-reference невозможен, поэтому формат drift-free.
 > Текущий HEAD ветки проверяй через `git rev-parse HEAD` или `gh pr view 9 --json headRefOid`.
@@ -50,9 +50,10 @@
 - Round 22 (2026-04-17, 858b5ea): GPT-5.4 Critical APPROVED + Copilot COMMENTED — 4 findings закрыты fix now в e4f7714: (1) CRITICAL punctuation bypass (`.!?` после фразы обходил regex-терминатор; добавлен `[.!?]`), (2) WARNING regression-тесты (+6 EN/RU, suite 68/68), (3) WARNING `$ITERATION` не задавался в sprint-pr-cycle (добавлено вычисление через `gh pr view --jq`), (4) WARNING external-review codex login status без timeout (добавлен `timeout 15`).
 - Round 23 (2026-04-17, e11e44f): GPT-5.4 Critical APPROVED + Copilot COMMENTED — 2 findings закрыты fix now: (1) WARNING external-review шаблон C/D placeholder `[Degraded mode / Manual emergency mode]` не матчится `/finalize-pr` — заменён на явные строки с HTML-комментарием-инструкцией, (2) WARNING `$MODEL_NAME`, `$MODE`, `$ITERATION` не вычислялись перед подстановкой — добавлены null-guards и fallback.
 - Round 24 (2026-04-17, 96b8847): Copilot COMMENTED — 4 findings: (1) WARNING `_OPAQUE_VAR_BODY` не ловил concatenation `--body "Prefix: $BODY"` — fix now: regex расширен на любую позицию $VAR + 5 regression-тестов (suite 73/73), (2) WARNING `FINALIZE_PR_TOKEN` honor-system — reject: design trade-off, (3) WARNING external-review HEAD_COMMIT без null-guard — fix now: добавлен `[[ -z || null || !regex ]]` + exit 1, (4) WARNING external-review MODE/MODEL_NAME нет auto-computation — defer: round 23 guards sufficient.
+- Round 25 (2026-04-17, 2d4cfe4): Copilot COMMENTED — 1 finding: WARNING external-review mode labels активны по умолчанию — fix now: обе `⚠️` строки перенесены в HTML-комментарий, чтобы PM добавлял явно только для C/D.
 
 **Что осталось оператору:**
-- Ожидать re-review от Copilot на новый HEAD (round 25 запрашивается).
+- Ожидать re-review от Copilot на новый HEAD (round 26 запрашивается).
 - При Copilot APPROVED → `/pipeline-audit` → `/finalize-pr 9`.
 - GPT-5.4 Critical APPROVED уже получен на `e11e44f`.
 
