@@ -1,8 +1,8 @@
 # Статус проекта Big Heroes
 
 **Обновлён:** 2026-04-17
-**Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`)
-**last_reviewed_commit:** 1232a1f (round 33 Claude adversarial Mode C CHANGES_REQUESTED: 1 CRITICAL -b bypass — fix now в b28b26c, re-review APPROVED)
+**Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) **✅ FINALIZED**, ожидает merge оператором
+**last_reviewed_commit:** 58d890a (round 33 re-review APPROVED, /finalize-pr опубликован)
 
 > Семантика `last_reviewed_commit`: HEAD, на который есть опубликованный внешний review-verdict. Это НЕ `git rev-parse HEAD` ветки — текущий HEAD всегда впереди на один fix-коммит, пока round не закрыт следующим reviewer'ом. Self-reference невозможен, поэтому формат drift-free.
 > Текущий HEAD ветки проверяй через `git rev-parse HEAD` или `gh pr view 9 --json headRefOid`.
@@ -62,11 +62,10 @@
 
 **Что осталось:**
 
-- External review на `a775d32` (fix round 32). Режим C (Claude adversarial degraded) — OpenAI API key отсутствует.
-- При APPROVED → `/pipeline-audit` → `/finalize-pr 9`.
-- Beads восстановлен (Dolt server). 24 deferred findings из round 13+ мигрированы в beads issues. 8 ранее deferred закрыты в rounds 21-32.
-- Ветки `claude/finalize-sprint-pr9-CvRt3` (дубликат), `safety/bd-init` (устаревшая) — на удаление.
-- Ветки `claude/setup-codex-auth-ZTYzQ`, `feature/sprint-4-hotfix` — не связаны с v3.3, отложены.
+- Merge PR #9 оператором.
+- Удалить мусорные ветки: `claude/finalize-sprint-pr9-CvRt3`, `safety/bd-init`.
+- Ветки `claude/setup-codex-auth-ZTYzQ`, `feature/sprint-4-hotfix` — не связаны с v3.3, отложены на следующий спринт.
+- 32 deferred issues в Beads (техдолг для Sprint Pipeline v3.4).
 
 ### Sprint 4 (предыдущий, MERGED)
 
