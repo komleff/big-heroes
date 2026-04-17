@@ -285,6 +285,17 @@ fi
 #   | # | Severity | Заголовок | Файл:строка | Статус | Beads ID / Обоснование |
 # Regex допускает пробелы вокруг статуса (шаблон в reviewer.md публикует
 # `| fix now |` именно с пробелами — строгое сопоставление даёт silent skip).
+# ⚠️ Перед grep/split снимаем экранирование `\|` → ASCII 0x1F (Unit Separator).
+# Reviewer'ы пишут `\|` в ячейках, чтобы markdown-рендер не ломал таблицу
+# (шаблон в reviewer.md это явно разрешает). Без предобработки IFS='|'
+# расщепляет строку по самому `|` из `\|` и колонки сдвигаются
+# (status → path:1, payload → «defer to Beads») — это parser-contract bypass
+# (GPT-5.4 round 32 CRITICAL). 0x1F выбран как не-печатаемый управляющий
+# символ (Record Separator area), никогда не встречающийся в содержимом
+# markdown-комментария. После IFS-split восстанавливаем в каждой колонке.
+# SEP передаётся переменной, чтобы не полагаться на GNU-специфичный `\x1f`
+# в replacement-части sed (BSD/macOS sed его не поддерживает).
+SEP=$(printf '\037')
 TRIAGE_ROWS=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
   | jq -r --arg head "$HEAD_COMMIT" '
       .comments[]
@@ -292,6 +303,7 @@ TRIAGE_ROWS=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
       | select(.body | test("\"commit\":\\s*\"" + $head + "\"|Commit:\\s*`?" + $head; "s"))
       | .body
     ' \
+  | sed "s/\\\\|/${SEP}/g" \
   | grep -E '^\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|\s*(fix now|defer to Beads|reject with rationale)\s*\|' || true)
 
 # Каждая строка triage: проверь пятую колонку (Статус) и шестую (Beads ID / Обоснование).
@@ -305,8 +317,9 @@ TRIAGE_ROWS=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
 TRIAGE_FAILED=0
 while IFS='|' read -r _ num severity title loc status payload _; do
   [ -z "$num" ] && continue   # пропускаем пустые строки (шапки/separators)
-  status=$(echo "$status" | xargs)   # trim
-  payload=$(echo "$payload" | xargs)
+  # Восстанавливаем экранированные `|` в каждой колонке (см. sed выше).
+  status=$(printf '%s' "$status" | tr '\037' '|' | xargs)   # trim + unescape
+  payload=$(printf '%s' "$payload" | tr '\037' '|' | xargs)
 
   case "$status" in
     "defer to Beads")

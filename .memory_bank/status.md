@@ -1,8 +1,8 @@
 # Статус проекта Big Heroes
 
 **Обновлён:** 2026-04-17
-**Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`)
-**last_reviewed_commit:** 9c6ab61 (round 31 Copilot COMMENTED 2 findings: 1 CRITICAL + 1 WARNING — fix now в этом коммите)
+**Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`, финализация в `claude/finalize-sprint-pr9-CvRt3`)
+**last_reviewed_commit:** 781a00f (round 32 GPT-5.4 CHANGES_REQUESTED: 1 CRITICAL + 1 WARNING — fix now в этом коммите)
 
 > Семантика `last_reviewed_commit`: HEAD, на который есть опубликованный внешний review-verdict. Это НЕ `git rev-parse HEAD` ветки — текущий HEAD всегда впереди на один fix-коммит, пока round не закрыт следующим reviewer'ом. Self-reference невозможен, поэтому формат drift-free.
 > Текущий HEAD ветки проверяй через `git rev-parse HEAD` или `gh pr view 9 --json headRefOid`.
@@ -56,11 +56,13 @@
 - Round 28 (2026-04-17, 4c2fce9): Copilot COMMENTED — 1 finding: WARNING `is_forbidden()` не нормализовал zero-width символы и HTML entities — fix now: добавлены `html.unescape()` + strip `\u200b-\u200f`, `\u2028-\u202f`, `\ufeff`, `\u00ad`, `\u2060` + 4 regression-теста (suite 81/81).
 - Round 29 (2026-04-17, 4cc8a3a): Copilot COMMENTED — 3 findings: (1) WARNING finalize-pr Tier detect в code block — defer (requires markdown parser), (2) WARNING finalize-pr triage rows без статуса — defer (structural validation), (3) WARNING reviewer.md `|` в ячейках ломает IFS-парсинг — fix now: добавлено предупреждение в docs.
 - Round 30 (2026-04-17, f8c4d9f): Copilot COMMENTED — 2 findings: (1) WARNING finalize-pr iteration>=2 только для critical, не sprint-final — defer (design trade-off, operator decision), (2) WARNING finalize-pr bd show без timeout — fix now: обёрнуто в timeout 10 с fail-secure exit.
-- Round 31 (2026-04-17, 9c6ab61): Copilot COMMENTED — 2 findings закрыты fix now в этом коммите: (1) **CRITICAL** editor-mode bypass (`gh pr comment <N>` без `--body`/`-b` открывает редактор, `--edit-last` тоже — содержимое скрыто от hook'а; добавлены `uses_edit_last()` и `uses_no_body()` с fail-secure блокировкой вне FINALIZE_PR_TOKEN), (2) WARNING отсутствие regression-тестов editor-mode — fix now: +6 кейсов (suite 87/87).
+- Round 31 (2026-04-17, 9c6ab61): Copilot COMMENTED — 2 findings закрыты fix now в `781a00f`: (1) **CRITICAL** editor-mode bypass (`gh pr comment <N>` без `--body`/`-b` открывает редактор, `--edit-last` тоже — содержимое скрыто от hook'а; добавлены `uses_edit_last()` и `uses_no_body()` с fail-secure блокировкой вне FINALIZE_PR_TOKEN), (2) WARNING отсутствие regression-тестов editor-mode — fix now: +6 кейсов (suite 87/87). Copilot re-review `781a00f`: **0 новых findings** (implicit APPROVED на текущей дельте).
+- Round 31.5 (2026-04-17, ac131d0): оператор добавил `sync.remote` в `.beads/config.yaml` (не-нормативная конфигурация).
+- Round 32 (2026-04-17, 781a00f): GPT-5.4 Critical CHANGES_REQUESTED — 2 findings закрыты fix now в этом коммите: (1) **CRITICAL** parser-contract bug: `reviewer.md` рекомендовал писать `\|` в ячейках findings-таблицы, но `/finalize-pr` фаза 2 парсит строки через `IFS='|'` без учёта экранирования — колонки сдвигались (status → `path:1`, payload → `defer to Beads`), hard gate обходился. Добавлена предобработка `sed "s/\\\\|/${SEP}/g"` (где `SEP=$(printf '\037')`, Unit Separator) перед IFS-split, с восстановлением `|` в каждой колонке через `tr '\037' '|'`. Формулировка в `reviewer.md:150` переписана на описание текущей семантики парсера. (2) WARNING stale Verification Contract: T1 в плане спринта упоминал `55/55`, фактический hook-suite на HEAD — `87/87`. Синхронизировано.
 
 **Что осталось оператору:**
-- Ожидать re-review от Copilot на новый HEAD (round 31 запрашивается).
-- При Copilot APPROVED → повторное GPT-5.4 Critical ревью на том же HEAD для двух APPROVED → `/pipeline-audit` → `/finalize-pr 9`.
+- Запросить новый external review Critical на новом HEAD (после `git push`).
+- При APPROVED от Copilot и GPT-5.4 (или degraded mode C) → `/pipeline-audit` → `/finalize-pr 9`.
 
 ### Sprint 4 (предыдущий, MERGED)
 

@@ -198,7 +198,7 @@
 
 | # | Тест | Где |
 |---|------|-----|
-| T1 | hook-suite — 55/55 зелёных. Запуск: Linux/macOS `python3 .claude/hooks/test_check_merge_ready.py`; Windows `py -3 .claude/hooks/test_check_merge_ready.py` (или `python ...`) | ручной запуск / CI |
+| T1 | hook-suite — 87/87 зелёных (включая editor-mode bypass, concat/cmd-subst bypass, zero-width normalization, punctuation, alien-heredoc). Запуск: Linux/macOS `python3 .claude/hooks/test_check_merge_ready.py`; Windows `py -3 .claude/hooks/test_check_merge_ready.py` (или `python ...`) | ручной запуск / CI |
 | T2 | `npm run build && npm test` — 168/168 зелёных | `/verify` |
 | T3 | Ручной прогон `/finalize-pr 9` на тестовом PR — проверка всех hard gates | оператор |
 | T4 | `/pipeline-audit` на HEAD — OK (7 инвариантов, 0 противоречий) | ручной запуск |
