@@ -1,5 +1,11 @@
 {
     "chat.tools.terminal.autoApprove": {
-        "printf": true
+        "/^\\s*(git|gh|bd|npm|npx|node|bash|sh|ls|dir|cat|echo|printf|mv|cp|mkdir|rmdir|touch|grep|rg|find|diff|head|tail|sed|awk|tr|tee|wc|sort|uniq|jq|python|python3|py|pytest|yarn|pnpm|tsc|vitest|jest|curl|wget|stat|env|test|which|whereis|whoami|pwd|date|sleep|type|printenv|export|unset|true|false)\\b/": true,
+        "rm -rf /": false,
+        "rm -rf ~": false,
+        "/^\\s*git\\s+push\\s+(--force|-f)/": false,
+        "/^\\s*gh\\s+pr\\s+merge/": false,
+        "/^\\s*gh\\s+repo\\s+delete/": false,
+        "/^\\s*DROP\\s+TABLE/": false
     }
 }
