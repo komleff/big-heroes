@@ -102,13 +102,13 @@ fi
 HAS_LABEL=$(echo "$PR_META" | jq -r '.labels[]?.name | select(. == "sprint-final")' | head -1)
 # Любой `Tier:` в body — Sprint Final, Critical, Standard, Light.
 # Наличие маркера (для обязательной эскалации при его отсутствии):
-TIER_BODY_LINE=$(echo "$PR_META" | jq -r '.body // ""' | grep -iE '^Tier:\s*(Sprint Final|Critical|Standard|Light)\b' | head -1)
+TIER_BODY_LINE=$(echo "$PR_META" | jq -r '.body // ""' | grep -iE '^Tier:[[:space:]]*(Sprint Final|Critical|Standard|Light)([[:space:]]|$)' | head -1)
 # Sprint Final ищем среди ВСЕХ Tier-строк, а не только первой.
 # Bug: `head -1` на общем grep прятал Sprint Final, если в body раньше
 # встречался `Tier: Standard` (двойной маркер, старая строка + новая, цитата
 # чужого PR). Silent downgrade → Sprint Final тихо классифицировался как
 # standard и external review пропускался. Class: regression от round 1 fix.
-HAS_SPRINT_FINAL_BODY=$(echo "$PR_META" | jq -r '.body // ""' | grep -iE '^Tier:\s*Sprint Final\b' | head -1)
+HAS_SPRINT_FINAL_BODY=$(echo "$PR_META" | jq -r '.body // ""' | grep -iE '^Tier:[[:space:]]*Sprint Final([[:space:]]|$)' | head -1)
 
 # Критический случай: нет НИ label, НИ строки Tier в body. Прежде чем
 # молча классифицировать как standard (и пропустить external review),
@@ -124,7 +124,7 @@ fi
 
 if [ -n "$HAS_LABEL" ] || [ -n "$HAS_SPRINT_FINAL_BODY" ]; then
   TIER="sprint-final"
-elif echo "$PR_META" | jq -r '.body // ""' | grep -qiE '^Tier:\s*Critical\b'; then
+elif echo "$PR_META" | jq -r '.body // ""' | grep -qiE '^Tier:[[:space:]]*Critical([[:space:]]|$)'; then
   TIER="critical"   # Critical без Sprint Final: второй проход обязателен, external опционален
 else
   TIER="standard"  # явно маркирован как Standard/Light — и iteration 2, и external опциональны
@@ -139,7 +139,7 @@ echo "Tier для финализации: $TIER"
 # Критерий: в META JSON последнего internal review-pass поле iteration >= 2.
 if [ "$TIER" = "critical" ] || [ "$TIER" = "sprint-final" ]; then
   ITERATION=$(echo "$LAST_INTERNAL" \
-    | grep -oE '"iteration"\s*:\s*[0-9]+' \
+    | grep -oE '"iteration"[[:space:]]*:[[:space:]]*[0-9]+' \
     | head -1 \
     | grep -oE '[0-9]+$')
   if [ -z "$ITERATION" ] || [ "$ITERATION" -lt 2 ]; then
@@ -202,7 +202,7 @@ fi
 # неактивные шаблонные метки `⚠️ ...` внутри <!-- ... --> (после round 25
 # обе строки по умолчанию внутри HTML-комментария).
 VISIBLE_EXTERNAL=$(echo "$LAST_EXTERNAL" | sed '/<!--/,/-->/d')
-if echo "$VISIBLE_EXTERNAL" | grep -qE '(Режим|Mode)[:"]*\s*"?[CD]\b'; then
+if echo "$VISIBLE_EXTERNAL" | grep -qE '(Режим|Mode)[:"]*[[:space:]]*"?[CD]([[:space:]]|"|$)'; then
   # Degraded/Manual режим — нужна метка
   if ! echo "$VISIBLE_EXTERNAL" | grep -qE '⚠️ (Degraded mode|Manual emergency mode)'; then
     echo "СТОП: external review в режиме C/D без обязательной метки '⚠️ Degraded mode' / '⚠️ Manual emergency mode'."
@@ -238,13 +238,13 @@ validate_review_pass_body() {
     exit 1
   fi
 
-  if echo "$review_body" | grep -qE '\bCHANGES_REQUESTED\b'; then
+  if printf '%s\n' "$review_body" | grep -qE '(^|[^A-Z_])CHANGES_REQUESTED([^A-Z_]|$)'; then
     echo "СТОП: в последнем ${review_kind} review-pass на $HEAD_COMMIT есть CHANGES_REQUESTED по одному из аспектов/ревьюеров."
     echo "После CHANGES_REQUESTED обязателен повторный ${review_kind} review-pass с APPROVED по всем аспектам на текущем commit."
     exit 1
   fi
 
-  if ! echo "$review_body" | grep -qE '\bAPPROVED\b'; then
+  if ! printf '%s\n' "$review_body" | grep -qE '(^|[^A-Z_])APPROVED([^A-Z_]|$)'; then
     echo "СТОП: в последнем ${review_kind} review-pass не найден APPROVED."
     echo "Проверь, что отчёт публикуется по шаблону sprint-pr-cycle и содержит явный 'Вердикт: APPROVED'."
     exit 1
@@ -304,7 +304,7 @@ TRIAGE_ROWS=$(timeout 10 gh pr view <PR_NUMBER> --json comments \
       | .body
     ' \
   | sed "s/\\\\|/${SEP}/g" \
-  | grep -E '^\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|\s*(fix now|defer to Beads|reject with rationale)\s*\|' || true)
+  | grep -E '^\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|[[:space:]]*(fix now|defer to Beads|reject with rationale)[[:space:]]*\|' || true)
 
 # Каждая строка triage: проверь пятую колонку (Статус) и шестую (Beads ID / Обоснование).
 #
