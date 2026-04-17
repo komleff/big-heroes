@@ -237,6 +237,19 @@ TESTS = [
         0,
         "heredoc BODY= + --body $BODY — привязка корректна, pass",
     ),
+    # === Copilot round 31 CRITICAL: editor-mode bypass ===
+    # `gh pr comment <N>` без --body / -b / --body-file / -F → gh открывает
+    # интерактивный редактор, содержимое вводится вне строки команды и
+    # скрыто от hook'а. Это реальный bypass hard gate.
+    ("gh pr comment 1", 1, "bypass editor mode: без --body"),
+    ("gh pr comment 42 --repo x/y", 1, "bypass editor mode: без --body (с --repo)"),
+    # `--edit-last` редактирует последний комментарий через редактор,
+    # содержимое тоже скрыто от hook'а.
+    ("gh pr comment 1 --edit-last", 1, "bypass --edit-last без body"),
+    ("gh pr comment 1 --edit-last --body '## ok'", 1, "bypass --edit-last даже с --body (редактор всё равно откроется)"),
+    # -b как короткий вариант --body — содержимое видно, пропуск.
+    ("gh pr comment 1 -b 'normal comment'", 0, "-b короткая форма --body"),
+    ("gh pr comment 1 -b '## ready to merge'", 1, "-b с запрещённой фразой блокируется"),
 ]
 
 

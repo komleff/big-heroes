@@ -137,6 +137,19 @@ _BODY_FILE_FLAGS = re.compile(
     r"(^|\s)(--body-file|-F)(\s|=|$)",
 )
 
+# Флаг --edit-last открывает редактор для последнего комментария —
+# содержимое вводится вне строки команды и скрыто от hook'а.
+# Copilot round 31: fail-secure блокировка.
+_EDIT_LAST_FLAG = re.compile(
+    r"(^|\s)--edit-last(\s|$)",
+)
+
+# Флаги, явно передающие body в командной строке: --body / -b.
+# Используется для детекта «gh pr comment <N>» без body (editor mode).
+_EXPLICIT_BODY_FLAGS = re.compile(
+    r"(^|\s)(--body|-b)(\s|=|$)",
+)
+
 
 # Паттерны bash-subst, скрывающие реальное содержимое --body от hook'а.
 # Legitimate heredoc `$(cat <<'EOF' ... EOF)` НЕ блокируется: содержимое
@@ -283,10 +296,36 @@ _OPAQUE_COMMAND_SUBST_BODY = re.compile(
 
 def uses_body_file(command: str) -> bool:
     """True — если команда gh pr comment передаёт body через файл/stdin."""
-    # Проверяем только для gh pr comment — остальные команды не по нашей теме.
     if not _GH_PR_COMMENT.search(command):
         return False
     return bool(_BODY_FILE_FLAGS.search(command))
+
+
+def uses_edit_last(command: str) -> bool:
+    """True — если gh pr comment использует --edit-last (editor mode).
+
+    Copilot round 31: --edit-last открывает редактор для последнего
+    комментария, содержимое скрыто от hook'а — fail-secure блокировка.
+    """
+    if not _GH_PR_COMMENT.search(command):
+        return False
+    return bool(_EDIT_LAST_FLAG.search(command))
+
+
+def uses_no_body(command: str) -> bool:
+    """True — если gh pr comment вызван без --body / -b / --body-file / -F.
+
+    Copilot round 31: без явного флага body gh открывает редактор —
+    содержимое вводится интерактивно и скрыто от hook'а. Fail-secure
+    блокировка.
+    """
+    if not _GH_PR_COMMENT.search(command):
+        return False
+    if _BODY_FILE_FLAGS.search(command):
+        return False  # --body-file / -F: обрабатывается отдельно
+    if _EXPLICIT_BODY_FLAGS.search(command):
+        return False  # --body / -b: содержимое видно hook'у
+    return True
 
 
 def uses_dangerous_substitution(command: str) -> bool:
@@ -413,6 +452,30 @@ def main() -> int:
             "БЛОКИРОВКА: для `gh pr comment` флаги --body-file / -F "
             "запрещены без FINALIZE_PR_TOKEN, потому что hook не может "
             "провалидировать содержимое файла.\n"
+            "Используй inline --body '...' ИЛИ /finalize-pr <PR_NUMBER>.\n"
+        )
+        return 1
+
+    # Блокируем --edit-last: редактирует последний комментарий через
+    # интерактивный редактор, содержимое скрыто от hook'а.
+    # Copilot round 31: fail-secure блокировка.
+    if uses_edit_last(command):
+        sys.stderr.write(
+            "БЛОКИРОВКА: для `gh pr comment` флаг --edit-last запрещён "
+            "без FINALIZE_PR_TOKEN — содержимое редактируется вне "
+            "командной строки и hook не может его проверить.\n"
+            "Используй inline --body '...' ИЛИ /finalize-pr <PR_NUMBER>.\n"
+        )
+        return 1
+
+    # Блокируем вызов без явного --body / -b / --body-file / -F:
+    # gh открывает интерактивный редактор, содержимое скрыто от hook'а.
+    # Copilot round 31: fail-secure блокировка editor mode.
+    if uses_no_body(command):
+        sys.stderr.write(
+            "БЛОКИРОВКА: `gh pr comment` без флага --body / -b / "
+            "--body-file / -F запрещён без FINALIZE_PR_TOKEN — "
+            "gh откроет редактор и hook не сможет проверить содержимое.\n"
             "Используй inline --body '...' ИЛИ /finalize-pr <PR_NUMBER>.\n"
         )
         return 1
