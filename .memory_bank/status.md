@@ -1,7 +1,7 @@
 # Статус проекта Big Heroes
 
 **Обновлён:** 2026-04-17
-**Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`, финализация в `claude/finalize-sprint-pr9-CvRt3`)
+**Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) в процессе ревью (ветка `claude/agent-pipeline-sprint-mxaQ1`)
 **last_reviewed_commit:** 781a00f (round 32 GPT-5.4 CHANGES_REQUESTED: 1 CRITICAL + 1 WARNING — fix now в этом коммите)
 
 > Семантика `last_reviewed_commit`: HEAD, на который есть опубликованный внешний review-verdict. Это НЕ `git rev-parse HEAD` ветки — текущий HEAD всегда впереди на один fix-коммит, пока round не закрыт следующим reviewer'ом. Self-reference невозможен, поэтому формат drift-free.
@@ -60,9 +60,13 @@
 - Round 31.5 (2026-04-17, ac131d0): оператор добавил `sync.remote` в `.beads/config.yaml` (не-нормативная конфигурация).
 - Round 32 (2026-04-17, 781a00f): GPT-5.4 Critical CHANGES_REQUESTED — 2 findings закрыты fix now в этом коммите: (1) **CRITICAL** parser-contract bug: `reviewer.md` рекомендовал писать `\|` в ячейках findings-таблицы, но `/finalize-pr` фаза 2 парсит строки через `IFS='|'` без учёта экранирования — колонки сдвигались (status → `path:1`, payload → `defer to Beads`), hard gate обходился. Добавлена предобработка `sed "s/\\\\|/${SEP}/g"` (где `SEP=$(printf '\037')`, Unit Separator) перед IFS-split, с восстановлением `|` в каждой колонке через `tr '\037' '|'`. Формулировка в `reviewer.md:150` переписана на описание текущей семантики парсера. (2) WARNING stale Verification Contract: T1 в плане спринта упоминал `55/55`, фактический hook-suite на HEAD — `87/87`. Синхронизировано.
 
-**Что осталось оператору:**
-- Запросить новый external review Critical на новом HEAD (после `git push`).
-- При APPROVED от Copilot и GPT-5.4 (или degraded mode C) → `/pipeline-audit` → `/finalize-pr 9`.
+**Что осталось:**
+
+- External review на `a775d32` (fix round 32). Режим C (Claude adversarial degraded) — OpenAI API key отсутствует.
+- При APPROVED → `/pipeline-audit` → `/finalize-pr 9`.
+- Beads восстановлен (Dolt server). 24 deferred findings из round 13+ мигрированы в beads issues. 8 ранее deferred закрыты в rounds 21-32.
+- Ветки `claude/finalize-sprint-pr9-CvRt3` (дубликат), `safety/bd-init` (устаревшая) — на удаление.
+- Ветки `claude/setup-codex-auth-ZTYzQ`, `feature/sprint-4-hotfix` — не связаны с v3.3, отложены.
 
 ### Sprint 4 (предыдущий, MERGED)
 
