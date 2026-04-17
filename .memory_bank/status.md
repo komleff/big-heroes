@@ -2,7 +2,7 @@
 
 **Обновлён:** 2026-04-17
 **Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) **✅ FINALIZED**, ожидает merge оператором
-**last_reviewed_commit:** 58d890a (round 33 re-review APPROVED, /finalize-pr опубликован)
+**last_reviewed_commit:** cf8665e (round 35 Claude Mode C + Copilot APPROVED, /finalize-pr опубликован)
 
 > Семантика `last_reviewed_commit`: HEAD, на который есть опубликованный внешний review-verdict. Это НЕ `git rev-parse HEAD` ветки — текущий HEAD всегда впереди на один fix-коммит, пока round не закрыт следующим reviewer'ом. Self-reference невозможен, поэтому формат drift-free.
 > Текущий HEAD ветки проверяй через `git rev-parse HEAD` или `gh pr view 9 --json headRefOid`.
