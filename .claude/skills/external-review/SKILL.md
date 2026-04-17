@@ -1,12 +1,12 @@
 ---
 name: external-review
-description: Внешнее ревью PR через Codex CLI. API key: GPT-5.4 + GPT-5.3-Codex (2 ревьюера). ChatGPT login: 1 проход дефолтной модели. Используй: /external-review <PR_NUMBER>
+description: Внешнее ревью PR с 4 режимами деградации. A (API key, GPT-5.4+GPT-5.3-Codex), B (ChatGPT login, 1 проход), C (Codex недоступен, Claude adversarial degraded), D (ручной через VS Code Copilot). Используй: /external-review <PR_NUMBER>
 user-invocable: true
 ---
 
-# External Review — кросс-модельное ревью через Codex CLI
+# External Review — кросс-модельное ревью с degradation path
 
-Автоматизация Sprint Final (Фаза 3 sprint-pr-cycle). Два внешних ревьюера (GPT-5.4 и GPT-5.3-Codex) работают последовательно по **всем 4 аспектам**, максимизируя adversarial diversity.
+Автоматизация Sprint Final (Фаза 3 sprint-pr-cycle). Два внешних ревьюера работают последовательно по **всем 4 аспектам**, максимизируя adversarial diversity. При недоступности Codex CLI предусмотрены degraded-режимы — Sprint Final не блокируется, но помечается честно.
 
 > Источник: [Adversarial Code Review для Claude Code](https://habr.com/ru/articles/1019588/)
 
@@ -74,16 +74,19 @@ fi
 ### 1.4 Проверка Codex CLI
 
 ```bash
-npx @openai/codex login status
+# Copilot round 22: timeout предотвращает зависание при OAuth-проблемах.
+# При таймауте/ошибке — переход в режим C (degraded) или D (manual).
+CODEX_STATUS=$(timeout 15 npx @openai/codex login status 2>&1) || CODEX_STATUS="timeout/error"
+echo "$CODEX_STATUS"
 ```
 
 ## Шаг 2: Определение режима работы
 
-Codex CLI поддерживает два режима авторизации с разными возможностями:
+Четыре режима. Выбираются автоматически по доступности инфраструктуры. Deep-check выбора режима — в таблице в конце шага.
 
 ### Режим A: API key login (полная adversarial diversity)
 
-Если `npx @openai/codex login status` показывает "API key":
+Если вывод содержит "API key":
 
 - **Ревьюер A:** `-c model='"gpt-5.4"'` — сильное рассуждение
 - **Ревьюер B:** `-c model='"gpt-5.3-codex"'` — фокус на коде
@@ -92,45 +95,98 @@ Codex CLI поддерживает два режима авторизации с
 
 ### Режим B: ChatGPT login (fallback)
 
-Если `npx @openai/codex login status` показывает "ChatGPT":
+Если вывод содержит "ChatGPT":
 
 - **Один проход:** `codex review --base "$BASE_BRANCH"` (дефолтная модель из `~/.codex/config.toml`)
 - Ограничение CLI: `--base` нельзя комбинировать с промптом, поэтому два прохода с разным фокусом невозможны
 - Один проход дефолтной модели — adversarial diversity снижена, но ревью выполняется
 - В отчёте **честная атрибуция**: `— Reviewer (дефолтная модель)`. НЕ маркировать как GPT-5.4/GPT-5.3-Codex — это ложный audit trail. Второй ревьюер не запускается.
 
-> В обоих режимах каждый ревьюер проверяет все 4 аспекта. Различается акцент промпта и атрибуция.
+### Режим C: Codex CLI недоступен (degraded)
+
+Если `npx @openai/codex login status` падает или возвращает неопределённый статус, а оператор явно не выбрал ручной fallback:
+
+- **Два прохода Claude-субагента** против **одного и того же** PR:
+  - **Проход 1 (стандартный):** Reviewer в обычном режиме, промпт как в Standard tier.
+  - **Проход 2 (adversarial):** Reviewer с промптом «Ты adversarial reviewer. Твоя задача — найти то, что первый проход пропустил. Ищи baseline-слабые места: необработанные edge-cases, скрытые дубликаты, некорректные инварианты.»
+- **⚠️ В отчёте обязательна метка:** «⚠️ Degraded mode с имитацией adversarial diversity. Не является cross-model review (формулировка из `.agents/pipeline-improvement-plan-v3.3.md`).»
+- Атрибуция: `— Reviewer (Claude Opus 4.6, standard)` и `— Reviewer (Claude Opus 4.6, adversarial)`.
+- Не маркировать как GPT.
+
+### Режим D: Автоматические пути недоступны (manual emergency)
+
+Если Codex CLI недоступен И оператор требует ручного fallback (например, ChatGPT-5.4 через VS Code GitHub Copilot Agent):
+
+- Оператор вручную прогоняет PR через VS Code GitHub Copilot Agent.
+- PM собирает вывод в текстовом виде и публикует с меткой:
+  «⚠️ Manual emergency mode. Adversarial diversity и воспроизводимость снижены.»
+- Атрибуция — по тому, кого оператор использовал (`— Reviewer (GPT-5.4 via Copilot Agent)`).
+
+### Таблица выбора режима
+
+| Режим | Условие запуска |
+|-------|-----------------|
+| A | `codex login status` = "API key" |
+| B | `codex login status` = "ChatGPT" |
+| C | Codex CLI недоступен; оператор не требовал ручного fallback |
+| D | Оператор явно указал ручной fallback (аргумент `--manual` или чат-команда) |
+
+> В любом режиме каждый ревьюер проверяет все 4 аспекта. Различается источник ревью и атрибуция.
 
 ## Шаг 3: Запуск ревьюеров
 
-### 3.1 Ревьюер A
-
 Ограничение CLI: `--base` нельзя комбинировать с кастомным промптом.
+
+### 3.1 Режимы A и B — через Codex CLI
 
 **Рекомендуемый вариант — встроенный ревью:**
 
 ```bash
-# Режим A (API key) — GPT-5.4:
+# Режим A (API key) — Ревьюер A (GPT-5.4):
 npx @openai/codex review --base "$BASE_BRANCH" -c model='"gpt-5.4"' -c model_reasoning_effort='"high"'
 
-# Режим B (ChatGPT) — дефолтная модель:
+# Режим A (API key) — Ревьюер B (GPT-5.3-Codex):
+npx @openai/codex review --base "$BASE_BRANCH" -c model='"gpt-5.3-codex"' -c model_reasoning_effort='"high"'
+
+# Режим B (ChatGPT) — только один проход дефолтной модели:
 npx @openai/codex review --base "$BASE_BRANCH"
 ```
 
-> Встроенный ревью выдаёт свободный формат. PM при консолидации (шаг 5) **вручную маппит** вывод на 4 аспекта. Если вывод не покрывает аспект — PM помечает его как "не проверен".
+> Встроенный ревью выдаёт свободный формат. PM при консолидации (шаг 5) **вручную маппит** вывод на 4 аспекта. Если вывод не покрывает аспект — PM помечает его как «не проверен».
 
-Сохрани вывод ревьюера A.
+В режиме B ревьюер B не запускается — ограничение CLI не позволяет различить проходы.
 
-### 3.2 Ревьюер B (только в режиме A — API key)
+Сохрани raw-вывод каждого ревьюера — он пойдёт в collapsible блок отчёта (шаг 5).
 
-> В режиме B (ChatGPT login) ревьюер B не запускается — ограничение CLI не позволяет различить проходы.
+### 3.2 Режим C — Claude adversarial degraded
 
-```bash
-# Только режим A (API key) — GPT-5.3-Codex:
-npx @openai/codex review --base "$BASE_BRANCH" -c model='"gpt-5.3-codex"' -c model_reasoning_effort='"high"'
+Запусти два Claude-субагента последовательно на том же PR.
+
+**Проход 1 (стандартный):**
+```
+Ты Reviewer. Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
+Режим: Standard, все 4 аспекта.
+Задача: проверь PR #<PR_NUMBER>. Верни structured findings PM.
 ```
 
-Сохрани вывод ревьюера B.
+**Проход 2 (adversarial):**
+```
+Ты adversarial Reviewer. Прочитай .agents/AGENT_ROLES.md секция "3. Reviewer".
+Контекст: первый проход этого PR уже прошёл. Твоя задача — найти то, что первый проход пропустил.
+Фокус: baseline-слабые места, необработанные edge-cases, скрытые дубликаты, некорректные инварианты, маловероятные, но критичные ошибки.
+Задача: проверь PR #<PR_NUMBER>. Верни structured findings PM.
+```
+
+Сохрани findings обоих проходов для collapsible блоков. **Обязательно** добавь в итоговый отчёт метку «⚠️ Degraded mode с имитацией adversarial diversity. Не является cross-model review».
+
+### 3.3 Режим D — manual emergency
+
+Оператор вручную прогоняет PR через VS Code GitHub Copilot Agent (или иной внешний инструмент) и передаёт PM текстовый вывод. PM:
+
+1. Принимает вывод как есть.
+2. Маппит на 4 аспекта.
+3. Публикует с меткой «⚠️ Manual emergency mode. Adversarial diversity и воспроизводимость снижены».
+4. Атрибуция — по тому, кого оператор использовал.
 
 ## Шаг 4: Copilot Re-Review
 
@@ -147,27 +203,81 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 
 ## Шаг 5: Консолидация и публикация
 
-Собери результаты обоих ревьюеров в единый комментарий. Подставь реальные имена моделей из шага 2 (не захардкоженные):
+### 5.1 Имена моделей (атрибуция)
 
-- **Режим A:** `MODEL_A_NAME = "GPT-5.4"`, `MODEL_B_NAME = "GPT-5.3-Codex"`
-- **Режим B:** `MODEL_A_NAME = "дефолтная модель"` (ревьюер B не запускается, секция B в отчёте не публикуется)
+Подставь реальные имена из шага 2 — не захардкоженные:
+
+| Режим | MODEL_A_NAME | MODEL_B_NAME | Метка |
+|-------|--------------|--------------|-------|
+| A | `GPT-5.4` | `GPT-5.3-Codex` | — |
+| B | `дефолтная модель` | — (B не запускается) | — |
+| C | `Claude Opus 4.6 (standard)` | `Claude Opus 4.6 (adversarial)` | `⚠️ Degraded mode с имитацией adversarial diversity. Не является cross-model review` |
+| D | По факту (например, `GPT-5.4 via Copilot Agent`) | — | `⚠️ Manual emergency mode. Adversarial diversity и воспроизводимость снижены` |
+
+### 5.2 Защита findings — raw output в collapsible
+
+> **Инвариант 6 (PM не искажает findings).** PM имеет право структурировать по 4 аспектам и убирать дубликаты, но **не** перефразировать или смягчать формулировки. Чтобы оператор мог проверить, raw-вывод каждого ревьюера публикуется целиком в `<details>` блоке отдельно от консолидированного отчёта.
+
+### 5.3 Шаблон комментария
+
+> ⚠️ **Commit binding — без `**` и с META JSON.** `/finalize-pr` ищет маркер через regex `Commit:\s*\`?<hash>` ИЛИ JSON `"commit": "<hash>"`. Шаблон `**Commit:**` (bold markdown) **не** матчится (между `Commit:` и хэшем идёт `**`, не whitespace) — это drift, найденный GPT-5.4 external review (round 12). Используй простой `Commit: <hash>` и добавь HTML META с JSON — дублирование на случай, если кто-то изменит markdown-форматирование.
+
+Перед публикацией зафиксируй HEAD commit:
 
 ```bash
-gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
-## Внешнее ревью (Sprint Final)
+HEAD_COMMIT=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')
+if [[ -z "$HEAD_COMMIT" || "$HEAD_COMMIT" == "null" || ! "$HEAD_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  # Не публикуем review с битым commit binding — /finalize-pr не сможет сопоставить.
+  echo "ERROR: не удалось получить валидный HEAD commit для PR <PR_NUMBER>" >&2
+  exit 1
+fi
+```
 
-### Ревьюер A: MODEL_A_NAME
+Публикация отчёта (quoted heredoc + bash parameter expansion, чтобы body-содержимое не проходило shell-расширения):
 
-#### Архитектура: [OK / ISSUE]
+```bash
+BODY=$(cat <<'EOF'
+## Внешнее ревью (Sprint Final) — Режим: __MODE__
+
+Commit: `__HEAD_COMMIT__`
+
+<!-- {"reviewer": "__MODEL_NAME__", "commit": "__HEAD_COMMIT__", "kind": "external", "mode": "__MODE__", "iteration": __ITERATION__} -->
+
+<!--
+Для режимов A/B не добавляй warning-метки — оставь этот блок как есть (в комментарии).
+Для режима C: вынеси из комментария только строку `⚠️ Degraded mode ...`.
+Для режима D: вынеси из комментария только строку `⚠️ Manual emergency mode ...`.
+Не добавляй обе одновременно. Copilot round 25: по умолчанию обе строки были
+активны — PM мог забыть удалить, и отчёт в режиме A/B ложно маркировался как
+degraded/manual, портя audit trail. Теперь дефолт — безопасный (нет меток).
+⚠️ Degraded mode — <описание из таблицы 5.1>
+⚠️ Manual emergency mode — <описание из таблицы 5.1>
+-->
+
+### Findings (обязательная таблица для /finalize-pr фазы 2 triage)
+
+> Если вердикт APPROVED без замечаний — оставь таблицу с единственной строкой `| — | — | нет замечаний | — | — | — |`. Пустая таблица недопустима: `/finalize-pr` отличает «нет findings» от «парсинг сломался».
+
+| # | Severity | Заголовок | Файл:строка | Статус | Beads ID / Обоснование |
+|---|----------|-----------|-------------|--------|------------------------|
+| 1 | CRITICAL | ... | path:N | fix now | — |
+| 2 | WARNING | ... | path:N | defer to Beads | bd-xyz-123 |
+| 3 | INFO | ... | path:N | reject with rationale | <обоснование> |
+
+### Консолидация (PM)
+
+#### Ревьюер A: MODEL_A_NAME
+
+##### Архитектура: [OK / ISSUE]
+[обоснование — дословно из findings, не перефразировать]
+
+##### Безопасность: [OK / ISSUE]
 [обоснование]
 
-#### Безопасность: [OK / ISSUE]
+##### Качество: [OK / ISSUE]
 [обоснование]
 
-#### Качество: [OK / ISSUE]
-[обоснование]
-
-#### Гигиена кода: [OK / ISSUE]
+##### Гигиена кода: [OK / ISSUE]
 [обоснование]
 
 **Вердикт:** [APPROVED / CHANGES_REQUESTED]
@@ -175,25 +285,46 @@ gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
 
 ---
 
-> Секция ревьюера B публикуется ТОЛЬКО в режиме A (API key).
-> В режиме B (ChatGPT login) этот блок опускается.
+> Секция ревьюера B публикуется в режимах A и C. В B и D — опускается.
 
-### Ревьюер B: MODEL_B_NAME (только режим A)
+#### Ревьюер B: MODEL_B_NAME
 
-#### Архитектура: [OK / ISSUE]
+##### Архитектура: [OK / ISSUE]
 [обоснование]
 
-#### Безопасность: [OK / ISSUE]
+##### Безопасность: [OK / ISSUE]
 [обоснование]
 
-#### Качество: [OK / ISSUE]
+##### Качество: [OK / ISSUE]
 [обоснование]
 
-#### Гигиена кода: [OK / ISSUE]
+##### Гигиена кода: [OK / ISSUE]
 [обоснование]
 
 **Вердикт:** [APPROVED / CHANGES_REQUESTED]
 — Reviewer (MODEL_B_NAME)
+
+---
+
+### Raw output (для аудита оператором)
+
+<details>
+<summary>Ревьюер A: MODEL_A_NAME — raw</summary>
+
+<pre><code>
+<вставить raw-вывод ревьюера A целиком, без редактуры>
+</code></pre>
+
+</details>
+
+<details>
+<summary>Ревьюер B: MODEL_B_NAME — raw</summary>
+
+<pre><code>
+<вставить raw-вывод ревьюера B целиком, без редактуры>
+</code></pre>
+
+</details>
 
 ---
 
@@ -205,8 +336,31 @@ CRITICAL: N, WARNING: N
 
 — PM (Claude Opus 4.6), по результатам внешнего ревью
 EOF
-)"
+)
+# Вычисление обязательных полей публикации.
+# Без них HTML META будет невалидным и /finalize-pr не распознает review-pass.
+# MODE определяется из шага 2 (A/B/C/D); MODEL_NAME — из таблицы 5.1.
+# ITERATION — порядковый номер прохода внешнего ревью.
+if [ -z "${MODE:-}" ]; then
+  echo "MODE не задан. Установи переменную MODE перед публикацией (A/B/C/D)." >&2
+  exit 1
+fi
+if [ -z "${MODEL_NAME:-}" ]; then
+  echo "MODEL_NAME не задан. Установи переменную MODEL_NAME перед публикацией." >&2
+  exit 1
+fi
+ITERATION="${ITERATION:-1}"
+
+# Безопасная подстановка маркеров — тело отчёта остаётся буквальным (quoted heredoc),
+# bash-расширений в findings/raw-output не происходит.
+BODY="${BODY//__HEAD_COMMIT__/$HEAD_COMMIT}"
+BODY="${BODY//__MODEL_NAME__/$MODEL_NAME}"    # например, "gpt-5.4" или "gpt-5.3-codex"
+BODY="${BODY//__MODE__/$MODE}"                # A / B / C / D
+BODY="${BODY//__ITERATION__/$ITERATION}"       # номер прохода внешнего ревью
+gh pr comment <PR_NUMBER> --body "$BODY"
 ```
+
+> ⚠️ Raw output публикуется **без редактуры**. Если он слишком длинный — собрать как artifact и приложить ссылкой, но **не** сокращать пересказом.
 
 ## Шаг 6: Pre-Chat Gate
 
