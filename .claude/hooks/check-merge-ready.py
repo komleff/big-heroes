@@ -188,7 +188,7 @@ _DANGEROUS_SUBST = re.compile(
 # Copilot round 24: расширен с «только начало» до «в любой позиции».
 _OPAQUE_VAR_BODY = re.compile(
     r"""
-    (?:^|\s)--body(?:=|\s+)              # флаг --body, затем `=` или пробел
+    (?:^|\s)(?:--body|-b)(?:=|\s+)       # флаг --body/-b, затем `=` или пробел
     (?:
         "(?:[^"\\]|\\.)*?               # double-quoted: любой префикс до $
         |
@@ -210,7 +210,7 @@ _OPAQUE_VAR_BODY = re.compile(
 # Copilot round 24: расширен для поиска переменной в любой позиции (конкатенации).
 _BODY_VAR_NAME = re.compile(
     r"""
-    (?:^|\s)--body(?:=|\s+)              # флаг --body
+    (?:^|\s)(?:--body|-b)(?:=|\s+)       # флаг --body/-b
     (?:
         "(?:[^"\\]|\\.)*?               # double-quoted: любой префикс до $
         |
@@ -255,7 +255,7 @@ def _body_var_has_heredoc(command: str) -> bool:
 # is_forbidden проверит на запрещённые фразы.
 _BODY_DIRECT_HEREDOC_CAT = re.compile(
     r"""
-    (?:^|\s)--body(?:=|\s+)              # флаг --body
+    (?:^|\s)(?:--body|-b)(?:=|\s+)       # флаг --body/-b
     "?\$\(\s*cat\b\s*                     # $(cat
     <<-?\s*[\"']?[A-Za-z_][A-Za-z0-9_]*  # heredoc-маркер
     """,
@@ -282,7 +282,7 @@ _BODY_DIRECT_HEREDOC_CAT = re.compile(
 # раньше проходил, теперь блокируется.
 _OPAQUE_COMMAND_SUBST_BODY = re.compile(
     r"""
-    (?:^|\s)--body(?:=|\s+)             # флаг --body
+    (?:^|\s)(?:--body|-b)(?:=|\s+)      # флаг --body/-b
     (?:
         "(?:[^"\\]|\\.)*?               # double-quoted: любой префикс до $(
         |

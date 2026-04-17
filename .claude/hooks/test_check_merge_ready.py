@@ -250,6 +250,13 @@ TESTS = [
     # -b как короткий вариант --body — содержимое видно, пропуск.
     ("gh pr comment 1 -b 'normal comment'", 0, "-b короткая форма --body"),
     ("gh pr comment 1 -b '## ready to merge'", 1, "-b с запрещённой фразой блокируется"),
+    # Round 33 CRITICAL: -b с opaque-переменными и command substitution.
+    # Раньше 4 regex хардкодили --body, -b проходила без проверки.
+    ('gh pr comment 1 -b "$BODY"', 1, "-b с opaque var $BODY блокируется"),
+    ('gh pr comment 1 -b "${BODY}"', 1, "-b с opaque var ${BODY} блокируется"),
+    ('gh pr comment 1 -b "$(head /tmp/x)"', 1, "-b с cmd-subst $(head) блокируется"),
+    ('gh pr comment 1 -b "$(echo $BODY)"', 1, "-b с cmd-subst $(echo $VAR) блокируется"),
+    ('gh pr comment 1 -b "Prefix $BODY"', 1, "-b с concat prefix+$BODY блокируется"),
 ]
 
 
