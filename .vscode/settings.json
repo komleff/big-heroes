@@ -1,5 +1,16 @@
 {
     "chat.tools.terminal.autoApprove": {
-        "printf": true
+        "/^\\s*(git|gh|bd|ls|cat|echo|printf|mv|cp|mkdir|touch|grep|rg|find|diff|head|tail|sed|awk|tr|tee|wc|sort|uniq|jq|tsc|jest|curl|wget|stat|env|test|which|whereis|whoami|pwd|date|sleep|type|printenv|export|unset|true|false)\\b/": true,
+        "/^\\s*npm\\s+(test|ci|--version|-v|ls|view|outdated)\\b/": true,
+        "/^\\s*npx\\s+@[a-z0-9][a-z0-9-]*\\/[a-z0-9][a-z0-9-]*/": true,
+        "/^\\s*(sudo\\s+)?rm\\s+-rf\\s+\\/.*$/": false,
+        "/^\\s*(sudo\\s+)?rm\\s+-rf\\s+~(\\/.*)?(\\s|$)/": false,
+        "/^\\s*git\\s+push\\b.*(--force(?:-[^\\s]+)?|-f)(\\s|$)/": false,
+        "/^\\s*git\\s+push\\s+.*\\b(main|master)\\b/": false,
+        "/^\\s*gh\\s+pr\\s+merge/": false,
+        "/^\\s*gh\\s+repo\\s+delete/": false,
+        "/^\\s*gh\\s+api\\s+.*merge/i": false,
+        "/^\\s*gh\\s+api\\s+-X\\s+DELETE/i": false,
+        "/^\\s*DROP\\s+TABLE/i": false
     }
 }
