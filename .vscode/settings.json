@@ -1,6 +1,8 @@
 {
     "chat.tools.terminal.autoApprove": {
-        "/^\\s*(git|gh|bd|npm|npx|ls|cat|echo|printf|mv|cp|mkdir|touch|grep|rg|find|diff|head|tail|sed|awk|tr|tee|wc|sort|uniq|jq|tsc|jest|curl|wget|stat|env|test|which|whereis|whoami|pwd|date|sleep|type|printenv|export|unset|true|false)\\b/": true,
+        "/^\\s*(git|gh|bd|ls|cat|echo|printf|mv|cp|mkdir|touch|grep|rg|find|diff|head|tail|sed|awk|tr|tee|wc|sort|uniq|jq|tsc|jest|curl|wget|stat|env|test|which|whereis|whoami|pwd|date|sleep|type|printenv|export|unset|true|false)\\b/": true,
+        "/^\\s*npm\\s+(test|ci|--version|-v|ls|view|outdated)\\b/": true,
+        "/^\\s*npx\\s+@[a-z0-9][a-z0-9-]*\\/[a-z0-9][a-z0-9-]*/": true,
         "rm -rf /": false,
         "rm -rf ~": false,
         "/^\\s*git\\s+push\\b.*(--force|-f)\\b/": false,
