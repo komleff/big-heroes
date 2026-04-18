@@ -1,17 +1,14 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-17
-**Фаза:** Sprint Pipeline v3.3 — PR [#9](https://github.com/komleff/big-heroes/pull/9) **✅ FINALIZED**, ожидает merge оператором
-**last_reviewed_commit:** cf8665e (round 35 Claude Mode C + Copilot APPROVED, /finalize-pr опубликован)
-
-> Семантика `last_reviewed_commit`: HEAD, на который есть опубликованный внешний review-verdict. Это НЕ `git rev-parse HEAD` ветки — текущий HEAD всегда впереди на один fix-коммит, пока round не закрыт следующим reviewer'ом. Self-reference невозможен, поэтому формат drift-free.
-> Текущий HEAD ветки проверяй через `git rev-parse HEAD` или `gh pr view 9 --json headRefOid`.
+**Обновлён:** 2026-04-18
+**Фаза:** Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) **✅ MERGED** + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix **✅ MERGED** → готовность к **Sprint 5 Codex Auth Integration**
+**master HEAD:** `36560ff` (Merge PR #10)
 
 ---
 
 ## Текущее состояние
 
-### Sprint Pipeline v3.3 (активный)
+### Sprint Pipeline v3.3 (MERGED 2026-04-17)
 
 Реализация утверждённого плана `.agents/pipeline-improvement-plan-v3.3.md`.
 Ветка: `claude/agent-pipeline-sprint-mxaQ1`.
@@ -60,14 +57,46 @@
 - Round 31.5 (2026-04-17, ac131d0): оператор добавил `sync.remote` в `.beads/config.yaml` (не-нормативная конфигурация).
 - Round 32 (2026-04-17, 781a00f): GPT-5.4 Critical CHANGES_REQUESTED — 2 findings закрыты fix now в этом коммите: (1) **CRITICAL** parser-contract bug: `reviewer.md` рекомендовал писать `\|` в ячейках findings-таблицы, но `/finalize-pr` фаза 2 парсит строки через `IFS='|'` без учёта экранирования — колонки сдвигались (status → `path:1`, payload → `defer to Beads`), hard gate обходился. Добавлена предобработка `sed "s/\\\\|/${SEP}/g"` (где `SEP=$(printf '\037')`, Unit Separator) перед IFS-split, с восстановлением `|` в каждой колонке через `tr '\037' '|'`. Формулировка в `reviewer.md:150` переписана на описание текущей семантики парсера. (2) WARNING stale Verification Contract: T1 в плане спринта упоминал `55/55`, фактический hook-suite на HEAD — `87/87`. Синхронизировано.
 
-**Что осталось:**
+**Что осталось после v3.3:**
 
-- Merge PR #9 оператором.
-- Удалить мусорные ветки: `claude/finalize-sprint-pr9-CvRt3`, `safety/bd-init`.
-- Ветки `claude/setup-codex-auth-ZTYzQ`, `feature/sprint-4-hotfix` — не связаны с v3.3, отложены на следующий спринт.
+- ✅ PR #9 merged оператором 2026-04-17.
+- Удалить мусорные ветки: `claude/finalize-sprint-pr9-CvRt3`, `safety/bd-init` (если ещё существуют).
+- Ветка `claude/setup-codex-auth-ZTYzQ` → план Sprint 5 готов (docs/plans/sprint-5-codex-auth.md APPROVED v4).
+- Ветка `feature/sprint-4-hotfix` — отложена на игровой спринт после Sprint 5.
 - 32 deferred issues в Beads (техдолг для Sprint Pipeline v3.4).
 
-### Sprint 4 (предыдущий, MERGED)
+### PR #10 — VS Code autoApprove fix (MERGED 2026-04-18)
+
+Инфра-фикс пайплайна, не связан с v3.3 или игровой логикой. Ветка `fix/vscode-autoapprove`. Light/Sprint Final tier. 5 коммитов, 1 файл `.vscode/settings.json` (+13/-1).
+
+**Проблема:** VS Code native `chat.tools.terminal.autoApprove` в `.vscode/settings.json` содержал только `{"printf": true}` — перекрывал Claude `Bash(*)` + `defaultMode: bypassPermissions` и блокировал каждую bash-команду prompt'ом → агенты не могли работать автономно.
+
+**Решение:** regex auto-approve на safe dev-команды (git, gh, bd, jest, tsc, curl и др.) + точечные allow для `npm test|ci|--version|-v|ls|view|outdated` и `npx @org/package` (scoped); destructive операции в явный deny (regex-варианты `rm -rf /`, `rm -rf ~`, force-push в любой позиции, push в main/master, gh pr merge, gh api *merge*, gh api -X DELETE, DROP TABLE с флагом /i).
+
+**Ревью-цикл (6 passes internal + 5 passes external + 5 Copilot rounds):**
+- Internal Claude (Light tier, Architecture + Hygiene): APPROVED pass 6 + pre-finalize
+- External GPT-5.4 (Mode D manual, Codex CLI usage limit до 2026-04-19): APPROVED pass 5
+- Copilot pass 5: implicit APPROVED (no new comments)
+- 6 fix-now закрыто через 5 fix rounds
+- 2 CRITICAL rejected with rationale (autonomy > security-maximalism, operator policy)
+- 1 Beads issue deferred: `big-heroes-6dw` (chained commands, P3 known risk)
+
+**Закрытые issues:**
+- big-heroes-08v (P1 infra) — `.vscode/settings.json` fix.
+
+**Новые Beads deferred:**
+- big-heroes-6dw (P3 infra) — chained commands prefix-only bypass (trade-off accepted).
+
+**Ключевое решение оператора (закреплено в auto-memory):**
+- **Автономная агентная разработка приоритетнее security-maximalism.** Reject CRITICAL допустим с rationale автономности (прерывание цикла агента = регрессия). Trust model: конфиги под git review + PR reviewer, не через VS Code blocking.
+
+### Sprint 5 Codex Auth Integration (план утверждён, ожидает старта)
+
+План: `docs/plans/sprint-5-codex-auth.md` (v4 APPROVED оператором).
+Ветка-источник: `origin/claude/setup-codex-auth-ZTYzQ` (2 коммита, Codex CLI SessionStart hook + `.agents/CODEX_AUTH.md`).
+Critical tier. Verification Contract VC-1..VC-7 с runtime checks.
+
+### Sprint 4 (MERGED)
 
 Sprint 4 реализован, PR #8 — MERGED. 20+ коммитов, 168 тестов.
 Ревью: 3 pass Claude (APPROVED), 9 pass Copilot, 5 pass GPT-5.4.
