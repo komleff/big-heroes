@@ -96,7 +96,7 @@
 Ветка-источник: `origin/claude/setup-codex-auth-ZTYzQ` (2 коммита, Codex CLI SessionStart hook + `.agents/CODEX_AUTH.md`).
 Critical tier. Verification Contract VC-1..VC-7 с runtime checks.
 
-### Sprint 4 (MERGED)
+### Sprint 4 (MERGED 2026-04-09)
 
 Sprint 4 реализован, PR #8 — MERGED. 20+ коммитов, 168 тестов.
 Ревью: 3 pass Claude (APPROVED), 9 pass Copilot, 5 pass GPT-5.4.
