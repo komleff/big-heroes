@@ -77,15 +77,17 @@ grep -E 'git[[:space:]]+push[^|;&]*(\bmain\b|\bmaster\b|HEAD:main|HEAD:master)' 
 
 **P0.2 Создать Beads issues** (до открытия PR — `/finalize-pr` блокирует defer-triage без Beads ID):
 
-| ID | Title | Type | P |
-|----|-------|------|---|
-| BE-1 | `[codex-auth] verbose debug mode через CODEX_LOGIN_DEBUG=1` | feature | 3 |
-| BE-2 | `[codex-auth] shell-test harness test_codex_login.sh для S1-S5` | tech-debt | 2 |
-| BE-3 | `[codex-auth] квартальный audit OpenAI permissions UI vs CODEX_AUTH.md §2.2` | docs | 3 |
-| BE-4 | `[codex-auth] user-facing status indicator "Codex: ✓/✗" на старте сессии` | feature | 3 |
-| BE-5 | `[pipeline] зафиксировать в PIPELINE_ADR.md правила union/order project↔user-global SessionStart hooks` | docs | 2 |
+| ID плана | Реальный Beads ID | Title | Type | P | Status |
+|----------|-------------------|-------|------|---|--------|
+| BE-1 | `big-heroes-mo9` | `[codex-auth] verbose debug mode через CODEX_LOGIN_DEBUG=1` | feature | 3 | CREATED 2026-04-19 |
+| BE-2 | `big-heroes-40n` | `[codex-auth] shell-test harness test_codex_login.sh для S1-S5` | tech-debt | 2 | pre-existing (Sprint Pipeline v3.3) |
+| BE-3 | — | `[codex-auth] квартальный audit OpenAI permissions UI vs CODEX_AUTH.md §2.2` | docs | 3 | **SKIPPED 2026-04-19 по распоряжению оператора** — proactive audit без явного триггера. Пересоздать только при finding'е в ревью либо прямом запросе. |
+| BE-4 | `big-heroes-7wh` | `[codex-auth] user-facing status indicator "Codex: ✓/✗" на старте сессии` | feature | 3 | CREATED 2026-04-19 |
+| BE-5 | `big-heroes-wrg` | `[pipeline] зафиксировать в PIPELINE_ADR.md правила union/order project↔user-global SessionStart hooks` | docs | 2 | pre-existing (Sprint Pipeline v3.3) |
 
-Команды через `bd create` с `--description`, `--type`, `--priority`. ID получаемые сохраняются в локальную заметку для использования в P7.3 triage.
+Sprint tracking: `big-heroes-d0w` (SPRINT 5: Codex Auth Integration).
+
+> P7.3 defer-triage использует именно эти реальные ID (не плейсхолдеры BE-N). BE-3 не доступен — если в ревью всплывёт сценарий «квартальный audit» как defer-cause, PM согласует с оператором создание нового issue.
 
 ### P1. Ребейз
 

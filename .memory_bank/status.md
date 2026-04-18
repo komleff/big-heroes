@@ -1,8 +1,17 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-18
-**Фаза:** Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) **✅ MERGED** + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix **✅ MERGED** → готовность к **Sprint 5 Codex Auth Integration**
+**Обновлён:** 2026-04-19
+**Фаза:** **Sprint 5 Codex Auth Integration — STARTED (P0 done, P1+ pending next session)**. Предыдущие: Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
 **master HEAD:** `36560ff` (Merge PR #10)
+
+## Sprint 5 snapshot 2026-04-19
+
+- Tracking: `big-heroes-d0w` (подробный start-log в notes issue).
+- План: `docs/plans/sprint-5-codex-auth.md` v4.
+- Beads P0.2: BE-1=mo9, BE-4=7wh CREATED; BE-2=40n, BE-5=wrg pre-existing; BE-3 SKIPPED (оператор отказал в proactive audit).
+- `OPENAI_API_KEY` в env — технический блокер S4/S5 снят. ChatGPT Plus rate limit (сбросится 06:59) не влияет на hook (API key, не OAuth).
+- Рекомендация PM «Путь A» (параллельное P1-P6 + draft PR + stop gate перед Reviewer Pass 1) ожидает явного подтверждения оператора.
+- Следующая сессия стартует с P1 rebase через Developer-субагента.
 
 ---
 
