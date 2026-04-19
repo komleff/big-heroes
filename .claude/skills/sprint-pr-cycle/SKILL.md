@@ -522,8 +522,8 @@ git mv docs/plans/<sprint>.md docs/archive/
 ### Шаг 4.5.3: Закрытие beads
 
 ```bash
-bd close <sprint-tracking-id>    # с reason: "pre-merge landing in PR #<N> via commit <SHA>"
-bd close <task-issue-id>         # с reason: "pre-merge landing in PR #<N> via commit <SHA>"; task, который инициировал спринт
+bd close <sprint-tracking-id>    # с reason: "closed in PR #<N> via landing commit <SHA>"
+bd close <task-issue-id>         # task, который инициировал спринт
 ```
 
 ### Шаг 4.5.4: Memory pattern

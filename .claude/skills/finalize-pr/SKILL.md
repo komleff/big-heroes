@@ -466,42 +466,12 @@ landing commit.
 - **Второй вызов** (landing commit уже в истории): финальный комментарий как
   обычно (без предупреждения).
 
-Автодетект через git log — ищем `chore(landing):` commit в истории PR-ветки
-относительно её реальной base-ветки. Base branch берём через `gh pr view
-<PR_NUMBER> --json baseRefName` (консистентно с `/external-review`) и по
-возможности считаем лог от `merge-base` до HEAD. Жёсткая привязка к локальной
-`master` хрупкая: локальная ветка может отсутствовать или быть неактуальной,
-а base PR может быть не `master` (feature-of-feature, hotfix PR против release
-ветки). Fallback — если base-ref недоступен локально, грепать по всей истории
-HEAD (лучше false-post, чем false-pre для hard gate — false-post не обходит
-защиту, первый `/finalize-pr` уже прошёл с internal review на HEAD):
+Автодетект через git log — ищем `chore(landing):` commit в истории ветки от
+master до HEAD. Если найден — это второй вызов (post-landing); иначе — первый
+(pre-landing):
 
 ```bash
-BASE_BRANCH=$(timeout 10 gh pr view <PR_NUMBER> --json baseRefName --jq '.baseRefName' 2>/dev/null)
-BASE_REF=""
-
-if [ -n "$BASE_BRANCH" ]; then
-  if git rev-parse --verify "origin/$BASE_BRANCH" >/dev/null 2>&1; then
-    BASE_REF="origin/$BASE_BRANCH"
-  elif git rev-parse --verify "refs/remotes/origin/$BASE_BRANCH" >/dev/null 2>&1; then
-    BASE_REF="refs/remotes/origin/$BASE_BRANCH"
-  elif git rev-parse --verify "$BASE_BRANCH" >/dev/null 2>&1; then
-    BASE_REF="$BASE_BRANCH"
-  fi
-fi
-
-if [ -n "$BASE_REF" ]; then
-  MERGE_BASE=$(git merge-base HEAD "$BASE_REF" 2>/dev/null)
-  if [ -n "$MERGE_BASE" ]; then
-    LANDING_COMMIT=$(git log "$MERGE_BASE"..HEAD --oneline --grep='^chore(landing):' 2>/dev/null | head -1)
-  else
-    LANDING_COMMIT=$(git log "$BASE_REF"..HEAD --oneline --grep='^chore(landing):' 2>/dev/null | head -1)
-  fi
-else
-  # Fallback: base-ref недоступен локально. Грепаем по всей истории HEAD.
-  # Риск false-post минимален (chore(landing): коммиты редкие в общем истории).
-  LANDING_COMMIT=$(git log HEAD --oneline --grep='^chore(landing):' 2>/dev/null | head -1)
-fi
+LANDING_COMMIT=$(git log master..HEAD --oneline --grep='^chore(landing):' 2>/dev/null | head -1)
 
 if [ -z "$LANDING_COMMIT" ]; then
   LANDING_STAGE="pre"
