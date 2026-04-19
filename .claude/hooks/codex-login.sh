@@ -16,7 +16,12 @@ command -v npx >/dev/null 2>&1 || exit 0
 
 # Если уже залогинены — выходим без шума.
 # Codex пишет статус в stderr, поэтому сливаем stderr→stdout перед grep.
-if npx --no-install @openai/codex login status 2>&1 | grep -q "Logged in"; then
+# Regex anchor: ^Logged in (using|to) — покрывает известные wording'и CLI
+# ("Logged in using ChatGPT", "Logged in using an API key - ..."), но НЕ
+# матчит произвольные подстроки типа "Logged in but expired" — те уйдут
+# в login-branch. Adversarial review F1 (Sprint 5): grep без anchor
+# делал overmatch на любом "Logged in" → ложный early-return.
+if npx --no-install @openai/codex login status 2>&1 | grep -qE '^Logged in (using|to) '; then
   exit 0
 fi
 
