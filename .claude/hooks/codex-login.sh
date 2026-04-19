@@ -32,7 +32,9 @@ fi
 # в auth.json). Реальная валидность проверяется при первом API call. Поэтому
 # wording ниже — «установлен», а не «залогинен/валиден» — честное описание.
 if printenv OPENAI_API_KEY | npx @openai/codex login --with-api-key >/dev/null 2>&1; then
-  chmod 600 "${HOME}/.codex/auth.json" 2>/dev/null || true
+  # ${HOME:-} guard: при unset $HOME (редкий edge case на Windows / env -i)
+  # set -u не уронит hook, chmod уйдёт на bogus путь и проглотится 2>/dev/null.
+  chmod 600 "${HOME:-}/.codex/auth.json" 2>/dev/null || true
   echo "[codex-login] Codex CLI: API key установлен (валидность проверится при первом запросе)."
 else
   echo "[codex-login] Не удалось залогинить Codex CLI. Проверь валидность OPENAI_API_KEY." >&2
