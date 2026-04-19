@@ -2,7 +2,7 @@
 
 **Обновлён:** 2026-04-19
 **Фаза:** **Sprint 5 Codex Auth Integration — PR [#12](https://github.com/komleff/big-heroes/pull/12) DRAFT** (P1-P6 DONE, ожидает Tester gate + Reviewer cycle). Предыдущие: Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
-**master HEAD:** `36560ff` (Merge PR #10) · **PR #12 HEAD:** `sprint/codex-auth-integration`
+**master HEAD:** `36560ff` (Merge PR #10) · **PR #12 branch:** `sprint/codex-auth-integration`
 
 ## Sprint 5 snapshot 2026-04-19
 

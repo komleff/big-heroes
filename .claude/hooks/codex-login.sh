@@ -37,9 +37,13 @@ fi
 # в auth.json). Реальная валидность проверяется при первом API call. Поэтому
 # wording ниже — «установлен», а не «залогинен/валиден» — честное описание.
 if printenv OPENAI_API_KEY | npx @openai/codex login --with-api-key >/dev/null 2>&1; then
-  # ${HOME:-} guard: при unset $HOME (редкий edge case на Windows / env -i)
-  # set -u не уронит hook, chmod уйдёт на bogus путь и проглотится 2>/dev/null.
-  chmod 600 "${HOME:-}/.codex/auth.json" 2>/dev/null || true
+  # chmod только если HOME непустой И файл реально существует.
+  # Copilot round 2 C-7: при пустом $HOME путь "/.codex/auth.json" абсолютный
+  # и на Unix может случайно задеть файл в корне (теоретический, но легитимный
+  # security concern). Двойной guard — безопаснее bogus chmod.
+  if [ -n "${HOME:-}" ] && [ -f "${HOME}/.codex/auth.json" ]; then
+    chmod 600 "${HOME}/.codex/auth.json" 2>/dev/null || true
+  fi
   echo "[codex-login] Codex CLI: API key установлен (валидность проверится при первом запросе)."
 else
   echo "[codex-login] Не удалось залогинить Codex CLI. Проверь валидность OPENAI_API_KEY." >&2
