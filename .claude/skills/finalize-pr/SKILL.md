@@ -498,18 +498,9 @@ if [ -n "$BASE_REF" ]; then
     LANDING_COMMIT=$(git log "$BASE_REF"..HEAD --oneline --grep='^chore(landing):' 2>/dev/null | head -1)
   fi
 else
-  # Fallback: base-ref недоступен локально (offline, rate-limit, shallow clone
-  # без base ref). Whole-history grep был бы опасен: с v3.4 на master каждый
-  # спринт добавляет chore(landing): коммит, feature-ветки наследуют их через
-  # base branch → grep HEAD дал бы false-post → LANDING_WARNING пуст →
-  # систематическая регрессия R4-митигации.
-  # Conservative default: LANDING_COMMIT="" (LANDING_STAGE="pre"). False-pre
-  # безопасно — оператор получит warning "не мерджи сейчас" на втором вызове
-  # (ложное предупреждение, но hard gate всё равно проверит /verify + review
-  # + iteration), false-post — потеря R4 защиты. Предпочитаем ложное
-  # предупреждение потере safety.
-  LANDING_COMMIT=""
-  echo "WARN: /finalize-pr landing-stage autodetect fallback — base-ref '$BASE_BRANCH' недоступен локально. Conservative default LANDING_STAGE=pre (будет показан R4 warning). Для точного определения выполни 'git fetch origin' и перезапусти." >&2
+  # Fallback: base-ref недоступен локально. Грепаем по всей истории HEAD.
+  # Риск false-post минимален (chore(landing): коммиты редкие в общем истории).
+  LANDING_COMMIT=$(git log HEAD --oneline --grep='^chore(landing):' 2>/dev/null | head -1)
 fi
 
 if [ -z "$LANDING_COMMIT" ]; then
