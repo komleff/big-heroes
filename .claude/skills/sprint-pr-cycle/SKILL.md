@@ -498,6 +498,83 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 
 Если все проверки пройдены — скилл опубликует финальный комментарий `## ✅ Готов к merge` через inline-токен `FINALIZE_PR_TOKEN`, который обходит hook только для этого одного вызова.
 
+## Фаза 4.5: Pre-merge Landing (ОБЯЗАТЕЛЬНО после первого /finalize-pr APPROVED)
+
+> ⛔ Landing artifacts (status.md update, plan archive, bd close, memory entry)
+> **обязаны быть в ветке PR до merge**. Отдельный `chore/landing-pr-N` PR
+> запрещён с v3.4 — это убирает bureaucratic toil без safety value.
+
+После успешной публикации `## ✅ Готов к merge` PM выполняет в **той же ветке**:
+
+### Шаг 4.5.1: Обновление Memory Bank
+
+- `.memory_bank/status.md` — спринт помечен `COMPLETE <finalize_date>` (дата этого `/finalize-pr`).
+- При необходимости — `systemPatterns.md` / `productContext.md`.
+
+### Шаг 4.5.2: Архивация плана
+
+```bash
+git mv docs/plans/<sprint>.md docs/archive/
+```
+
+(если план был в `docs/plans/`).
+
+### Шаг 4.5.3: Закрытие beads
+
+```bash
+bd close <sprint-tracking-id>    # с reason: "merged into master via PR #<N>"
+bd close <task-issue-id>         # task, который инициировал спринт
+```
+
+### Шаг 4.5.4: Memory pattern
+
+```bash
+bd remember "Sprint N завершён <finalize_date>: <1-line summary + key decisions>"
+```
+
+Используй именно `завершён <finalize_date>`, **не** `<merge_date>` — см.
+`PM_ROLE.md §2.5` рациональ.
+
+### Шаг 4.5.5: Commit + push
+
+```bash
+git add .memory_bank/ docs/archive/
+git commit -m "chore(landing): pre-merge artifacts — sprint-N"
+git push
+```
+
+### Шаг 4.5.6: Doc-only review round
+
+Copilot автоматически стартует — прочитай его комментарии. Tier обычно Light
+(только .md). Если zero findings — достаточно PM delta self-review как единого
+internal review-pass с `iteration: N+1, tier: light`.
+
+### Шаг 4.5.7: Повторный /finalize-pr
+
+```
+/finalize-pr <PR_NUMBER>
+```
+
+Skill обнаружит новый HEAD (landing commit) — это штатный **dual-invocation
+pattern**. Hard gate прогонит все проверки заново на новом SHA:
+
+- `/verify` зелёный на landing commit
+- internal review-pass на landing commit (от шага 4.5.6)
+- external review-pass на landing commit (для Sprint Final — если был повторный
+  запуск; обычно degradation-аргумент: изменения чисто документация, operator
+  может принять Mode B/C для doc-only delta)
+
+Если второй `/finalize-pr` APPROVED → сообщи оператору что PR merge-ready,
+**landing уже внутри, POST-merge шагов у PM нет**.
+
+### Dogfood-замечание
+
+Этот pattern впервые применён в `sprint-pipeline-v3-4-pre-merge-landing` —
+см. `docs/archive/sprint-pipeline-v3-4-pre-merge-landing.md` как эталонный
+пример.
+
+## Фаза 5: Сообщение оператору
+
 После публикации — сообщи оператору: «Опубликован финальный комментарий в PR #<N>. Решение о merge — за тобой.»
 
 > См. `.claude/skills/finalize-pr/SKILL.md` для полной логики, шаблонов и emergency override `--force`.
