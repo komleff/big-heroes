@@ -4,6 +4,9 @@ dist/
 .env.*
 *.local
 
+# Claude Code локальные настройки (могут содержать секреты — см. .agents/CODEX_AUTH.md)
+.claude/settings.local.json
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db

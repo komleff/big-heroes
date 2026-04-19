@@ -1,8 +1,19 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-18
-**Фаза:** Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) **✅ MERGED** + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix **✅ MERGED** → готовность к **Sprint 5 Codex Auth Integration**
-**master HEAD:** `36560ff` (Merge PR #10)
+**Обновлён:** 2026-04-19
+**Фаза:** **Sprint 5 Codex Auth Integration — PR [#12](https://github.com/komleff/big-heroes/pull/12) DRAFT** (P1-P6 DONE, ожидает Tester gate + Reviewer cycle). Предыдущие: Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
+**master HEAD:** `36560ff` (Merge PR #10) · **PR #12 branch:** `sprint/codex-auth-integration`
+
+## Sprint 5 snapshot 2026-04-19
+
+- Tracking: `big-heroes-d0w` (подробный start-log в notes issue).
+- План: `docs/plans/sprint-5-codex-auth.md` v4.
+- Variant A одобрен оператором: ChatGPT OAuth (Plus subscription) = валидный auth для hook и `/external-review` — API-key необязателен.
+- VC закрыты: VC-1b/2/3/4/5/6/7 PASS; VC-1a ⚠ с defer на `big-heroes-90j` (PM-метаданные в diff — план v5 fix).
+- Smoke-tests S1-S5: 5/5 PASS (с Windows-specific изоляцией USERPROFILE+HOME+APPDATA+LOCALAPPDATA).
+- Beads P0.2: BE-1=mo9, BE-4=7wh CREATED; BE-2=40n, BE-5=wrg pre-existing; BE-3 SKIPPED (proactive).
+- Ревью findings: F-2 RESOLVED (Variant A), F-3 fix-now (hook wording), F-4→BE-7.
+- Pending: Tester gate → Claude Reviewer Pass 1 → triage → Pass 2 → `/external-review` (Variant A) → `/finalize-pr` → оператор merge.
 
 ---
 
