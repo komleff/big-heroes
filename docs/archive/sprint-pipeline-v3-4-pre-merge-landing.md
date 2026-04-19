@@ -72,7 +72,7 @@ Sprint 5 (PR #12, merged 2026-04-19) завершился отдельным `ch
 - [x] `bd update big-heroes-cfn --claim` (выполнено)
 - [x] `bd create` sprint tracking → `big-heroes-sz4` (выполнено)
 - [x] Ветка `sprint-pipeline-v3-4-pre-merge-landing` от `master @ c027920` (выполнено)
-- [ ] Этот план сохранён как `docs/plans/sprint-pipeline-v3-4-pre-merge-landing.md`
+- [x] План был сохранён как `docs/plans/sprint-pipeline-v3-4-pre-merge-landing.md` и архивирован в `docs/archive/` при pre-merge landing (2026-04-20, commit `15ee206`)
 
 ### P1. Обновление `.agents/PM_ROLE.md` §2.5 (VC-1)
 

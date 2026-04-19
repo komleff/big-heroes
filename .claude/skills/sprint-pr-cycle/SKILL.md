@@ -501,13 +501,15 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 
 Если все проверки пройдены — скилл опубликует финальный комментарий `## ✅ Готов к merge` через inline-токен `FINALIZE_PR_TOKEN`, который обходит hook только для этого одного вызова.
 
-## Фаза 4.5: Pre-merge Landing (ОБЯЗАТЕЛЬНО после первого /finalize-pr APPROVED)
+## Фаза 4.5: Pre-merge Landing (ОБЯЗАТЕЛЬНО для Sprint Final после первого `/finalize-pr --pre-landing APPROVED`)
 
+> ⛔ **Применимость: только для Sprint Final PR** (PR с `Tier: Sprint Final` в body или меткой `sprint-final`). Для tier ≠ Sprint Final (Light/Standard/Critical) `/finalize-pr` вызывается **один раз без `--pre-landing`**, landing-фазы и второго вызова **нет** — оператор мержит сразу после первого `## ✅ Готов к merge`. См. `.agents/HOW_TO_USE.md` §4 и `.agents/PIPELINE.md` §3.
+>
 > ⛔ Landing artifacts (status.md update, plan archive, bd close, memory entry)
-> **обязаны быть в ветке PR до merge**. Отдельный `chore/landing-pr-N` PR
+> **обязаны быть в ветке PR до merge** для Sprint Final. Отдельный `chore/landing-pr-N` PR
 > запрещён с v3.4 — это убирает bureaucratic toil без safety value.
 
-После успешной публикации `## ✅ Готов к merge` PM выполняет в **той же ветке**:
+После успешной публикации первого `## ✅ Готов к merge` (с `⏳ landing впереди` warning, только Sprint Final) PM выполняет в **той же ветке**:
 
 ### Шаг 4.5.1: Обновление Memory Bank
 
