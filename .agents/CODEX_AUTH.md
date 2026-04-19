@@ -40,6 +40,8 @@
 
 Ключ **никогда не попадает в git**: он хранится в Secrets/user-global settings/shell, пробрасывается в сессию как env var, а хук на старте сессии делает логин Codex из stdin.
 
+> **Platform note:** схема показывает POSIX-путь `$HOME/.codex/`. На Windows git-bash `$HOME == $USERPROFILE`, физический путь — `%USERPROFILE%\.codex\`. Hook использует `${HOME:-}` expansion, которое в git-bash разрешается корректно. `chmod 600` на Windows — no-op (NTFS ACL, не POSIX bits), auth.json полагается на стандартный user-profile ACL.
+
 ---
 
 ## 2. Создание API key в OpenAI
@@ -74,7 +76,7 @@ OpenAI Project — это **биллинговый/изоляционный ко
 
 | Скоуп | Уровень | Зачем |
 |---|---|---|
-| **List models** | **Read** | Codex CLI опрашивает `/v1/models` при логине |
+| **List models** | **Read** | Codex CLI опрашивает `/v1/models` в некоторых сценариях (интерактивный login / model discovery). **Не используется** при `codex login --with-api-key` — этот путь сохраняет ключ без валидации (см. §4 troubleshooting row про «Hook OK но 401»). Оставлен в минимальном наборе на случай будущих версий CLI |
 | **Model capabilities → Responses** (`/v1/responses`) | **Write** | Основной API для `codex review` |
 | **Model capabilities → Chat completions** (`/v1/chat/completions`) | **Request** | Fallback для отдельных моделей |
 | Model capabilities → Text-to-speech | **None** | Не используется |
