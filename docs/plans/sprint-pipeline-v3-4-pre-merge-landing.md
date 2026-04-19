@@ -44,7 +44,7 @@ Sprint 5 (PR #12, merged 2026-04-19) завершился отдельным `ch
 | `big-heroes-1l6` (BE-11 Windows sandbox 1326) | **OPEN**, не исправлен | Codex CLI review через sandbox недоступен → Mode A/B недоступны → **default Mode C (degraded)** для этого sprint'а |
 | Operator-approved Mode C | Прецедент Sprint 5 (Mode C Standard + Adversarial APPROVED, operator merged) | Допустимо |
 
-**Решение:** планируем Sprint Final в **Mode C degraded** с возможным upgrade до Mode A, если ключ in-situ зелёный на момент `/external-review`. Если Mode C — PM обязан публиковать метку `⚠️ Degraded mode` в external review-pass (инвариант `/finalize-pr` шаг 4).
+**Решение:** планируем Sprint Final в **Mode C degraded**. Upgrade до Mode A/B пока BE-11 не закрыт **не даёт выигрыша**: даже с валидным `$OPENAI_API_KEY` Codex CLI падает в sandbox 1326 на Windows dev-host оператора. PM публикует метку `⚠️ Degraded mode` в external review-pass (инвариант `/finalize-pr` шаг 4). Upgrade до Mode A/B станет возможен только после fix BE-11 либо переноса external review на Linux/WSL host.
 
 ---
 
@@ -329,7 +329,7 @@ EOF
 ### P8. Review cycle (Critical + Sprint Final)
 
 1. **Tester gate** — класс `pipeline-artifacts` (PM_ROLE.md + SKILL.md изменения).
-2. **Claude Reviewer Pass 1** — все 4 аспекта. Fokus: архитектурная согласованность между тремя артефактами (PM_ROLE §2.5, sprint-pr-cycle Фаза 4.5, finalize-pr dual-invocation).
+2. **Claude Reviewer Pass 1** — все 4 аспекта. Фокус: архитектурная согласованность между тремя артефактами (PM_ROLE §2.5, sprint-pr-cycle Фаза 4.5, finalize-pr dual-invocation).
 3. **PM triage** — fix-now / defer / reject.
 4. **Claude Reviewer Pass 2** — adversarial, регрессии.
 5. **Sprint Final `/external-review`** — Mode C ожидаемый (BE-11 блокирует Codex CLI Windows sandbox).
