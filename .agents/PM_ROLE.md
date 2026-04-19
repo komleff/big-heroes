@@ -1,7 +1,7 @@
 # Project Manager — роль и обязанности
 
-**Версия:** 2.0
-**Дата:** 2026-04-13
+**Версия:** 2.1 (v3.4 pre-merge landing protocol)
+**Дата:** 2026-04-20
 **Проект:** Big Heroes
 **Статус:** Утверждено
 
@@ -150,19 +150,60 @@ bd show <id>               # детали конкретной задачи
 > ⛔ **Единственный способ объявить PR готовым к merge — `/finalize-pr <PR_NUMBER>`.**
 > Прямой `gh pr comment` с текстом «готово к merge» заблокирован hook-ом.
 
-### 2.5 Landing the Plane (ОБЯЗАТЕЛЬНО, последние действия)
+### 2.5 Landing the Plane (pre-merge, ОБЯЗАТЕЛЬНО перед операторским merge)
 
-> ⛔ Спринт НЕ завершён, пока все шаги ниже не выполнены.
+> ⛔ Спринт НЕ merge-ready, пока все шаги ниже не выполнены В ТОЙ ЖЕ ВЕТКЕ PR.
+>
+> **История (v3.4):** до v3.4 landing выполнялся post-merge в отдельной ветке
+> `chore/landing-pr-N` с отдельным PR. Это создавало второй merge без safety value
+> (между первым /finalize-pr и merge код не менялся). С v3.4 landing делается
+> inline-в-ветке PR между первым /finalize-pr APPROVED и operator merge.
 
-**Шаг 1 — Обнови Memory Bank** (status.md, systemPatterns.md, productContext.md при необходимости).
+**Контекст:** для Sprint Final PM вызвал `/finalize-pr <PR_NUMBER> --pre-landing` (флаг `--pre-landing` **обязателен** для первого вызова Sprint Final — иначе оператор не получит `⏳ Pre-merge landing...` warning и может смержить до landing commit; см. `.claude/skills/finalize-pr/SKILL.md` Аргументы). Skill опубликовал первый `## ✅ Готов к merge` с warning. Ветка PR на HEAD с APPROVED review-pass. Оператор ещё не мержил.
 
-**Шаг 2 — Закрой задачи в Beads** (`bd close <id>`).
+**Шаг 1 — Обнови Memory Bank** inline-в-ветке PR:
 
-**Шаг 3 — Зафикси недочёты как новые задачи** (`bd create`).
+- `.memory_bank/status.md` — новый спринт помечен `COMPLETE <finalize_date>`,
+  где `<finalize_date>` = дата первого APPROVED `/finalize-pr` (не дата merge).
+- `systemPatterns.md`, `productContext.md` — при необходимости.
 
-**Шаг 4 — Синхронизируй** (`git push`, `bd dolt push`).
+**Шаг 2 — Архивируй план:** `git mv docs/plans/<sprint>.md docs/archive/`
+(если план ещё не в archive).
 
-**Шаг 5 — Финализируй PR** (`/finalize-pr <PR_NUMBER>`).
+**Шаг 3 — Закрой задачи в Beads:** `bd close <id>` для sprint tracking + task issues
+с явным reason (результат, commit hash).
+
+**Шаг 4 — Запиши memory pattern:** `bd remember "Sprint N завершён <finalize_date>:
+<key learnings>"` — формулировка `завершён <finalize_date>`, не `<merge_date>`.
+Рациональ: финализация = момент закрытия цикла, не момент административного действия
+оператора. Существующие sprint-1..5 memories остаются как исторические (merge_date).
+
+**Шаг 5 — Commit и push:**
+
+```bash
+git add .memory_bank/ docs/archive/
+git commit -m "chore(landing): pre-merge artifacts — sprint-N"
+git push
+```
+
+**Шаг 6 — Doc-only review round** (штатный Copilot auto-review, Claude delta
+self-review если изменения в .md — ожидаемый tier: Light).
+
+**Шаг 7 — Финализируй PR повторно:** `/finalize-pr <PR_NUMBER>` на новом HEAD
+(с landing commit), **без `--pre-landing` флага**. Это финальная публикация
+после landing; повторное указание `--pre-landing` снова добавит warning
+«не мерджи сейчас» и оператор не получит сигнал к merge. Skill re-check HEAD
+(Фаза 1 шаг 1 + race-protection re-check перед публикацией) подтвердит новый
+SHA — это штатный dual-invocation pattern (см. `.claude/skills/finalize-pr/SKILL.md`).
+
+**Шаг 8 — Сообщи оператору** что PR на текущем HEAD готов к merge, landing artifacts
+уже внутри.
+
+**Запрещено в v3.4:**
+
+- Создавать отдельную ветку `chore/landing-pr-N` и PR для landing artifacts.
+- Делать landing после operator merge (status.md будет на master поздно).
+- Коммитить landing artifacts в master напрямую (инвариант: merge — только оператор).
 
 ---
 

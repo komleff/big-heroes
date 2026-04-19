@@ -1,6 +1,6 @@
 ---
 name: finalize-pr
-description: Hard gate перед merge. Единственный разрешённый способ объявить PR готовым к merge. Проверяет commit binding (verify, internal review, external review для Sprint Final, статусы замечаний). Используй: /finalize-pr <PR_NUMBER> [--force]
+description: Hard gate перед merge. Единственный разрешённый способ объявить PR готовым к merge. Проверяет commit binding (verify, internal review, external review для Sprint Final, статусы замечаний). Используй: /finalize-pr <PR_NUMBER> [--force] [--pre-landing]
 user-invocable: true
 ---
 
@@ -14,6 +14,7 @@ user-invocable: true
 
 - `PR_NUMBER` — номер PR (обязательный)
 - `--force` — emergency override **только по явной команде оператора** или при подтверждённой ошибке самого скилла. PM не имеет права инициировать `--force` самостоятельно.
+- `--pre-landing` — explicit маркер **первого** вызова Sprint Final PR (до landing commit). Skill добавит строку `⏳ Pre-merge landing commit впереди — жди второй /finalize-pr, не мерджи сейчас.` в финальный комментарий — operator видит сигнал не мержить до второго вызова. Без флага — обычный merge-ready комментарий. PM передаёт `--pre-landing` для первого Sprint Final вызова, без флага — для второго (после landing commit). Detection explicit, без runtime autodetect (см. Dual-invocation pattern).
 
 ## Фаза 1: hard-проверки (commit + verify + review)
 
@@ -420,6 +421,66 @@ fi
 
 Если HEAD не изменился — переходи к публикации. Если изменился — **СТОП**, нужен новый запуск скилла на актуальном commit.
 
+### Dual-invocation pattern (pre-merge landing, v3.4+)
+
+> С v3.4 skill вызывается **дважды** за жизненный цикл PR Sprint Final:
+>
+> 1. Первый вызов — на HEAD после review cycle. Hard gate APPROVED →
+>    публикация первого `## ✅ Готов к merge`.
+> 2. PM в той же ветке делает `chore(landing):` commit (status.md + plan archive
+>    + bd close + memory entry — см. `sprint-pr-cycle/SKILL.md` Фаза 4.5).
+>    HEAD меняется.
+> 3. Второй вызов — на новом HEAD (landing commit). Hard gate прогоняется
+>    заново; existing HEAD re-check (шаг 1 + protection re-check перед публикацией)
+>    корректно обрабатывает смену SHA.
+>
+> Второй вызов требует **свежего review-pass** на landing commit — это
+> Фаза 4.5.6 в sprint-pr-cycle (doc-only Light tier review).
+
+Skill поддерживает dual-invocation **без специальной логики**: каждый запуск
+строит hard gate с нуля от `HEAD_COMMIT = gh pr view --json headRefOid`. Если
+ветка сменила HEAD между вызовами — второй запуск видит новый commit как
+«текущий», все 5 шагов (verify + internal + external + triage + re-check)
+работают штатно.
+
+**Что это НЕ означает:**
+
+- НЕ означает, что skill должен «запомнить» первый вызов. Второй запуск
+  идемпотентен в смысле гейта, не в смысле state.
+- НЕ означает, что landing commit освобождает от external review для
+  Sprint Final. Если tier = sprint-final, external review обязателен **и на
+  landing HEAD тоже** (хотя изменения чисто документация, допустима degraded
+  Mode B/C с operator-approved rationale).
+
+См. `.claude/skills/sprint-pr-cycle/SKILL.md` Фаза 4.5 для полного flow
+landing commit.
+
+### Pre-landing warning (для `--pre-landing` флага)
+
+Если skill вызван с `--pre-landing`, в шаблон финального комментария добавляется строка-предупреждение, чтобы оператор не мержил PR до landing commit + второго `/finalize-pr`:
+
+```bash
+# Argument parsing: set PRE_LANDING=1, если флаг --pre-landing передан.
+# По умолчанию 0 — warning не печатается.
+# Обрабатываем список аргументов из slash-command invocation
+# (`/finalize-pr 14 --pre-landing` → $@ = "14 --pre-landing").
+PRE_LANDING=0
+for arg in "$@"; do
+  if [ "$arg" = "--pre-landing" ]; then
+    PRE_LANDING=1
+    break
+  fi
+done
+
+if [ "$PRE_LANDING" = "1" ]; then
+  LANDING_WARNING="⏳ Pre-merge landing commit впереди — жди второй /finalize-pr, не мерджи сейчас. См. .claude/skills/sprint-pr-cycle/SKILL.md Фаза 4.5."
+else
+  LANDING_WARNING=""
+fi
+```
+
+Подстановка через bash `${VAR:+...}` — текст печатается только если переменная не пуста.
+
 ### Шаблон фазы 1 (до внедрения triage-протокола)
 
 ```bash
@@ -428,7 +489,9 @@ FINALIZE_PR_TOKEN=1 gh pr comment <PR_NUMBER> --body "## ✅ Готов к merge
 Commit: $HEAD_COMMIT
 Verify: ✅
 Internal review: ✅ (commit $HEAD_COMMIT)
-External review: <✅ (commit $HEAD_COMMIT) | N/A>
+External review: <✅ (commit $HEAD_COMMIT) | N/A>${LANDING_WARNING:+
+
+$LANDING_WARNING}
 
 — PM (Claude Opus 4.6), /finalize-pr"
 ```
@@ -443,7 +506,9 @@ Verify: ✅
 Internal review: ✅ (commit $HEAD_COMMIT)
 External review: <✅ (commit $HEAD_COMMIT) | N/A>
 Unresolved findings: $UNRESOLVED
-Deferred to Beads: $DEFERRED_LIST
+Deferred to Beads: $DEFERRED_LIST${LANDING_WARNING:+
+
+$LANDING_WARNING}
 
 <если defer_ratio > 50%>
 ⚠️ ВНИМАНИЕ: $DEFER_RATIO% замечаний отложены в Beads. Проверь перед merge.

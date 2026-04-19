@@ -1,6 +1,6 @@
 ---
 name: pipeline-audit
-description: Антивирус против drift между документами пайплайна. Проверяет 7 инвариантов v3.3, согласованность имён ролей/команд/аспектов, отсутствие противоречий с deny-rules. Запускай каждые 3-5 спринтов и обязательно перед изменением самого пайплайна.
+description: Антивирус против drift между документами пайплайна. Проверяет 8 инвариантов (v3.3 + pre-merge landing v3.4), согласованность имён ролей/команд/аспектов, отсутствие противоречий с deny-rules. Запускай каждые 3-5 спринтов и обязательно перед изменением самого пайплайна.
 user-invocable: true
 ---
 
@@ -44,7 +44,7 @@ ls -1 .claude/settings.json
 
 Сохрани список файлов как `AUDITED_FILES`.
 
-## Шаг 2: Проверка 7 инвариантов v3.3
+## Шаг 2: Проверка 8 инвариантов (v3.3 + pre-merge landing v3.4)
 
 Для каждого инварианта проверь, что он отражён хотя бы в одном из источников и нет противоречий:
 
@@ -57,6 +57,7 @@ ls -1 .claude/settings.json
 | 5 | Проверки централизованы через `/verify`. Один gate, одна точка изменения | `PM_ROLE.md`, `sprint-pr-cycle/SKILL.md`, `verify/SKILL.md` |
 | 6 | PM не искажает findings ревьюверов. Агрегация — да, изменение смысла — нет | `AGENT_ROLES.md`, `PM_ROLE.md`, `reviewer.md`, `external-review/SKILL.md` |
 | 7 | Merge — отдельное решение оператора. Агенты доводят до merge-ready, не мержат | `HOW_TO_USE.md`, `PM_ROLE.md`, `AGENT_ROLES.md`, `settings.json` (deny `gh pr merge`) |
+| 8 | Sprint не создаёт отдельный `chore/landing-pr-N` PR (ранее — post-merge, до v3.4). Landing commit коммитится в ветку Sprint PR между первым `/finalize-pr APPROVED` и merge (pre-merge landing, v3.4+). Operator-facing документы должны учить ждать **второй** `/finalize-pr` для Sprint Final PR. | `PM_ROLE.md §2.5`, `sprint-pr-cycle/SKILL.md Фаза 4.5`, `finalize-pr/SKILL.md Dual-invocation`, `HOW_TO_USE.md` (operator decision logic), `PIPELINE.md` (flow diagram с landing шагом) |
 
 Для каждого инварианта:
 - Если упоминание отсутствует — `DRIFT: инвариант N не отражён в <ожидаемые файлы>`.
@@ -145,7 +146,7 @@ grep -rEo '\.(agents|claude/agents|claude/skills|claude/hooks|memory_bank|claude
 Спринт: <номер из status.md>
 
 Проверено файлов: N
-Инвариантов: 7/7 ✅
+Инвариантов: 8/8 ✅
 Согласованность имён: ✅
 Соответствие deny-rules: ✅
 Валидность ссылок: ✅

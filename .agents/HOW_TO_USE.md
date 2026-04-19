@@ -1,7 +1,8 @@
 # Как пользоваться пайплайном
 
 **Для:** оператора (менеджера), который не читает код
-**Обновлён:** 2026-04-13
+**Версия:** 2.1 (v3.4 pre-merge landing protocol)
+**Обновлён:** 2026-04-20
 
 ---
 
@@ -118,7 +119,14 @@ Internal review: ✅ (commit abc1234)
 External review: ✅ (commit abc1234)
 ```
 
-Если видишь `✅ Готов к merge` от `/finalize-pr` — можно мержить. Ты не читаешь код, только вердикты.
+**С v3.4 (pre-merge landing) `/finalize-pr` для Sprint Final PR публикует комментарий `## ✅ Готов к merge` ДВАЖДЫ:**
+
+1. **Первый комментарий** содержит строку `⏳ Pre-merge landing commit впереди — жди второй /finalize-pr, не мерджи сейчас.` Это промежуточная точка: PM сейчас сделает landing commit (status.md, plan archive, bd close, memory entry) в эту же ветку PR.
+2. **Второй комментарий** (после landing commit, новый HEAD) — без warning. Это и есть единственный сигнал к merge.
+
+**Правило:** мерджишь только когда видишь `✅ Готов к merge` **без** строки `⏳ Pre-merge landing commit впереди` (полный префикс warning из первого комментария). Если warning присутствует — жди следующий `/finalize-pr` от PM. Ты не читаешь код, только вердикты.
+
+Для tier ≠ Sprint Final (Light/Standard/Critical без `Tier: Sprint Final` в body) `/finalize-pr` вызывается один раз — мержи сразу после `## ✅ Готов к merge`.
 
 ### Что делать при проблемах
 

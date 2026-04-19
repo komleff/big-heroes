@@ -484,8 +484,11 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 Вызови скилл:
 
 ```
-/finalize-pr <PR_NUMBER>
+/finalize-pr <PR_NUMBER>               # для не-Sprint Final tier (Light/Standard/Critical)
+/finalize-pr <PR_NUMBER> --pre-landing  # для Sprint Final PR — ПЕРВЫЙ вызов (до landing commit)
 ```
+
+> ⚠️ **Для Sprint Final первый вызов ОБЯЗАТЕЛЬНО с `--pre-landing`** — иначе шаблон финального комментария выйдет без строки `⏳ Pre-merge landing commit впереди — жди второй /finalize-pr, не мерджи сейчас.`, и оператор может смержить PR до landing commit (регрессия к post-merge landing, VC-8 срыв). Флаг передаётся только для первого Sprint Final вызова; для второго (после landing commit) — без флага. Detection explicit, без runtime autodetect.
 
 `/finalize-pr` сам проверит:
 1. HEAD commit hash PR.
@@ -497,6 +500,103 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 7. (фаза 2) Warning при `defer_ratio > 50%`.
 
 Если все проверки пройдены — скилл опубликует финальный комментарий `## ✅ Готов к merge` через inline-токен `FINALIZE_PR_TOKEN`, который обходит hook только для этого одного вызова.
+
+## Фаза 4.5: Pre-merge Landing (ОБЯЗАТЕЛЬНО для Sprint Final после первого `/finalize-pr --pre-landing APPROVED`)
+
+> ⛔ **Применимость: только для Sprint Final PR** (PR с `Tier: Sprint Final` в body или меткой `sprint-final`). Для tier ≠ Sprint Final (Light/Standard/Critical) `/finalize-pr` вызывается **один раз без `--pre-landing`**, landing-фазы и второго вызова **нет** — оператор мержит сразу после первого `## ✅ Готов к merge`. См. `.agents/HOW_TO_USE.md` §4 и `.agents/PIPELINE.md` §3.
+>
+> ⛔ Landing artifacts (status.md update, plan archive, bd close, memory entry)
+> **обязаны быть в ветке PR до merge** для Sprint Final. Отдельный `chore/landing-pr-N` PR
+> запрещён с v3.4 — это убирает bureaucratic toil без safety value.
+
+После успешной публикации первого `## ✅ Готов к merge` (с `⏳ landing впереди` warning, только Sprint Final) PM выполняет в **той же ветке**:
+
+### Шаг 4.5.1: Обновление Memory Bank
+
+- `.memory_bank/status.md` — спринт помечен `COMPLETE <finalize_date>` (дата этого `/finalize-pr`).
+- При необходимости — `systemPatterns.md` / `productContext.md`.
+
+### Шаг 4.5.2: Архивация плана
+
+```bash
+git mv docs/plans/<sprint>.md docs/archive/
+```
+
+(если план был в `docs/plans/`).
+
+### Шаг 4.5.3: Закрытие beads
+
+```bash
+bd close <sprint-tracking-id>    # с reason: "pre-merge landing in PR #<N> via commit <SHA>"
+bd close <task-issue-id>         # с reason: "pre-merge landing in PR #<N> via commit <SHA>"; task, который инициировал спринт
+```
+
+### Шаг 4.5.4: Memory pattern
+
+```bash
+bd remember "Sprint N завершён <finalize_date>: <1-line summary + key decisions>"
+```
+
+Используй именно `завершён <finalize_date>`, **не** `<merge_date>` — см.
+`PM_ROLE.md §2.5` рациональ.
+
+### Шаг 4.5.5: Commit + push
+
+```bash
+git add .memory_bank/ docs/archive/
+git commit -m "chore(landing): pre-merge artifacts — sprint-N"
+git push
+```
+
+### Шаг 4.5.6: Doc-only review round
+
+Copilot автоматически стартует — прочитай его комментарии. Tier обычно Light
+(только .md). Если zero findings — достаточно PM delta self-review как единого
+internal review-pass с `iteration: N+1, tier: light`.
+
+#### Sprint Final tier — external review на landing HEAD обязателен
+
+Если первый прогон PR был Sprint Final, **второй `/finalize-pr` тоже потребует
+external review на landing commit** (hard gate `/finalize-pr` Шаг 4 — см.
+`.claude/skills/finalize-pr/SKILL.md` Dual-invocation). Иначе finalize упадёт
+с «СТОП: External review обязателен для Sprint Final на commit $HEAD_COMMIT».
+
+Запусти `/external-review <PR_NUMBER>` повторно на landing commit. Допустимо:
+
+- **Mode A** — если `$OPENAI_API_KEY` и Codex CLI доступны.
+- **Mode B/C/D** — с меткой `⚠️ Degraded mode` / `⚠️ Manual emergency mode`
+  в теле ревью. Landing = doc-only delta (status.md + plan archive + memory
+  entry), поэтому degradation обоснована объёмом изменений. PM явно фиксирует
+  rationale degradation в теле external review-pass.
+
+Для tier=Light/Standard/Critical (не Sprint Final) — external review опционален
+на landing commit; достаточно internal self-review делта-ревью из шага выше.
+
+### Шаг 4.5.7: Повторный /finalize-pr
+
+```
+/finalize-pr <PR_NUMBER>
+```
+
+Skill обнаружит новый HEAD (landing commit) — это штатный **dual-invocation
+pattern**. Hard gate прогонит все проверки заново на новом SHA:
+
+- `/verify` зелёный на landing commit
+- internal review-pass на landing commit (от шага 4.5.6)
+- external review-pass на landing commit — **обязателен для Sprint Final**
+  (запускается в 4.5.6; Mode A/B/C/D с меткой Degraded допустим). Для прочих
+  tier — N/A
+
+Если второй `/finalize-pr` APPROVED → сообщи оператору что PR merge-ready,
+**landing уже внутри, POST-merge шагов у PM нет**.
+
+### Dogfood-замечание
+
+Этот pattern впервые применён в `sprint-pipeline-v3-4-pre-merge-landing` —
+см. `docs/archive/sprint-pipeline-v3-4-pre-merge-landing.md` как эталонный
+пример.
+
+## Фаза 5: Сообщение оператору
 
 После публикации — сообщи оператору: «Опубликован финальный комментарий в PR #<N>. Решение о merge — за тобой.»
 
