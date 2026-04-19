@@ -335,7 +335,7 @@ EOF
 3. **PM triage** — fix-now / defer / reject.
 4. **Claude Reviewer Pass 2** — adversarial, регрессии.
 5. **Sprint Final `/external-review`** — Mode C ожидаемый (BE-11 блокирует Codex CLI Windows sandbox).
-6. **`/finalize-pr` первый** — APPROVED на commit X.
+6. **`/finalize-pr <PR> --pre-landing` первый** (Sprint Final → обязательный флаг) — APPROVED на commit X; финальный комментарий содержит `⏳ Pre-merge landing commit впереди — жди второй /finalize-pr, не мерджи сейчас.`
 7. **Pre-merge landing commit** (dogfood VC-8) — в этой же ветке:
    - status.md: Sprint v3.4 `COMPLETE <finalize_date>`
    - `git mv docs/plans/sprint-pipeline-v3-4-pre-merge-landing.md docs/archive/`
@@ -393,7 +393,7 @@ EOF
 [ ] P8 PM запускает Tester (Critical/pipeline-artifacts класс)
 [ ] P8 Reviewer Pass 1 → triage → Pass 2 → APPROVED
 [ ] P8 /external-review → Mode C expected (BE-11) → APPROVED с меткой Degraded
-[ ] P8 /finalize-pr #N (первый) → APPROVED
+[ ] P8 /finalize-pr #N --pre-landing (первый для Sprint Final — обязательно с флагом) → APPROVED с ⏳ warning
 [ ] P8-DOGFOOD pre-merge landing commit (status.md + archive + bd close + bd remember)
 [ ] P8-DOGFOOD push → doc-only review round
 [ ] P8 /finalize-pr #N (второй на новом HEAD) → APPROVED

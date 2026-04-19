@@ -484,8 +484,11 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 Вызови скилл:
 
 ```
-/finalize-pr <PR_NUMBER>
+/finalize-pr <PR_NUMBER>               # для не-Sprint Final tier (Light/Standard/Critical)
+/finalize-pr <PR_NUMBER> --pre-landing  # для Sprint Final PR — ПЕРВЫЙ вызов (до landing commit)
 ```
+
+> ⚠️ **Для Sprint Final первый вызов ОБЯЗАТЕЛЬНО с `--pre-landing`** — иначе шаблон финального комментария выйдет без строки `⏳ Pre-merge landing commit впереди — жди второй /finalize-pr, не мерджи сейчас.`, и оператор может смержить PR до landing commit (регрессия к post-merge landing, VC-8 срыв). Флаг передаётся только для первого Sprint Final вызова; для второго (после landing commit) — без флага. Detection explicit, без runtime autodetect.
 
 `/finalize-pr` сам проверит:
 1. HEAD commit hash PR.
