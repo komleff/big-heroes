@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # SessionStart hook: автоматический логин Codex CLI из $OPENAI_API_KEY.
 #
-# Идемпотентен: ничего не делает, если уже залогинен.
+# Идемпотентен: ничего не делает, если уже залогинен (любой auth — API key или ChatGPT OAuth).
 # Не валит сессию: при отсутствии ключа или сбое выдаёт предупреждение и выходит 0.
 # Не светит ключ: передача через stdin (--with-api-key), без argv.
+#
+# Намеренно НЕ используется set -e: каждая ветка должна завершаться exit 0
+# (fail-secure — hook никогда не прерывает старт сессии). set -u включён
+# чтобы поймать опечатки в именах переменных при разработке hook'а.
 
 set -u
 
@@ -24,9 +28,12 @@ if [ -z "${OPENAI_API_KEY:-}" ]; then
 fi
 
 # Логинимся через stdin; вывод команды подавляем, чтобы не засорять старт сессии.
+# Важно: codex login --with-api-key НЕ валидирует ключ на login (только сохраняет
+# в auth.json). Реальная валидность проверяется при первом API call. Поэтому
+# wording ниже — «установлен», а не «залогинен/валиден» — честное описание.
 if printenv OPENAI_API_KEY | npx @openai/codex login --with-api-key >/dev/null 2>&1; then
   chmod 600 "${HOME}/.codex/auth.json" 2>/dev/null || true
-  echo "[codex-login] Codex CLI: API key загружен."
+  echo "[codex-login] Codex CLI: API key установлен (валидность проверится при первом запросе)."
 else
   echo "[codex-login] Не удалось залогинить Codex CLI. Проверь валидность OPENAI_API_KEY." >&2
 fi
