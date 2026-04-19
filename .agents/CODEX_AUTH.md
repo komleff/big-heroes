@@ -160,8 +160,10 @@ API оплачивается **отдельно** от ChatGPT Plus/Pro/Team. Б
     "$schema": "https://json.schemastore.org/claude-code-settings.json",
     "env": {
         "OPENAI_API_KEY": "sk-proj-..."
-    }
-    // ... остальные секции (permissions, hooks) — оставь как есть
+    },
+    "permissions": {}
+    // ... другие секции (permissions, hooks) — оставь существующие.
+    // Важно: после "env": {...} ставь запятую, если дальше идут другие секции.
 }
 ```
 
@@ -243,7 +245,7 @@ echo 'Скажи pong' | npx @openai/codex exec -
 | `403 Forbidden` на конкретной модели | Permissions слишком узкие (не Responses: Write) | Проверь permissions ключа (§2.2) |
 | `429 quota exceeded` | На аккаунте нет API-кредитов | OpenAI → Billing → Add credits (§2.6) |
 | `model X not found` | Модель не входит в твой tier | Скорректируй модели в `/external-review` SKILL.md |
-| `Not logged in` после старта сессии | Хук не сработал — проверь `.claude/hooks/codex-login.sh` исполняемый, в settings.json есть `hooks.SessionStart` | См. логи: `cat ~/.codex/log/*.log` |
+| `Not logged in` после старта сессии | Хук не сработал — проверь путь `.claude/hooks/codex-login.sh` читаем, в `.claude/settings.json` есть `hooks.SessionStart` с этим путём, в PATH доступны `bash` и `npx` | `bash .claude/hooks/codex-login.sh` вручную; см. логи: `cat ~/.codex/log/*.log` |
 | Hook exit 0 + stderr `установлен` / silent, но `/external-review` возвращает `401 Unauthorized` | `codex login --with-api-key` не валидирует ключ при сохранении — hook успешно пишет в `auth.json` любую строку. Реальная невалидность проявляется только на первом API call. Ключ в env либо revoke'нут, либо неполностью скопирован, либо из другого OpenAI project | `npx @openai/codex logout && printenv OPENAI_API_KEY \| head -c 15` — проверь префикс; пересоздай ключ на OpenAI Dashboard; обнови источник (Secrets / settings / shell rc); перезапусти сессию |
 
 ---

@@ -46,7 +46,10 @@ if printenv OPENAI_API_KEY | npx @openai/codex login --with-api-key >/dev/null 2
   fi
   echo "[codex-login] Codex CLI: API key установлен (валидность проверится при первом запросе)."
 else
-  echo "[codex-login] Не удалось залогинить Codex CLI. Проверь валидность OPENAI_API_KEY." >&2
+  # Сбой login — возможных причин несколько: невалидный $OPENAI_API_KEY,
+  # отсутствие сети, проблема npm/npx cache, отсутствует Node, timeout.
+  # Диагностика ниже в .agents/CODEX_AUTH.md §4 troubleshooting таблице.
+  echo "[codex-login] Не удалось залогинить Codex CLI. Возможные причины: невалидный \$OPENAI_API_KEY, нет сети, сбой npx/Node или timeout. См. .agents/CODEX_AUTH.md §4." >&2
 fi
 
 exit 0
