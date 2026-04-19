@@ -420,6 +420,40 @@ fi
 
 Если HEAD не изменился — переходи к публикации. Если изменился — **СТОП**, нужен новый запуск скилла на актуальном commit.
 
+### Dual-invocation pattern (pre-merge landing, v3.4+)
+
+> С v3.4 skill вызывается **дважды** за жизненный цикл PR Sprint Final:
+>
+> 1. Первый вызов — на HEAD после review cycle. Hard gate APPROVED →
+>    публикация первого `## ✅ Готов к merge`.
+> 2. PM в той же ветке делает `chore(landing):` commit (status.md + plan archive
+>    + bd close + memory entry — см. `sprint-pr-cycle/SKILL.md` Фаза 4.5).
+>    HEAD меняется.
+> 3. Второй вызов — на новом HEAD (landing commit). Hard gate прогоняется
+>    заново; existing HEAD re-check (шаг 1 + protection re-check перед публикацией)
+>    корректно обрабатывает смену SHA.
+>
+> Второй вызов требует **свежего review-pass** на landing commit — это
+> Фаза 4.5.6 в sprint-pr-cycle (doc-only Light tier review).
+
+Skill поддерживает dual-invocation **без специальной логики**: каждый запуск
+строит hard gate с нуля от `HEAD_COMMIT = gh pr view --json headRefOid`. Если
+ветка сменила HEAD между вызовами — второй запуск видит новый commit как
+«текущий», все 5 шагов (verify + internal + external + triage + re-check)
+работают штатно.
+
+**Что это НЕ означает:**
+
+- НЕ означает, что skill должен «запомнить» первый вызов. Второй запуск
+  идемпотентен в смысле гейта, не в смысле state.
+- НЕ означает, что landing commit освобождает от external review для
+  Sprint Final. Если tier = sprint-final, external review обязателен **и на
+  landing HEAD тоже** (хотя изменения чисто документация, допустима degraded
+  Mode B/C с operator-approved rationale).
+
+См. `.claude/skills/sprint-pr-cycle/SKILL.md` Фаза 4.5 для полного flow
+landing commit.
+
 ### Шаблон фазы 1 (до внедрения triage-протокола)
 
 ```bash
