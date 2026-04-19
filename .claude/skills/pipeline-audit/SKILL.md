@@ -57,7 +57,7 @@ ls -1 .claude/settings.json
 | 5 | Проверки централизованы через `/verify`. Один gate, одна точка изменения | `PM_ROLE.md`, `sprint-pr-cycle/SKILL.md`, `verify/SKILL.md` |
 | 6 | PM не искажает findings ревьюверов. Агрегация — да, изменение смысла — нет | `AGENT_ROLES.md`, `PM_ROLE.md`, `reviewer.md`, `external-review/SKILL.md` |
 | 7 | Merge — отдельное решение оператора. Агенты доводят до merge-ready, не мержат | `HOW_TO_USE.md`, `PM_ROLE.md`, `AGENT_ROLES.md`, `settings.json` (deny `gh pr merge`) |
-| 8 | Sprint не создаёт отдельный `chore/landing-pr-N` PR после merge. Landing commit коммитится в ветку Sprint PR между первым `/finalize-pr APPROVED` и merge (pre-merge landing, v3.4) | `PM_ROLE.md §2.5`, `sprint-pr-cycle/SKILL.md Фаза 4.5`, `finalize-pr/SKILL.md Dual-invocation` |
+| 8 | Sprint не создаёт отдельный `chore/landing-pr-N` PR (ранее — post-merge, до v3.4). Landing commit коммитится в ветку Sprint PR между первым `/finalize-pr APPROVED` и merge (pre-merge landing, v3.4+) | `PM_ROLE.md §2.5`, `sprint-pr-cycle/SKILL.md Фаза 4.5`, `finalize-pr/SKILL.md Dual-invocation` |
 
 Для каждого инварианта:
 - Если упоминание отсутствует — `DRIFT: инвариант N не отражён в <ожидаемые файлы>`.
