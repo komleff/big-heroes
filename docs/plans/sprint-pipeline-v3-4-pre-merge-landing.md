@@ -60,6 +60,8 @@ Sprint 5 (PR #12, merged 2026-04-19) завершился отдельным `ch
 | **VC-6** | `/pipeline-audit` проходит — 8/8 invariants PASS, 0 drift. | Прогнать skill; отчёт `✅ OK` с `Инвариантов: 8/8` |
 | **VC-7** | `/verify` зелёный (build + tests) на HEAD перед PR. | `npm run build` exit 0, `npm test` exit 0 |
 | **VC-8 (Dogfood)** | После первого `/finalize-pr APPROVED` PM делает landing commit в эту же ветку (не отдельную `chore/landing-pr-*`). Второй `/finalize-pr` на новом HEAD проходит. Merge — один раз, оператором. | Git log ветки: ≥1 commit с prefix `chore(landing):` **после** последнего review/fix commit и **до** merge commit; PR #N не имеет child chore-ветки |
+| **VC-9** | Operator-facing документы (`HOW_TO_USE.md`, `PIPELINE.md`) синхронизированы с двухвызовным flow v3.4: первый `## ✅ Готов к merge` — это **промежуточная** точка (PM делает landing commit), второй комментарий — после landing — единственный сигнал к merge. | `grep -n "первый\|первое\|второй\|второе\|landing\|pre-merge" .agents/HOW_TO_USE.md` ≥ 2 hits в секции «Как принимать решение о merge»; `.agents/PIPELINE.md` flow содержит landing шаг между первым и вторым `/finalize-pr` |
+| **VC-10** | `/finalize-pr` принимает `--pre-landing` флаг для **первого** вызова Sprint Final PR; шаблоны фазы 1/2 печатают **explicit** строку `⏳ Pre-merge landing commit впереди — жди второй /finalize-pr, не мерджи сейчас.` когда флаг передан. Без флага — обычный merge-ready текст. Detection — explicit (PM/operator решает), без runtime autodetect (см. scope rollback 2026-04-20). | `grep -n "pre-landing\|LANDING_WARNING\|жди второй" .claude/skills/finalize-pr/SKILL.md` ≥ 3 hits; `--pre-landing` упомянут в "Аргументы" |
 
 ---
 
@@ -366,9 +368,11 @@ EOF
 | `.agents/PM_ROLE.md` | P1 — переписать §2.5 + memory pattern (VC-1, VC-4) |
 | `.claude/skills/sprint-pr-cycle/SKILL.md` | P2 — добавить Фазу 4.5 (VC-2) |
 | `.claude/skills/finalize-pr/SKILL.md` | P3 — добавить Dual-invocation pattern (VC-3) |
-| `.claude/skills/pipeline-audit/SKILL.md` | P5 — добавить инвариант 8 (VC-5) |
+| `.claude/skills/pipeline-audit/SKILL.md` | P5 — добавить инвариант 8 (VC-5); P9 — расширить files list инварианта 8 на operator-facing (VC-9) |
 | `docs/plans/sprint-pipeline-v3-4-pre-merge-landing.md` | этот файл (архивируется в P-landing) |
 | `.memory_bank/status.md` | landing artifact (обновляется pre-merge) |
+| `.agents/HOW_TO_USE.md` | P9 (post-GPT-5.4 external review) — синхронизировать operator-facing инструкцию с dual-invocation flow (VC-9) |
+| `.agents/PIPELINE.md` | P9 — обновить flow diagram (landing шаг между двумя /finalize-pr) (VC-9) |
 
 ---
 
