@@ -73,6 +73,11 @@ fi
 
 ### 1.4 Проверка Codex CLI
 
+> **Авто-логин:** SessionStart hook `.claude/hooks/codex-login.sh` идемпотентно подгружает Codex CLI auth
+> на старте сессии (early-return на любом существующем `Logged in`, login через `$OPENAI_API_KEY` если не залогинен).
+> Setup ключа, permissions, ChatGPT OAuth vs API key — см. [`.agents/CODEX_AUTH.md`](../../../.agents/CODEX_AUTH.md).
+> Hook fail-secure: без ключа сессия не блокируется, `/external-review` перейдёт в режим C/D.
+
 ```bash
 # Copilot round 22: timeout предотвращает зависание при OAuth-проблемах.
 # При таймауте/ошибке — переход в режим C (degraded) или D (manual).
