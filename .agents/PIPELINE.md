@@ -70,11 +70,22 @@ CHANGES_REQUESTED? → triage (fix / defer+Beads / reject) → Developer → fix
        ↓
 APPROVED → PM → /external-review → кросс-модельное ревью
        ↓
-APPROVED → PM → /finalize-pr → hard gate (commit binding, все проверки)
+APPROVED → PM → /finalize-pr --pre-landing (для Sprint Final) → hard gate
        ↓
-✅ Готов к merge → оператор мержит PR
+✅ Готов к merge (с warning «⏳ landing впереди») → НЕ мержить
        ↓
-PM обновляет Memory Bank
+PM делает chore(landing): commit в ту же ветку
+       (status.md + plan archive + bd close + memory entry)
+       ↓
+Doc-only review round + (для Sprint Final) повторный /external-review
+       ↓
+PM → /finalize-pr (без флага) → hard gate на новом HEAD
+       ↓
+✅ Готов к merge (без warning) → оператор мержит PR
+       ↓
+Sprint полностью закрыт одним merge — POST-merge шагов нет
+
+(Для tier ≠ Sprint Final: один /finalize-pr без --pre-landing, один merge.)
 ```
 
 ---
