@@ -549,6 +549,24 @@ Copilot автоматически стартует — прочитай его 
 (только .md). Если zero findings — достаточно PM delta self-review как единого
 internal review-pass с `iteration: N+1, tier: light`.
 
+#### Sprint Final tier — external review на landing HEAD обязателен
+
+Если первый прогон PR был Sprint Final, **второй `/finalize-pr` тоже потребует
+external review на landing commit** (hard gate `/finalize-pr` Шаг 4 — см.
+`.claude/skills/finalize-pr/SKILL.md` Dual-invocation). Иначе finalize упадёт
+с «СТОП: External review обязателен для Sprint Final на commit $HEAD_COMMIT».
+
+Запусти `/external-review <PR_NUMBER>` повторно на landing commit. Допустимо:
+
+- **Mode A** — если `$OPENAI_API_KEY` и Codex CLI доступны.
+- **Mode B/C/D** — с меткой `⚠️ Degraded mode` / `⚠️ Manual emergency mode`
+  в теле ревью. Landing = doc-only delta (status.md + plan archive + memory
+  entry), поэтому degradation обоснована объёмом изменений. PM явно фиксирует
+  rationale degradation в теле external review-pass.
+
+Для tier=Light/Standard/Critical (не Sprint Final) — external review опционален
+на landing commit; достаточно internal self-review делта-ревью из шага выше.
+
 ### Шаг 4.5.7: Повторный /finalize-pr
 
 ```
@@ -560,9 +578,9 @@ pattern**. Hard gate прогонит все проверки заново на 
 
 - `/verify` зелёный на landing commit
 - internal review-pass на landing commit (от шага 4.5.6)
-- external review-pass на landing commit (для Sprint Final — если был повторный
-  запуск; обычно degradation-аргумент: изменения чисто документация, operator
-  может принять Mode B/C для doc-only delta)
+- external review-pass на landing commit — **обязателен для Sprint Final**
+  (запускается в 4.5.6; Mode A/B/C/D с меткой Degraded допустим). Для прочих
+  tier — N/A
 
 Если второй `/finalize-pr` APPROVED → сообщи оператору что PR merge-ready,
 **landing уже внутри, POST-merge шагов у PM нет**.
