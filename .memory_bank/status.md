@@ -1,8 +1,33 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-19
-**Фаза:** **Sprint 5 Codex Auth Integration — PR [#12](https://github.com/komleff/big-heroes/pull/12) ✅ MERGED 2026-04-19** в коммите `e62119e`. Предыдущие: Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
-**master HEAD:** `e62119e` (Merge PR #12) · План архивирован в `docs/archive/sprint-5-codex-auth.md`.
+**Обновлён:** 2026-04-20
+**Фаза:** **Sprint Pipeline v3.4 Pre-Merge Landing Protocol — PR [#14](https://github.com/komleff/big-heroes/pull/14) ✅ COMPLETE 2026-04-20** (pre-merge finalize на commit `3519b4e`), ожидает operator merge. Предыдущие: Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED + PR [#13](https://github.com/komleff/big-heroes/pull/13) chore/landing-pr-12 MERGED + Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
+**master HEAD:** `c027920` (pre-merge для v3.4) · План архивирован в `docs/archive/sprint-pipeline-v3-4-pre-merge-landing.md`.
+
+## Sprint v3.4 Pre-Merge Landing Protocol итог (COMPLETE 2026-04-20, первый финализирующий /finalize-pr на `3519b4e`)
+
+- Tracking: `big-heroes-sz4` closed; task `big-heroes-cfn` closed.
+- Цель: перенос Landing the Plane из post-merge отдельного `chore/landing-pr-N` PR во pre-merge inline-commit в ту же ветку Sprint PR. Убран bureaucratic toil второго merge без safety value.
+- **Dogfood (первый sprint под v3.4):** landing commit сделан в ветке `sprint-pipeline-v3-4-pre-merge-landing` между первым `/finalize-pr --pre-landing` и operator merge.
+- Артефакты (pipeline нормативные):
+  - `.agents/PM_ROLE.md §2.5` — pre-merge Landing the Plane.
+  - `.agents/HOW_TO_USE.md` + `.agents/PIPELINE.md` — operator-facing sync с двухвызовным flow.
+  - `.claude/skills/sprint-pr-cycle/SKILL.md` — Фаза 4.5 Pre-merge Landing (7 подшагов).
+  - `.claude/skills/finalize-pr/SKILL.md` — Dual-invocation pattern + `--pre-landing` flag + LANDING_WARNING block.
+  - `.claude/skills/pipeline-audit/SKILL.md` — Инвариант 8 v3.4 (расширен operator-facing coverage).
+- Convention change: memory pattern `Sprint N завершён <finalize_date>` (не merge_date). Исторические sprint-1..5 оставлены.
+- Review cycle:
+  - Tester gate (Critical, pipeline-artifacts) GATE_PASS.
+  - Internal Claude 6 passes: Pass 1 APPROVED, Pass 2 CHANGES_REQUESTED (scope creep — revert'нут), Pass 3-6 APPROVED.
+  - Copilot auto-review 5 rounds: 12 findings total, все fix-now закрыты или реверт'нуты.
+  - **Scope rollback 2026-04-20:** 3 revert + 2 re-apply коммиты убрали runtime LANDING_STAGE/LANDING_WARNING autodetect (план P3 требовал документацию без спец-логики). Rollback non-destructive.
+  - **External GPT-5.4 Mode B-manual (Sprint Final):** 3 pass. Pass-1 CHANGES_REQUESTED (3 HIGH: operator-facing stale + R4 митигация + invariant 8 coverage). Pass-2 CHANGES_REQUESTED (1 HIGH: `--pre-landing` не в PM-facing flow). Pass-3 APPROVED на `3519b4e` (1 WARNING polish → defer `big-heroes-rux`).
+  - Triage: 19 fix-now applied, 5 defer to Beads, 12 reject with rationale.
+- Эскалации:
+  - `big-heroes-1l6` (BE-11) upgraded to **P1 blocker** — Windows sandbox CreateProcessWithLogonW 1326 блокирует Codex CLI external review независимо от auth-метода (OAuth через ChatGPT validated, CODEX_UNSAFE_ALLOW_NO_SANDBOX=1 не помог). Mode A/B недоступны на Windows dev-host.
+- Deferred Beads (созданы в v3.4): `big-heroes-35g` (error handling pre-merge landing), `big-heroes-ase` (check-merge-ready.py bypass через запятую), `big-heroes-ekb` (LANDING_STAGE dead var — resolved автоматически scope rollback), `big-heroes-8gd` (WSL path для external review, P2), `big-heroes-hrd` (mode-label enforcement в finalize-pr, P2), `big-heroes-rux` (polish pass-3 WARNING).
+
+---
 
 ## Sprint 5 итог (MERGED 2026-04-19)
 
