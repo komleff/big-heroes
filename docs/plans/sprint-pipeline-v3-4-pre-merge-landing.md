@@ -170,7 +170,7 @@ git mv docs/plans/<sprint>.md docs/archive/
 
 ### Шаг 4.5.3: Закрытие beads
 ```bash
-bd close <sprint-tracking-id>    # с reason: "merged into master via PR #<N>"
+bd close <sprint-tracking-id>    # с reason: "closed in PR #<N> via landing commit <SHA>"
 bd close <task-issue-id>         # task, который инициировал спринт
 ```
 
@@ -352,7 +352,7 @@ EOF
 |---|------|-----|-----------|
 | R1 | BE-11 не fix'ed → Mode A/B невозможен для Sprint Final | High×Medium | Default Mode C degraded с меткой `⚠️ Degraded mode`; прецедент Sprint 5 OK |
 | R2 | `$OPENAI_API_KEY` 401 in-situ | High×Low | Mode C не требует ключа; попытка in-situ probe, fallback на Mode C |
-| R3 | Второй `/finalize-pr` падает из-за missing external review на landing commit | Med×High | В Фазе 4.5 прямая инструкция: PM может запустить degraded external review на landing commit ИЛИ обосновать skip в PR (landing = Light, но Sprint Final tier формально требует external — degradation ok) |
+| R3 | Второй `/finalize-pr` падает из-за missing external review на landing commit | Med×High | Для Sprint Final hard gate требует external review на каждом HEAD — skip недопустим. В Фазе 4.5.6 прямая инструкция: PM обязан запустить повторный `/external-review` на landing commit. Допустима degradation (Mode B/C/D с меткой Degraded + rationale), но не skip. Для tier ≠ Sprint Final — external опционален. |
 | R4 | Конфликт landing commit с in-flight operator merge | Low×High | Landing commit делается сразу после первого `/finalize-pr`, до operator-взаимодействия. Инструкция оператору: «не мерджи до второго `/finalize-pr`» в первом `## ✅ Готов к merge` |
 | R5 | Drift между PM_ROLE.md, sprint-pr-cycle SKILL.md, finalize-pr SKILL.md | Med×High | `/pipeline-audit` c инвариантом 8 отлавливает; все три артефакта правятся атомарно в одном PR |
 | R6 | Existing PR Sprint 5 memory pattern перезаписан | Low×Low | Инструкция явно: «sprint-1..5 memories остаются как исторические, новый pattern для v3.4+» |

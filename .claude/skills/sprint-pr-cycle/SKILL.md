@@ -522,7 +522,7 @@ git mv docs/plans/<sprint>.md docs/archive/
 ### Шаг 4.5.3: Закрытие beads
 
 ```bash
-bd close <sprint-tracking-id>    # с reason: "merged into master via PR #<N>"
+bd close <sprint-tracking-id>    # с reason: "closed in PR #<N> via landing commit <SHA>"
 bd close <task-issue-id>         # task, который инициировал спринт
 ```
 
