@@ -70,7 +70,7 @@ OpenAI Project — это **биллинговый/изоляционный ко
 | **Request** | разрешён инференс — основной рабочий уровень для эндпоинтов без stored ресурсов |
 | **Write** | плюс создание/изменение хранящихся ресурсов (доступен только там, где такие ресурсы есть) |
 
-Важно: для большинства inference-эндпоинтов (Chat completions, Embeddings, TTS) **максимум — Request**, а не Write. «Request» — это полноценный доступ, не урезанный.
+Важно: уровни Write vs Request в OpenAI UI **зависят от эндпоинта**, не одинаковы повсеместно. Для Chat completions, Embeddings, TTS максимум — `Request` (эти эндпоинты без stored ресурсов). Для `/v1/responses` доступен `Write` — т.к. Responses API управляет хранимым context state (streaming sessions). Для File API и Fine-tuning тоже доступен `Write`. «Request» — полноценный доступ к inference, не урезанный; `Write` — плюс ресурс-ops, где они есть.
 
 #### Минимальный набор permissions для `codex review`
 
