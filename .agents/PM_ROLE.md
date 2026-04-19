@@ -1,7 +1,7 @@
 # Project Manager — роль и обязанности
 
-**Версия:** 2.0
-**Дата:** 2026-04-13
+**Версия:** 2.1 (v3.4 pre-merge landing protocol)
+**Дата:** 2026-04-20
 **Проект:** Big Heroes
 **Статус:** Утверждено
 
@@ -159,8 +159,7 @@ bd show <id>               # детали конкретной задачи
 > (между первым /finalize-pr и merge код не менялся). С v3.4 landing делается
 > inline-в-ветке PR между первым /finalize-pr APPROVED и operator merge.
 
-**Контекст:** `/finalize-pr <PR_NUMBER>` опубликовал первый `## ✅ Готов к merge`.
-Ветка PR на HEAD с APPROVED review-pass. Оператор ещё не мержил.
+**Контекст:** для Sprint Final PM вызвал `/finalize-pr <PR_NUMBER> --pre-landing` (флаг `--pre-landing` **обязателен** для первого вызова Sprint Final — иначе оператор не получит `⏳ Pre-merge landing...` warning и может смержить до landing commit; см. `.claude/skills/finalize-pr/SKILL.md` Аргументы). Skill опубликовал первый `## ✅ Готов к merge` с warning. Ветка PR на HEAD с APPROVED review-pass. Оператор ещё не мержил.
 
 **Шаг 1 — Обнови Memory Bank** inline-в-ветке PR:
 
@@ -191,9 +190,11 @@ git push
 self-review если изменения в .md — ожидаемый tier: Light).
 
 **Шаг 7 — Финализируй PR повторно:** `/finalize-pr <PR_NUMBER>` на новом HEAD
-(с landing commit). Skill re-check HEAD (Фаза 1 шаг 1 + race-protection re-check
-перед публикацией) подтвердит новый SHA — это штатный dual-invocation pattern
-(см. `.claude/skills/finalize-pr/SKILL.md`).
+(с landing commit), **без `--pre-landing` флага**. Это финальная публикация
+после landing; повторное указание `--pre-landing` снова добавит warning
+«не мерджи сейчас» и оператор не получит сигнал к merge. Skill re-check HEAD
+(Фаза 1 шаг 1 + race-protection re-check перед публикацией) подтвердит новый
+SHA — это штатный dual-invocation pattern (см. `.claude/skills/finalize-pr/SKILL.md`).
 
 **Шаг 8 — Сообщи оператору** что PR на текущем HEAD готов к merge, landing artifacts
 уже внутри.

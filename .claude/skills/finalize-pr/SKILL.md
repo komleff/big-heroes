@@ -1,6 +1,6 @@
 ---
 name: finalize-pr
-description: Hard gate перед merge. Единственный разрешённый способ объявить PR готовым к merge. Проверяет commit binding (verify, internal review, external review для Sprint Final, статусы замечаний). Используй: /finalize-pr <PR_NUMBER> [--force]
+description: Hard gate перед merge. Единственный разрешённый способ объявить PR готовым к merge. Проверяет commit binding (verify, internal review, external review для Sprint Final, статусы замечаний). Используй: /finalize-pr <PR_NUMBER> [--force] [--pre-landing]
 user-invocable: true
 ---
 
@@ -460,6 +460,18 @@ landing commit.
 Если skill вызван с `--pre-landing`, в шаблон финального комментария добавляется строка-предупреждение, чтобы оператор не мержил PR до landing commit + второго `/finalize-pr`:
 
 ```bash
+# Argument parsing: set PRE_LANDING=1, если флаг --pre-landing передан.
+# По умолчанию 0 — warning не печатается.
+# Обрабатываем список аргументов из slash-command invocation
+# (`/finalize-pr 14 --pre-landing` → $@ = "14 --pre-landing").
+PRE_LANDING=0
+for arg in "$@"; do
+  if [ "$arg" = "--pre-landing" ]; then
+    PRE_LANDING=1
+    break
+  fi
+done
+
 if [ "$PRE_LANDING" = "1" ]; then
   LANDING_WARNING="⏳ Pre-merge landing commit впереди — жди второй /finalize-pr, не мерджи сейчас. См. .claude/skills/sprint-pr-cycle/SKILL.md Фаза 4.5."
 else
