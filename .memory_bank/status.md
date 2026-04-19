@@ -1,19 +1,23 @@
 # Статус проекта Big Heroes
 
 **Обновлён:** 2026-04-19
-**Фаза:** **Sprint 5 Codex Auth Integration — PR [#12](https://github.com/komleff/big-heroes/pull/12) DRAFT** (P1-P6 DONE, ожидает Tester gate + Reviewer cycle). Предыдущие: Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
-**master HEAD:** `36560ff` (Merge PR #10) · **PR #12 branch:** `sprint/codex-auth-integration`
+**Фаза:** **Sprint 5 Codex Auth Integration — PR [#12](https://github.com/komleff/big-heroes/pull/12) ✅ MERGED 2026-04-19** в коммите `e62119e`. Предыдущие: Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
+**master HEAD:** `e62119e` (Merge PR #12) · План архивирован в `docs/archive/sprint-5-codex-auth.md`.
 
-## Sprint 5 snapshot 2026-04-19
+## Sprint 5 итог (MERGED 2026-04-19)
 
-- Tracking: `big-heroes-d0w` (подробный start-log в notes issue).
-- План: `docs/plans/sprint-5-codex-auth.md` v4.
-- Variant A одобрен оператором: ChatGPT OAuth (Plus subscription) = валидный auth для hook и `/external-review` — API-key необязателен.
-- VC закрыты: VC-1b/2/3/4/5/6/7 PASS; VC-1a ⚠ с defer на `big-heroes-90j` (PM-метаданные в diff — план v5 fix).
-- Smoke-tests S1-S5: 5/5 PASS (с Windows-specific изоляцией USERPROFILE+HOME+APPDATA+LOCALAPPDATA).
-- Beads P0.2: BE-1=mo9, BE-4=7wh CREATED; BE-2=40n, BE-5=wrg pre-existing; BE-3 SKIPPED (proactive).
-- Ревью findings: F-2 RESOLVED (Variant A), F-3 fix-now (hook wording), F-4→BE-7.
-- Pending: Tester gate → Claude Reviewer Pass 1 → triage → Pass 2 → `/external-review` (Variant A) → `/finalize-pr` → оператор merge.
+- Tracking: `big-heroes-d0w` closed.
+- 5 commits в PR #12: feat(auth) hook + docs(codex-auth) + docs(sprint-5 P0) + 4 fix-итерации post-review.
+- Verify ✅ build OK + tests 168/168.
+- Variant A (ChatGPT OAuth Plus подписка) одобрен — hook работает с обоими auth-типами.
+- Smoke-tests S1-S5: 5/5 PASS с Windows-специфичной изоляцией (USERPROFILE+HOME+APPDATA+LOCALAPPDATA).
+- Review-cycle: Tester GATE_PASS → Reviewer Pass 1+2 APPROVED → Sprint Final Mode C Standard+Adversarial APPROVED → 7 раундов Copilot (4→3→3→1→1→0→0 monotonic convergence) → Final Delta Review APPROVED → /finalize-pr.
+- Triage: 14 fix-now applied, 1 reject with rationale (F2 zero-touch install design), 12 defer to Beads.
+- Эскалации (требуют действий вне Sprint 5):
+  - `$OPENAI_API_KEY` в env невалидный (401 in-situ); ротация либо ChatGPT OAuth.
+  - `big-heroes-1l6` (BE-11): Windows codex sandbox `CreateProcessWithLogonW failed: 1326` блокирует `codex review` на dev-host'е оператора.
+- Deferred Beads (план следующих спринтов): `big-heroes-pgi` (BE-9 hardening backlog 12 findings), `big-heroes-la8` (BE-10 behavioral VC для плана v5), `big-heroes-90j` (BE-7 VC-1a expansion), `big-heroes-1l6` (BE-11 Windows sandbox), `big-heroes-mo9/7wh/40n/wrg` (BE-1/4/2/5).
+- Remote ветка `sprint/codex-auth-integration` оставлена (оператор не делал cleanup).
 
 ---
 
