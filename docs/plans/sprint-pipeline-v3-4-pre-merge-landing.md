@@ -52,7 +52,7 @@ Sprint 5 (PR #12, merged 2026-04-19) завершился отдельным `ch
 
 | VC | Критерий | Executable check |
 |----|----------|------------------|
-| **VC-1** | `.agents/PM_ROLE.md §2.5 "Landing the Plane"` — переписана в pre-merge формулировку, шаги 1–4 (Memory Bank, bd close, bd remember, git mv plan) идут **до** `/finalize-pr` повторного, шаг 5 = `/finalize-pr` повторно (hash на HEAD с landing commit). **Removed:** Sprint Landing не создаёт отдельный `chore/landing-pr-N` PR. | `grep -n "pre-merge\|повторный /finalize-pr" .agents/PM_ROLE.md` ≥ 2 hits; `grep -n "chore/landing-pr" .agents/PM_ROLE.md` = 0 hits (старое упоминание удалено/помечено как deprecated) |
+| **VC-1** | `.agents/PM_ROLE.md §2.5 "Landing the Plane"` — переписана в pre-merge формулировку, шаги 1–4 (Memory Bank, bd close, bd remember, git mv plan) идут **до** `/finalize-pr` повторного, шаг 5 = `/finalize-pr` повторно (hash на HEAD с landing commit). **Removed:** Sprint Landing не содержит **активной инструкции создавать** отдельный `chore/landing-pr-N` PR. Historical/forbidden упоминания (в блоках «История», «Запрещено в v3.4») допустимы. | `grep -n "pre-merge\|повторный /finalize-pr" .agents/PM_ROLE.md` ≥ 2 hits; `grep -nE "созда(й\|ть\|вать).{0,80}chore/landing-pr\|chore/landing-pr.{0,80}(созда(й\|ть\|вать)\|отдельн.{0,15}PR)" .agents/PM_ROLE.md` = 0 hits (нет инструкций создавать отдельный PR для landing) |
 | **VC-2** | `.claude/skills/sprint-pr-cycle/SKILL.md` — между Фазой 4 (`/finalize-pr`) и merge-ожиданием добавлена **Фаза 4.5 "Pre-merge Landing"** с чеклистом (status.md, plan archive, bd close, bd remember) и инструкцией повторного `/finalize-pr` на новом HEAD. | `grep -nE "Фаза 4\.5\|Pre-merge Landing\|pre-merge landing" .claude/skills/sprint-pr-cycle/SKILL.md` ≥ 1 hit; чеклист содержит все 4 шага (status.md + archive + bd close + bd remember) |
 | **VC-3** | `.claude/skills/finalize-pr/SKILL.md` — добавлен раздел про **dual-invocation pattern**: второй вызов на новом HEAD (после landing commit) — штатный режим, не ошибка. Используется уже работающий HEAD re-check механизм. | `grep -nE "dual.?invocation\|повторный вызов\|второй вызов\|landing commit" .claude/skills/finalize-pr/SKILL.md` ≥ 1 hit |
 | **VC-4** | Memory pattern обновлён в `PM_ROLE.md` — формулировка `Sprint N завершён <finalize_date>` (не `<merge_date>`), с примечанием «исторические sprint-1..5 memories не перезаписываются». | `grep -n "finalize_date\|finalize.date" .agents/PM_ROLE.md` ≥ 1 hit; `grep -n "merge_date" .agents/PM_ROLE.md` — есть только в контексте «было до v3.4» или отсутствует |
@@ -170,8 +170,8 @@ git mv docs/plans/<sprint>.md docs/archive/
 
 ### Шаг 4.5.3: Закрытие beads
 ```bash
-bd close <sprint-tracking-id>    # с reason: "closed in PR #<N> via landing commit <SHA>"
-bd close <task-issue-id>         # task, который инициировал спринт
+bd close <sprint-tracking-id>    # с reason: "pre-merge landing in PR #<N> via commit <SHA>"
+bd close <task-issue-id>         # с reason: "pre-merge landing in PR #<N> via commit <SHA>"; task, который инициировал спринт
 ```
 
 ### Шаг 4.5.4: Memory pattern
@@ -400,7 +400,7 @@ EOF
 
 ## Verification (после merge в master)
 
-1. **Regression spot-check:** `grep -n "chore/landing-pr" .agents/PM_ROLE.md` → 0 hits (старое описание удалено / помечено deprecated только в v3.3-исторической секции).
+1. **Regression spot-check:** в `.agents/PM_ROLE.md` нет **активной инструкции** создавать отдельную ветку/PR вида `chore/landing-pr-N`; допустимы только historical/forbidden упоминания (в блоках «История (v3.4)» и «Запрещено в v3.4»). Проверка: `grep -nE "созда(й|ть|вать).{0,80}chore/landing-pr|chore/landing-pr.{0,80}(созда(й|ть|вать)|отдельн.{0,15}PR)" .agents/PM_ROLE.md` → 0 hits.
 2. **Следующий спринт smoke-test:** когда PM планирует следующий спринт (скорее всего game-sprint), он должен применить Фазу 4.5 и не создавать `chore/landing-pr-N`.
 3. **Pipeline-audit самопроверка:** `/pipeline-audit` на post-merge HEAD → `Инвариантов: 8/8 ✅`.
 4. **Memory pattern:** `bd memories sprint-v3-4` показывает новую запись с `завершён <finalize_date>`.
