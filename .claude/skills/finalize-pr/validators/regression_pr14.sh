@@ -15,6 +15,12 @@
 
 set -u
 
+# shopt -s nullglob: пустой glob раскрывается в пустой список, а не литерал
+# `/path/c*.txt`. Без этого пустой COMMENTS_DIR приводил к loop с `c*.txt` как
+# единственным элементом → grep падал с «No such file», но счётчики оставались
+# 0/0, скрипт рапортовал REGRESSION OK exit 0 (false success). Copilot C-1.
+shopt -s nullglob
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STRIPPER="$SCRIPT_DIR/strip_code_spans.sh"
 
@@ -26,6 +32,14 @@ if [ ! -d "$COMMENTS_DIR" ]; then
   exit 2
 fi
 
+# Явная проверка непустого списка файлов: fail-fast вместо silent success.
+files=( "$COMMENTS_DIR"/c*.txt )
+if [ ${#files[@]} -eq 0 ]; then
+  echo "ERROR: в $COMMENTS_DIR не найдено файлов c*.txt — нечего валидировать." >&2
+  echo "Извлеки comments PR #14 через gh pr view --json comments." >&2
+  exit 2
+fi
+
 APPROVED_PASS=0
 APPROVED_FAIL=0
 CR_PASS=0
@@ -33,7 +47,7 @@ CR_FAIL=0
 
 echo "=== Regression PR #14 (VC-5) ==="
 
-for f in "$COMMENTS_DIR"/c*.txt; do
+for f in "${files[@]}"; do
   # Отбираем только review-pass (internal или external), исключаем triage/scope rollback/landing.
   if ! grep -qiE "Внутреннее ревью|Внешнее ревью|review-pass" "$f"; then
     continue
@@ -115,6 +129,15 @@ echo ""
 echo "=== Summary ==="
 echo "APPROVED review-pass: $APPROVED_PASS passed / $((APPROVED_PASS + APPROVED_FAIL)) total"
 echo "CR review-pass:       $CR_PASS correctly blocked / $((CR_PASS + CR_FAIL)) total"
+
+# Если каталог содержал c*.txt, но ни один файл не оказался review-pass
+# (все пропущены через `continue` в grep на маркеры ревью), скрипт ничего не
+# провалидировал. Без этой проверки — false success. Copilot C-1 extension.
+total_processed=$((APPROVED_PASS + APPROVED_FAIL + CR_PASS + CR_FAIL))
+if [ "$total_processed" -eq 0 ]; then
+  echo "ERROR: ни один review-pass не обработан — ${#files[@]} файл(ов) в $COMMENTS_DIR не содержит маркеров (\"Внутреннее ревью\" | \"Внешнее ревью\" | \"review-pass\")." >&2
+  exit 2
+fi
 
 if [ "$APPROVED_FAIL" -gt 0 ] || [ "$CR_FAIL" -gt 0 ]; then
   echo "REGRESSION FAILED"
