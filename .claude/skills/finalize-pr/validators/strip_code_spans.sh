@@ -15,7 +15,12 @@
 #   - indent tolerance: 0-3 leading spaces перед маркером (CommonMark spec);
 #   - fence type matching: ``` закрывается только ```, ~~~ только ~~~;
 #   - mismatched marker (``` внутри ~~~ fence или наоборот) — игнорируется,
-#     fence остаётся открытым до реального closer того же типа.
+#     fence остаётся открытым до реального closer того же типа;
+#   - backtick-fence info-string НЕ содержит ` (Pass 3 Copilot D-1):
+#     CommonMark §4.5 запрещает backtick в info-string после ```-opener'а
+#     (для ~~~ разрешено). Нарушение → opener НЕ открывает fence,
+#     строка идёт как inline. Без проверки adversarial `` ``` `fake-info` ``
+#     открывал ложный fence и проглатывал CHANGES_REQUESTED в хвосте.
 #
 # CommonMark fence length symmetry (Pass 1 external F-2-fence, big-heroes-2iw):
 #   - opener run length N ≥ 3 (3+ последовательных маркеров одного типа);
@@ -64,7 +69,17 @@ tr -d '\r' | awk '
   # Возвращает длину run-а (≥3), если строка — валидный opener
   # (0-3 leading spaces + run маркеров длиной ≥3), иначе 0.
   # Вся не-whitespace часть до маркера запрещена (CommonMark).
-  function fence_open_run(line, marker,   i, n, indent, run, c) {
+  #
+  # D-1 (Pass 3 Copilot): для BACKTICK-маркера info-string (хвост строки
+  # после run-а) НЕ должен содержать `. CommonMark §4.5: «A fenced code
+  # block begins with a code fence, followed by an optional info string …
+  # If the info string comes after a backtick fence, it cannot contain
+  # any backtick characters». Нарушение этого правила — opener НЕ
+  # открывает fence (строка трактуется как inline-текст). Для TILDE-
+  # маркера такого ограничения нет. Без валидации adversarial opener
+  # `` ``` `not-a-lang` `` открывает «fence», проглатывая хвост с
+  # CHANGES_REQUESTED, и validator ложно видит APPROVED.
+  function fence_open_run(line, marker,   i, n, indent, run, c, info) {
     n = length(line)
     # Пропустить 0-3 ведущих пробела; tab запрещён как indent CommonMark.
     indent = 0
@@ -80,8 +95,14 @@ tr -d '\r' | awk '
     while (i <= n && substr(line, i, 1) == marker) { run++; i++ }
     if (run < 3) return 0
     # После run-а допускается info-string (language hint) для backtick; для
-    # tilde тоже. CommonMark: info string для ``` не должна содержать `,
-    # но мы проверяем только длину run-а — info пропускаем целиком.
+    # tilde тоже. CommonMark §4.5: backtick-fence info-string НЕ может
+    # содержать `. D-1 fix: если marker="`" и в info-string есть backtick —
+    # fence НЕ открывается (adversarial `` ``` `fake-info` `` bypass).
+    # Для tilde-fence backticks в info допустимы — валидация не нужна.
+    if (marker == "`") {
+      info = substr(line, i, n - i + 1)
+      if (index(info, "`") > 0) return 0
+    }
     return run
   }
 

@@ -204,10 +204,9 @@ assert_passes "multiple_inline_spans_same_line" \
 'Вердикт: APPROVED
 Было \`CHANGES_REQUESTED\` потом \`APPROVED\` потом \`CHANGES_REQUESTED\` снова.'
 
-# 11. Fenced-блок НЕ в начале строки (не должен матчиться как fenced — только для line-start ```)
-# Но для robustness мы матчим ``` anywhere-on-line — принимаем что это рабочий compromise.
-# Проверим, что inline `` (тройной backtick в строке) не валит — это очень редкий markdown-кейс.
-# Тут ожидание: skip, as best effort.
+# 11. Fenced-блок распознаётся только по маркеру в начале строки
+# (0-3 leading spaces per CommonMark §4.5), не anywhere-on-line.
+# Кейс с ``` внутри строки — не fenced block, inline stripper обрабатывает.
 
 # 12. Вложенный inline внутри inline невозможен в markdown, не проверяем.
 
@@ -433,6 +432,74 @@ echo "=== Pass 2 F1: inline N-backtick mutation test ==="
 # в plain text → ложный block. Тест фиксирует правильное поведение (N==M).
 assert_passes "f1_inline_span_with_longer_inner_run_stripped" \
 'Вердикт: APPROVED `CHANGES_REQUESTED`` more` done'
+
+echo "=== Pass 3 Copilot D-1: backtick fence info-string validation ==="
+
+# CommonMark §4.5: backtick-fence info-string НЕ может содержать `.
+# Adversarial bypass: attacker публикует `` ``` `fake-info` `` как
+# ложный opener → прежний код открывал fence, проглатывал хвост с
+# реальным CHANGES_REQUESTED, validator видел только APPROVED выше
+# и пропускал finalize-pr. Для tilde-fence backticks в info допустимы.
+
+# 29. D-1: adversarial backtick opener с ` в info-string — fence НЕ открыт,
+# CR в «content» остаётся видимым в stripped output → validator блокирует.
+assert_blocks "d1_backtick_fence_with_backtick_in_info_string_rejected" \
+'## Review-pass
+Вердикт: APPROVED
+
+``` `not-a-lang`
+content with
+Вердикт: CHANGES_REQUESTED
+```
+rest'
+
+# 30. D-1 sanity: tilde-fence с backticks в info-string — CommonMark ok,
+# fence открывается нормально, CR внутри стрипается → validator пропускает.
+assert_passes "d1_tilde_fence_with_backticks_in_info_allowed" \
+'## Review-pass
+Вердикт: APPROVED
+
+~~~ `has backticks in info`
+CHANGES_REQUESTED in tilde fence content
+~~~
+done'
+
+# 31. D-1 sanity: backtick-fence без backtick в info — legitimate opener,
+# fence работает как раньше, CR внутри стрипается.
+assert_passes "d1_backtick_fence_plain_info_still_opens" \
+'## Review-pass
+Вердикт: APPROVED
+
+```bash
+CHANGES_REQUESTED in real fence
+```
+done'
+
+echo "=== Pass 3 Copilot D-2: inline run-length matcher mutation test ==="
+
+# Mutation-effective test для проверки, что inline matcher сравнивает
+# run-length через N == M (CommonMark §6.1), а НЕ N >= M.
+#
+# Baseline (N == M): opener run=1 (` перед "open text"), closer — первый
+# run=1, встреченный ПОСЛЕ opener. Run=2 посередине (`` вокруг "fake-close")
+# пропускается как «не наш closer», run=1 в конце (` перед "real-rest") —
+# match, весь span стрипается целиком (включая CHANGES_REQUESTED внутри).
+# Output: "Вердикт: APPROVED  real-rest" → no CR → assert_passes OK.
+#
+# Mutation (N >= M): opener run=1, первый run=2 ложно считается closer'ом
+# (2 >= 1). Stripped: opener + " open text " + closer. Остаток строки
+# "fake-close`` CHANGES_REQUESTED` real-rest" протекает в plain text.
+# CR виден после strip → assert_passes ПРОВАЛИВАЕТСЯ (validator блокирует).
+#
+# Прежний тест #28 (F1) проходил и под baseline, и под mutation N>=M —
+# не различал поведения. D-2 закрывает mutation gap: тест падает на N>=M,
+# что даёт regression-guard против drift матчинга run-length в будущем.
+#
+# Проверка вручную (см. Developer report Pass 3):
+#   sed -i 's/if (M == N)/if (M >= N)/' validators/strip_code_spans.sh
+#   bash test_validate_review_pass.sh  # ожидание: FAIL d2_inline_run_mismatch
+assert_passes "d2_inline_run_mismatch_closer_longer_than_opener" \
+'Вердикт: APPROVED `open text ``fake-close`` CHANGES_REQUESTED` real-rest'
 
 echo ""
 echo "=== Summary ==="
