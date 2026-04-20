@@ -96,7 +96,7 @@ tr -d '\r' | awk '
   # Вся не-whitespace часть до маркера запрещена (CommonMark).
   #
   # D-1 (Pass 3 Copilot): для BACKTICK-маркера info-string (хвост строки
-  # после run-а) НЕ должен содержать `. CommonMark §4.5: «A fenced code
+  # после run-а) НЕ должен содержать backtick. CommonMark §4.5: «A fenced code
   # block begins with a code fence, followed by an optional info string …
   # If the info string comes after a backtick fence, it cannot contain
   # any backtick characters». Нарушение этого правила — opener НЕ
@@ -228,7 +228,7 @@ tr -d '\r' | awk '
     # при in_fence != "" (opener без closer того же типа), restore pending
     # buffer в output как plain text. Это защищает validator от fence-injection,
     # когда attacker пишет ```\nInjected CHANGES_REQUESTED\n(без closer) —
-    # прежний код съедал хвост до EOF, прячa реальный вердикт в plain text,
+    # прежний код съедал хвост до EOF, пряча реальный вердикт в plain text,
     # и validator ложно видел только APPROVED выше.
     if (in_fence != "") {
       for (k = 1; k <= pending_count; k++) {
