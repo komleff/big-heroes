@@ -73,6 +73,15 @@ TESTS = [
     ("gh pr comment 1 --body '## ✅ Готов к merge.'", 1, "final marker RU + dot"),
     ("gh pr comment 1 --body '## ✅ Готов к merge!'", 1, "final marker RU + bang"),
     ("gh pr comment 1 --body '## ✅ Готов к merge?'", 1, "final marker RU + question"),
+    # === big-heroes-ase: запятая как terminator (regression v3.5) ===
+    # Pre-existing bypass: фраза «готов к merge, <продолжение>» обходила hook
+    # с запятой-разделителем. Репродьюсер: PM_ROLE §2.5 Шаг 8 и
+    # sprint-pr-cycle Фаза 4.5.7 содержат «готов к merge, landing artifacts
+    # уже внутри» — если PM копирует дословно в gh pr comment, hook должен
+    # блокировать, а не пропускать как «обсуждение».
+    ("gh pr comment 14 --body 'PR готов к merge, landing inside'", 1, "ase: comma terminator RU"),
+    ("gh pr comment 1 --body 'ready to merge, landing inside'", 1, "ase: comma terminator EN"),
+    ("gh pr comment 1 --body '## ✅ Готов к merge, landing artifacts уже внутри'", 1, "ase: RU marker + запятая + продолжение"),
     # === Copilot round 28: zero-width char / HTML entity bypass ===
     ("gh pr comment 1 --body 'ready\u200bto merge'", 1, "zero-width space bypass"),
     ("gh pr comment 1 --body '## ✅ Готов\u200b к merge'", 1, "ZWSP in RU marker"),
@@ -80,10 +89,18 @@ TESTS = [
     ("gh pr comment 1 --body 'ready\ufeffto merge'", 1, "BOM char bypass"),
     # === Пропуск: обсуждения и цитаты ===
     ("gh pr comment 1 --body 'не готов к merge — тесты красные'", 0, "отрицание"),
-    ("gh pr comment 1 --body 'почти готов к merge, жду review'", 0, "«почти готов»"),
-    ("gh pr comment 1 --body 'готов к merge, если X'", 0, "фраза без ##"),
-    ("gh pr comment 1 --body '## Готов к merge после исправлений'", 0, "## + продолжение"),
-    ("gh pr comment 1 --body '## Готов к merge, если X'", 0, "## + запятая"),
+    ("gh pr comment 1 --body 'почти готов к merge, жду review'", 0, "«почти готов» — negation wins"),
+    ("gh pr comment 1 --body '## Готов к merge после исправлений'", 0, "## + продолжение без terminator"),
+    # big-heroes-ase (v3.5): запятая теперь terminator. Прежние кейсы с
+    # «готов к merge, если X» (ранее expected 0 как «обсуждение») переведены
+    # в block: фраза с запятой неотличима от декларации с продолжением.
+    # Narrative-фразы без terminator (например «готов к merge in the future»)
+    # продолжают проходить — см. тесты ниже.
+    ("gh pr comment 1 --body 'готов к merge, если X'", 1, "ase: запятая terminator (было 0)"),
+    ("gh pr comment 1 --body '## Готов к merge, если X'", 1, "ase: ## + запятая terminator (было 0)"),
+    # Narrative без terminator — не блокируется (позитивный sanity для task 3).
+    ("gh pr comment 1 --body 'готов к merge in the future'", 0, "narrative без terminator"),
+    ("gh pr comment 1 --body 'PR будет готов к merge после CI'", 0, "narrative с negation «будет»"),
     # === Пропуск: markdown blockquote (GPT-5.4 round 15 WARNING) ===
     ("gh pr comment 1 --body '> ready to merge'", 0, "blockquote bare EN"),
     ("gh pr comment 1 --body '> готов к merge'", 0, "blockquote bare RU"),
