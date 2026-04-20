@@ -387,25 +387,24 @@ TESTS = [
     ("gh pr comment 1 --body 'ready to merg\u00e9:landing'", 1, "E-5 regression: precomposed é NFKD decomposes"),
     ("gh pr comment 1 --body 'ready to merge\u0301:landing'", 1, "E-5 regression: combining acute U+0301 still block"),
     ("gh pr comment 1 --body 'ready to merge\u00b4:landing'", 1, "E-5 regression: acute accent Sk via NFKD path"),
-    # === Pass 6 E-7 CRITICAL: Pe (close) + Pd (dash) — terminator class ===
-    # Pass 4 E-1 fix сузил класс до Po+Pf (исключил Ps/Pi/Pe/Pd), но overshoot:
-    # Pe (close `)]`}`) и Pd (dash `—`–`) — это legitimate declaration-closing
-    # форма (bracketed phrase / list-style dash). Bypass:
-    #   `(ready to merge)` ложно пропускался.
-    # Fix: class = Po ∪ Pf ∪ Pe ∪ Pd (Ps и Pi остаются исключёнными).
-    ("gh pr comment 1 --body '(ready to merge)'", 1, "E-7: close paren Pe = terminator (declaration)"),
-    ("gh pr comment 1 --body '[ready to merge]'", 1, "E-7: close bracket Pe = terminator"),
-    ("gh pr comment 1 --body '{ready to merge}'", 1, "E-7: close brace Pe = terminator"),
-    ("gh pr comment 1 --body 'ready to merge — landing'", 1, "E-7: em-dash Pd = terminator"),
-    ("gh pr comment 1 --body 'ready to merge – next'", 1, "E-7: en-dash Pd = terminator"),
-    # ASCII hyphen-minus `-` (Pd): намеренно НЕ terminator — normalizer
-    # pre-strip'ом заменяет `[_\-]+` на space для покрытия `merge-ready`
-    # compound form. Unicode-dashes (— –) не трогаются и остаются Pd
-    # terminator-ами. E-7 trade-off: ASCII `-` уходит в narrative pathway.
-    ("gh pr comment 1 --body 'ready to merge - next'", 0, "E-7 edge: ASCII hyphen normalized to space (merge-ready compound)"),
-    # E-7 sanity: E-1 narrative (Ps/Pi openers) остаётся пропускающим.
-    ("gh pr comment 1 --body 'ready to merge (if CI passes)'", 0, "E-7 sanity: E-1 narrative paren (Ps) still passes"),
-    ("gh pr comment 1 --body 'ready to merge [tracking]'", 0, "E-7 sanity: narrative open bracket (Ps) passes"),
+    # === v3.5 Option B revert: Pe (close) / Pd (dash) удалены из terminator class ===
+    # Pass 6 E-7 расширил terminator class до Po+Pf+Pe+Pd. Pe/Pd overmatch
+    # открыл surface overmatch: `/`/`.` в paths/branches (big-heroes-3ed, E-15)
+    # и `:` в backtick-quoted inline code (big-heroes-16e, E-14). Каждый
+    # tactical fix Pe/Pd overmatch вскрывал новые findings — overfitting cycle.
+    # Option B (big-heroes-nw5): вернули Po+Pf (Pass 4 E-1 baseline, proven
+    # minimum). Systemic Python rewrite — big-heroes-55m (v3.6 sprint-opener),
+    # big-heroes-ytx (Po overmatch).
+    #
+    # Sanity: после revert `(ready to merge)` и `ready to merge — landing`
+    # больше НЕ блокируются (narrative) — known limitation v3.5.
+    # Deferred coverage — big-heroes-ytx (v3.6 Python rewrite).
+    ("gh pr comment 1 --body '(ready to merge)'", 0, "Option B revert: Pe close paren — narrative (deferred big-heroes-ytx v3.6)"),
+    ("gh pr comment 1 --body 'ready to merge — landing'", 0, "Option B revert: Pd em-dash — narrative (deferred big-heroes-ytx v3.6)"),
+    # E-1 regression (Po+Pf baseline): open-punct (Ps) / initial quote (Pi)
+    # продолжают рассматриваться как narrative.
+    ("gh pr comment 1 --body 'ready to merge (if CI passes)'", 0, "E-1 baseline: narrative open paren (Ps)"),
+    ("gh pr comment 1 --body 'ready to merge [tracking]'", 0, "E-1 baseline: narrative open bracket (Ps)"),
 ]
 
 

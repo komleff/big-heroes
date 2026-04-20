@@ -552,36 +552,38 @@ def is_forbidden(command: str) -> bool:
         # подкатегории Ps (Open punctuation) и Pi (Initial quote) —
         # openers clause, НЕ sentence terminators.
         #
-        # Pass 6 E-7 (CRITICAL): Pass 4 E-1 fix сузил класс до Po+Pf, но
-        # исключил Pe (close punctuation) и Pd (dash). Результат — bypass:
-        #   `(ready to merge)` — closing `)` (Pe) после phrase не блокировался;
-        #   `[ready to merge]` — closing `]` (Pe) не блокировался;
-        #   `ready to merge — landing` — em-dash (Pd) не блокировался.
-        # Declaration, завершённая close-bracket'ом или dash'ем, — это
-        # legitimate declaration form (bracketed phrase / list-style dash).
-        # Symmetry: opener `(`/`[` (Ps) — narrative continuation (E-1), но
-        # closer `)`/`]` (Pe) после phrase — declaration closing.
+        # v3.5 Option B revert (10cdf47 E-7 reverted): класс ограничен Po+Pf.
+        # Pass 6 E-7 расширение до Po+Pf+Pe+Pd создало overmatch surface:
+        #   - Pe overmatch: `(ready to merge)` closing `)` — legitimate, но
+        #     в связке с Po (`:` в inline backtick quote) открыл bypass surface
+        #     `big-heroes-16e` (E-14);
+        #   - Pd overmatch: `/` и `.` внутри paths/branches — ASCII hyphen уже
+        #     normalized pre-strip, Unicode en/em-dash `—` `–` в narrative
+        #     «ready to merge — landing follows» остаётся ambiguous между
+        #     declaration и narrative. Породил `big-heroes-3ed` (E-15).
+        # Option B: вернули Po+Pf как минимальный proven-safe класс (Pass 4 E-1
+        # baseline). Pe/Pd overmatch (E-7) и сопутствующие E-14/E-15 defer'ятся
+        # до Python rewrite в v3.6 (`big-heroes-55m`, `big-heroes-ytx`).
         #
         # Включаем:
         #   Po — Other punctuation (`.`, `!`, `?`, `:`, `;`, CJK `。`, `、`,
         #        full-width `．`, `！`, `？`, `，`, Arabic `،`, `؛`, `؟`,
         #        Hebrew `׃`, Mongolian `᠂`, Armenian `։`, Japanese `・`);
         #   Pf — Final quote (`”`, `»`, `’`) — closing quote может быть
-        #        terminator для narrative «цитата закончилась, continuation»;
-        #   Pe — Close punctuation (`)`, `]`, `}`) — declaration-closing
-        #        форма: `(ready to merge)`, `[ready to merge]` (E-7);
-        #   Pd — Dash (`-`, `—`, `–`) — list-style dash declaration:
-        #        `ready to merge — landing follows` (E-7).
+        #        terminator для narrative «цитата закончилась, continuation».
         #
         # НЕ включаем:
         #   Ps — Open punctuation (`(`, `[`, `{`) — начинает clause, narrative;
         #   Pi — Initial quote (`“`, `«`, `‘`) — открывающая цитата, narrative;
+        #   Pe — Close punctuation (`)`, `]`, `}`) — reverted v3.5 Option B
+        #        (E-7 tactical overfit → E-14 surface, deferred v3.6);
+        #   Pd — Dash (`-`, `—`, `–`) — reverted v3.5 Option B (E-7 →
+        #        E-15 surface, deferred v3.6);
         #   Pc — Connector (`_`, `‿`) — не sentence separator.
         #
-        # Семантически-корректное множество terminator punctuation:
-        # Po + Pf + Pe + Pd.
+        # Минимальный proven-safe terminator класс: Po + Pf (Pass 4 E-1 baseline).
         cat = unicodedata.category(ch)
-        if cat in ("Po", "Pf", "Pe", "Pd"):
+        if cat in ("Po", "Pf"):
             return True
         # Letter, digit, space-like separator (Z*, но только Zs после strip
         # whitespace выше не должен появиться), symbol — narrative continuation.

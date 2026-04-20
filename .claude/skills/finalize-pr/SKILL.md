@@ -310,6 +310,25 @@ if [ "$TIER" = "sprint-final" ]; then
 fi
 ```
 
+### Known limitations (v3.5, deferred to v3.6)
+
+Awk-based CommonMark stripper покрывает базовый subset spec:
+- Fenced code blocks (backtick/tilde, 0-3 indent, info-string validation для backtick-fences);
+- Inline code spans (N-backtick run-length matching, per-line scanning, backslash-escape для opener);
+- Structural line recognition (ATX heading `#`, list item `-*+`, thematic break `---`/`***`/`___`) — emit raw без inline-scan.
+
+**Не покрыто (deferred до Python rewrite — `big-heroes-55m` P1 v3.6 sprint-opener):**
+
+1. **Multiline inline spans** (opener на строке N, closer на строке N+1) — `big-heroes-55m`. v3.5 Option B revert per-line scanning; multi-line спаны трактуются как unmatched backticks → safe default (fallback в plain text, validator блокирует).
+2. **Blockquote** (`>` prefix) как paragraph terminator — `big-heroes-36d`.
+3. **Setext heading** (`===` / `---` underline) как paragraph terminator — `big-heroes-42a`.
+4. **HTML block** (`<div>`, `<details>`, CommonMark §4.6 block tags) как terminator — `big-heroes-zhe`.
+5. **Structural-line inline strip** — ATX heading / list item lines emit raw; inline `` `CR` `` в structural-line survives — `big-heroes-6bp` (P2, theoretical false APPROVED).
+6. **Ellipsis U+2026 terminator** — оставлено для hook (уже покрыто), не stripper-concern.
+7. **Hook Po overmatch:** `:` в backtick quote (`big-heroes-16e`), `/` `.` в paths/branches (`big-heroes-3ed`), `Pe`/`Pd` broad categories (`big-heroes-ytx`).
+
+Low exploitability: требуют malicious reviewer с specific markdown construct. Systemic Python rewrite в v3.6 (`big-heroes-55m`) решает все пункты вместе, на единой AST-based реализации с полным CommonMark-покрытием.
+
 ### Debug / regression helpers
 
 Помощники для отладки stripper'а и проверки регрессий — запускаются вручную PM'ом при подозрении на infrastructure false positive / false negative, не вызываются автоматически из hard gate.

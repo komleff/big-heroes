@@ -467,19 +467,14 @@ echo "=== Pass 3 Copilot D-1: backtick fence info-string validation ==="
 # и пропускал finalize-pr. Для tilde-fence backticks в info допустимы.
 
 # 29. D-1: adversarial backtick opener с ` в info-string — fence НЕ открыт.
-# После Pass 4 E-2 fix (multi-line inline spans, §6.1 CommonMark): тот же
-# adversarial input теперь корректно трактуется как multi-line inline code
-# span (opener ``` на строке 4, closer ``` на строке 7, content между ними
-# стрипается). Это CommonMark-consistent — GitHub рендерит эту разметку
-# именно как inline-код, humans видят content как код, validator тоже.
-# Alignment с GitHub rendering выше приоритета поведения до E-2.
-#
-# Semantic D-1 fix сохранён: fence НЕ открывается (ключевой аспект info-string
-# validation). Но multi-line inline span на тех же символах — это корректная
-# CommonMark-разметка, её content корректно стрипается. Сила hard gate здесь
-# в том, что attacker ОБЯЗАН сделать visible-as-code разметку на GitHub,
-# иначе validator видит plain text и блокирует — это требуемое свойство.
-assert_passes "d1_backtick_fence_rejected_but_multiline_inline_span_valid" \
+# v3.5 Option B revert (bc6fe35 E-2 reverted): multi-line inline span
+# НЕ стрипается per-line. После revert adversarial input `` ``` `not-a-lang`
+# \n ... \n ``` `` fence не открывается (D-1 semantic сохранён), inline
+# scan работает per-line и opener-строка emit'ится как plain → validator
+# видит CHANGES_REQUESTED на отдельной строке → block (safe default).
+# Это означает assert_blocks вместо assert_passes для старой версии теста.
+# Semantic D-1 property сохранён: fence НЕ открывается, хвост не съедается.
+assert_blocks "d1_backtick_fence_rejected_multiline_inline_span_per_line_revert" \
 '## Review-pass
 Вердикт: APPROVED
 
@@ -566,20 +561,19 @@ assert_passes "e3_double_backslash_real_span" \
 'Вердикт: APPROVED
 Путь: C:\\`CHANGES_REQUESTED`'
 
-echo "=== Pass 4 E-2: multiline inline code spans (CommonMark §6.1) ==="
+echo "=== v3.5 Option B revert: E-2 multiline inline scanner удалён (big-heroes-55m) ==="
 
-# CommonMark §6.1: inline code span внутри одного параграфа может пересекать
-# newlines (line endings treated as spaces). Opener на строке N, closer на
-# строке N+1 — валидный inline span, content (вкл. newlines) стрипается.
-# Прежний scanner работал per-line и не видел closer за newline. Fix:
-# paragraph-level scanner, строки одного параграфа склеиваются через
-# sentinel SEP (\x01), scanner видит whole paragraph, blank line ends
-# paragraph (inline span НЕ пересекает paragraph boundary).
-
-# E-2: multiline inline span через один newline стрипается корректно.
-# Opener ` на строке 2, closer ` на строке 3 — span охватывает CHANGES_REQUESTED
-# и "still quoted" через newline. После strip: "Вердикт: APPROVED\n rest".
-assert_passes "e2_multiline_inline_span_stripped" \
+# v3.5 Option B (big-heroes-nw5): multi-line inline scanner bc6fe35 E-2
+# удалён. Per-line scan — proven minimum pre-bc6fe35. Multi-line inline
+# span (opener строка N, closer строка N+1) теперь трактуется per-line:
+# opener-строка и closer-строка стрипаются каждая независимо, closer не
+# matching'ится → opener + tail fallback в plain. Safe default: validator
+# видит CHANGES_REQUESTED на отдельной строке → block.
+#
+# Sanity-revert: multi-line span содержимое НЕ съедается (было passes в
+# E-2, стало blocks после revert). Systemic CommonMark coverage ждёт
+# v3.6 Python rewrite (big-heroes-55m).
+assert_blocks "option_b_revert_multiline_inline_span_scanner_absent" \
 'Вердикт: APPROVED
 `CHANGES_REQUESTED
 still quoted` rest'
@@ -729,12 +723,14 @@ assert_blocks "e9_atx_h6_terminates_paragraph" \
 `open
 ###### CHANGES_REQUESTED h6`'
 
-# E-9 sanity: обычный текст без structural marker продолжает paragraph
-# и позволяет multi-line inline span (E-2 happy path).
-assert_passes "e9_sanity_multiline_span_still_works" \
+# E-9 sanity: structural lines (ATX/list/thematic break) emit как plain text,
+# inline scan на них не работает. Regular текст строка-за-строкой обрабатывается
+# независимо (v3.5 Option B per-line). Single-line inline span на обычной
+# строке стрипается — это happy path E-9 для plain paragraph без structural
+# элементов.
+assert_passes "e9_sanity_single_line_span_on_regular_text" \
 'Вердикт: APPROVED
-`CHANGES_REQUESTED
-still quoted` rest'
+Было `CHANGES_REQUESTED` в истории rest'
 
 echo ""
 echo "=== Summary ==="

@@ -44,16 +44,23 @@
 # Edge: `\\` (двойной backslash) — literal backslash + следующий backtick
 # НЕ экранирован (чётное количество).
 #
-# Pass 4 E-2 (multiline inline spans): CommonMark §6.1 допускает inline span
-# через newline: `` `code\nmore code` `` — opener на строке N, closer на N+1.
-# Прежний scanner работал line-by-line и не видел closer за newline. Fix:
-# после fence-стрипа склеиваем non-fence строки через sentinel \x01, гоняем
-# inline scanner на virtual single-line, разделяем обратно. Escape handling
-# (backslash перед backtick) работает как и раньше, sentinel-символ никогда
-# не встречается в body (control-char, не печатается reviewer'ами).
+# v3.5 Option B revert (bc6fe35 E-2 reverted): multi-line inline scanner
+# удалён. E-2 paragraph-level accumulation через sentinel \x01 joining дал
+# CommonMark §6.1 alignment, но paragraph state-machine surface породил
+# E-10 (blockquote terminator, big-heroes-36d), E-11 (setext heading,
+# big-heroes-42a), E-12 (HTML block, big-heroes-zhe). Каждый tactical fix
+# в paragraph-state вскрывал новые CRITICAL findings — overfitting cycle.
+# Option B (big-heroes-nw5): возврат к per-line inline scan (proven минимум
+# pre-bc6fe35). Trade-off: multi-line inline span внутри одного paragraph
+# больше не стрипается — safe default (лучше ложный block, чем hidden CR).
+# Systemic Python rewrite — big-heroes-55m (P1 v3.6 sprint-opener).
 #
-# НЕ покрыто (deferred):
-#   - blockquote-prefixed fences (`> ```) — big-heroes-wz6;
+# НЕ покрыто (v3.5 known limitations, см. SKILL.md Шаг 5 Known Limitations):
+#   - multiline inline spans через newline — big-heroes-55m (v3.6 rewrite);
+#   - blockquote-prefixed fences / blockquote paragraph terminator —
+#     big-heroes-wz6 / big-heroes-36d;
+#   - setext heading / HTML block terminators — big-heroes-42a / big-heroes-zhe;
+#   - structural-line inline strip (ATX/list с backticks) — big-heroes-6bp;
 #   - indented code blocks (4+ spaces без маркера) — редкий случай в
 #     review-pass, safe default: остаётся plain text, validator блокирует.
 #
@@ -71,9 +78,8 @@
 #   - N-backtick inline spans (``content``, ```content``` и т.п., CommonMark
 #     F-2-inline, Pass 1 external dolt-cet): opener/closer одинаковой
 #     run-length N, содержимое между ними стрипается целиком;
-#   - escaped backticks `\`` — literal, не span delimiter (Pass 4 E-3);
-#   - multiline inline spans `` `code\nmore` `` — open/close через newline
-#     (Pass 4 E-2).
+#   - escaped backticks `\`` — literal, не span delimiter (opener only, Pass 4 E-3);
+#   - per-line inline scanning (v3.5 Option B revert: multi-line E-2 отключён).
 
 set -u
 
@@ -84,11 +90,16 @@ set -u
 # Fail-safe для lone opener (Pass 2 G3) — буферизация с восстановлением
 # pending в output при EOF без closer.
 #
-# Стадия 2 (awk inline-stripper): читает поток не-fence строк, склеивает
-# их через sentinel \x01 в единую virtual-line, прогоняет run-length
-# matcher (E-2 multiline fix), разделяет обратно на строки.
-# Escape handling (E-3): считает backslash-prefix перед backtick-run,
-# нечётное количество → первый backtick литерал, span не открывается.
+# Стадия 2 (awk inline-stripper): per-line run-length matcher (v3.5 Option B).
+# Для каждой не-fence строки проходим слева направо, ищем парный run
+# одинаковой длины N в пределах той же строки. Escape handling (E-3):
+# backslash-prefix перед opener-run — нечётное количество → первый backtick
+# литерал, span не открывается. В scan-loop (closer) escape НЕ применяется
+# (CommonMark §6.1, E-8 semantics сохранена и в per-line модели).
+# Structural lines (ATX heading / list item / thematic break, E-9) — emit
+# raw без inline scan: они представляют block-level элементы, в которых
+# code spans по семантике review-pass не появляются (known limitation,
+# big-heroes-6bp).
 tr -d '\r' | awk '
   # Подсчёт длины run-а маркера (marker = "`" или "~") на opener-строке.
   # Возвращает длину run-а (≥3), если строка — валидный opener
@@ -237,53 +248,43 @@ tr -d '\r' | awk '
     }
   }
 ' | awk '
-  # Стадия 2: inline code span matcher с поддержкой multiline (E-2) и
-  # escape-sequences (E-3).
+  # Стадия 2: per-line inline code span matcher (v3.5 Option B revert).
   #
-  # CommonMark §6.1: inline code spans — inline element внутри параграфа.
-  # Блок (параграф) ограничен blank-строками. Span может пересекать
-  # newline ВНУТРИ параграфа, но НЕ может пересекать пустую строку
-  # (paragraph boundary). E-2 fix: при встрече blank line — очистка
-  # accumulator-а, paragraph обрабатывается отдельно.
+  # v3.5 Option B (big-heroes-nw5): возврат к per-line scanning pre-bc6fe35.
+  # CommonMark §6.1 допускает multi-line inline spans через newlines в рамках
+  # параграфа, но paragraph-accumulation через sentinel \x01 (bc6fe35 E-2)
+  # создал state-machine surface, в которую каждый tactical fix
+  # E-10/E-11/E-12 (blockquote/setext/HTML-block terminators) вскрывал новые
+  # CRITICAL findings. Proven минимум — per-line scan. Trade-off: multi-line
+  # inline span внутри одного параграфа (opener на N-й строке, closer на N+1)
+  # более не стрипается — safe default (validator видит opener + closer как
+  # unmatched backticks → best-effort fallback ниже). Systemic CommonMark
+  # покрытие — big-heroes-55m (Python rewrite, v3.6 sprint-opener).
   #
-  # Склеиваем строки параграфа через sentinel SEP (\x01), прогоняем
-  # run-length matcher на virtual-line, разделяем обратно. sentinel —
-  # control-char U+0001, не появляется в markdown-body review-pass
-  # комментариев (reviewers пишут printable text), безопасен как
-  # разделитель.
+  # E-9 structural lines (ATX heading / list item / thematic break) — emit raw
+  # без inline-сканирования: семантически structural-line не содержит code
+  # spans в review-pass форматах (big-heroes-6bp: known limitation, если
+  # reviewer поместит `CR` в ATX-heading — он проскочит как plain, validator
+  # заблокирует real CR в plain path).
   #
   # Алгоритм per-span (E-3 escape + F-2-inline run-length):
-  #   1. Найти backtick-run длины N.
+  #   1. Найти backtick-run длины N в строке.
   #   2. Посчитать backslash-run ПЕРЕД ним. Нечётное число backslash-symbols →
-  #      первый backtick экранирован; откусываем один backtick как literal
-  #      (append в out), остаток run-а длиной N-1 продолжает span-поиск
-  #      (если N-1 ≥ 1; иначе ничего не открывается).
-  #   3. Если effective run-length N ≥ 1 — ищем closer того же run-length N.
-  #   4. В closer escape НЕ учитывается (E-8, Pass 6, CommonMark §6.1):
-  #      backslash внутри code span содержимого не имеет семантики escape,
-  #      первый backtick-run подходящей длины после opener — это closer.
-  #
-  # Pass 6 E-8 (CRITICAL, fixed): прежняя версия E-3 применяла escape-check
-  # и в scan-loop (closer detection), что нарушало CommonMark §6.1:
-  # backslash escape не работают внутри code spans. Repro `foo \CR CR`:
-  # opener = backtick, scan находил first backtick после backslash, считал
-  # его escaped (bs2%2==1), пропускал, находил следующий backtick в конце
-  # → весь span включая CR стрипался (false APPROVED). Fix: escape-check
-  # только для opener detection (шаг 2). В scan-loop (шаг 3) escape
-  # игнорируется — просто ищем run-length == N.
-  #
-  # Sentinel внутри inline span (multi-line code) — стрипается вместе с
-  # content; outside span — восстанавливается как реальный newline при
-  # восстановлении lone-opener tail.
-  function process_paragraph(buf,    n, out, i, c, bs, k, N, start,
-                                     found_close_start, close_end, j,
-                                     bs2, jj, M, rj, eff_j, eff_M, tail) {
-    # Run-length matcher с escape-handling (E-3) и multi-line within paragraph (E-2).
-    n = length(buf)
+  #      первый backtick экранирован (E-3); откусываем один backtick как
+  #      literal, остаток run-а длиной N-1 продолжает span-поиск.
+  #   3. Если effective run-length N ≥ 1 — ищем closer того же run-length N
+  #      в пределах ТОЙ ЖЕ строки (per-line revert). В scan-loop escape
+  #      НЕ учитывается (CommonMark §6.1: backslash escape не работают
+  #      внутри code span content; E-8 semantics сохранена).
+  #   4. Closer не найден в строке — opener + tail идут как plain text
+  #      (safe default: лучше ложный block, чем hidden CR).
+  function process_line(line,    n, out, i, c, bs, k, N, start,
+                                 found_close_start, close_end, j, M, rj) {
+    n = length(line)
     out = ""
     i = 1
     while (i <= n) {
-      c = substr(buf, i, 1)
+      c = substr(line, i, 1)
       if (c != "`") {
         out = out c
         i++
@@ -292,10 +293,10 @@ tr -d '\r' | awk '
       # Нашли backtick-run. Считаем backslash-run перед ним (escape check, E-3).
       bs = 0
       k = i - 1
-      while (k >= 1 && substr(buf, k, 1) == "\\") { bs++; k-- }
+      while (k >= 1 && substr(line, k, 1) == "\\") { bs++; k-- }
       N = 0
       start = i
-      while (i <= n && substr(buf, i, 1) == "`") { N++; i++ }
+      while (i <= n && substr(line, i, 1) == "`") { N++; i++ }
       # Если нечётное число backslash перед — первый backtick экранирован.
       if ((bs % 2) == 1) {
         # Literal backtick (escaped): добавить в out один `.
@@ -307,21 +308,16 @@ tr -d '\r' | awk '
         # Полностью escaped (run был длины 1, после decrement 0). Продолжаем.
         continue
       }
-      # Ищем closer — run ровно длины N, начиная с позиции i (после opener-run).
-      # Pass 6 E-8 (CRITICAL): escape-check НЕ применяется в scan-loop. CommonMark
-      # §6.1: backslash escape не работают внутри code span content. Первый
-      # backtick-run длины N после opener — это closer, независимо от того,
-      # сколько backslash перед ним. Без этого bypass: foo-backslash-CR-тик
-      # (opener=1, backslash внутри content, closer=1, потом plain CR +
-      # closer=1) — ложно стрипался как один span, CR исчезал → false APPROVED.
+      # Ищем closer — run ровно длины N в пределах этой же строки.
+      # E-8 (CommonMark §6.1): escape НЕ применяется в scan-loop.
       found_close_start = 0
       close_end = 0
       j = i
       while (j <= n) {
-        if (substr(buf, j, 1) != "`") { j++; continue }
+        if (substr(line, j, 1) != "`") { j++; continue }
         M = 0
         rj = j
-        while (rj <= n && substr(buf, rj, 1) == "`") { M++; rj++ }
+        while (rj <= n && substr(line, rj, 1) == "`") { M++; rj++ }
         if (M == N) {
           found_close_start = j
           close_end = rj - 1
@@ -331,90 +327,32 @@ tr -d '\r' | awk '
       }
       if (found_close_start > 0) {
         # Валидный span — ни opener, ни content, ни closer не сохраняем.
-        # Content может содержать SEP (multiline span в одном paragraph, E-2).
         i = close_end + 1
       } else {
-        # Closer не нашёлся — восстановим opener + остаток buf как plain.
-        # Safe default: лучше ложно показать хвост и дать validator-grep
-        # блокировать, чем съесть реальный CHANGES_REQUESTED.
-        tail = substr(buf, start, n - start + 1)
-        gsub(SEP, "\n", tail)
-        out = out tail
+        # Closer не нашёлся в пределах строки — восстановим opener + остаток
+        # строки как plain. Safe default: лучше ложно показать хвост и дать
+        # validator-grep блокировать, чем съесть реальный CHANGES_REQUESTED.
+        out = out substr(line, start, n - start + 1)
         i = n + 1
       }
     }
-    # Восстанавливаем newline-разделители из SEP вне span-ов.
-    gsub(SEP, "\n", out)
     return out
   }
 
-  BEGIN {
-    SEP = sprintf("%c", 1)   # \x01 — control char, не появляется в body
-    para = ""
-    para_has_content = 0
-  }
   {
-    # Blank line — paragraph boundary. CommonMark §4.9: blank line — это
-    # любая строка, содержащая только whitespace-символы (пробелы, tabs).
-    # CommonMark §6.1: inline span НЕ пересекает paragraph boundary.
-    # Pass 5 E-6: прежняя проверка `$0 == ""` ловила только пустую строку,
-    # пропуская whitespace-only строки (`   `, `\t`, `\t  `) — они не
-    # закрывали paragraph, inline scanner видел opener на N-й строке и
-    # closer на N+2 через whitespace-only «разделитель» как одну virtual
-    # line → реальный CHANGES_REQUESTED между ними ложно стрипался.
-    # Теперь матчим regex `^[ \t]*$` (пер CommonMark §4.9) — whitespace-
-    # only строки эквивалентны empty line как paragraph boundary.
-    if ($0 ~ /^[ \t]*$/) {
-      if (para_has_content) {
-        print process_paragraph(para)
-      }
-      print $0   # сохраняем оригинальную whitespace-строку (не ломаем line numbering)
-      para = ""
-      para_has_content = 0
-      next
-    }
-    # Pass 6 E-9 (CRITICAL, CommonMark §4): paragraph terminates не только
-    # на blank line, но и на block-level structural elements. Без этого
-    # unclosed inline opener + heading/list/thematic break на следующих
-    # строках склеиваются в один «paragraph» через SEP, inline scanner
-    # матчит opener и ищет closer через весь block → реальный CR между
-    # ними ложно стрипается как span content.
-    #
-    # Block terminators (все с 0-3 leading spaces, CommonMark §4.1-4.4):
-    #   §4.2 ATX heading:   # ## ### #### ##### ###### + space или EOL;
-    #   §4.1 Thematic break: 3+ `-`/`*`/`_` того же типа (whitespace между ok);
-    #   §5.2/5.3 List item:  `-`/`*`/`+` + whitespace  (bullet list),
-    #                        digits + `.`/`)` + whitespace (ordered list).
-    #
-    # Emit текущий paragraph (если есть), затем печатаем структурный элемент
-    # как plain text (inline scanner в нём не работает — структурные маркеры
-    # не содержат code spans по семантике review-pass).
+    # E-9 structural lines (CommonMark §4.1-4.4, §5.2/5.3): ATX heading,
+    # bullet/ordered list item, thematic break — emit raw без inline scan.
+    # Code spans в structural-line строках redki в review-pass output;
+    # трактуются как plain text (known limitation, big-heroes-6bp).
     if ($0 ~ /^[ ]{0,3}#{1,6}([ \t]|$)/ ||
         $0 ~ /^[ ]{0,3}[-*+][ \t]/ ||
         $0 ~ /^[ ]{0,3}[0-9]+[.)][ \t]/ ||
         $0 ~ /^[ ]{0,3}(\*[ \t]*){3,}$/ ||
         $0 ~ /^[ ]{0,3}(-[ \t]*){3,}$/ ||
         $0 ~ /^[ ]{0,3}(_[ \t]*){3,}$/) {
-      if (para_has_content) {
-        print process_paragraph(para)
-      }
       print $0
-      para = ""
-      para_has_content = 0
       next
     }
-    # Накапливаем строки одного paragraph через SEP.
-    if (para_has_content) {
-      para = para SEP $0
-    } else {
-      para = $0
-      para_has_content = 1
-    }
-  }
-  END {
-    # Финальный paragraph (если есть).
-    if (para_has_content) {
-      print process_paragraph(para)
-    }
+    print process_line($0)
   }
 '
