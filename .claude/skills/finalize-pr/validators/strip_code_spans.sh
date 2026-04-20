@@ -108,7 +108,7 @@ tr -d '\r' | awk '
     return 1
   }
 
-  BEGIN { in_fence = ""; fence_len = 0 }
+  BEGIN { in_fence = ""; fence_len = 0; pending_count = 0 }
   {
     line = $0
 
@@ -119,12 +119,23 @@ tr -d '\r' | awk '
       if (open_run >= 3) {
         in_fence = "BACKTICK"
         fence_len = open_run
+        # Fail-safe для lone opener (Pass 2 G3, dolt-xn3):
+        # буферизуем opener + все последующие строки до closer. Если closer
+        # не найден до EOF (lone opener / fence-injection), END-блок сбросит
+        # буфер обратно в output как plain text — validator увидит реальный
+        # CHANGES_REQUESTED в хвосте, и hard gate не пропустит ложный APPROVED.
+        # Прежний код делал `next` без буферизации, что стирало всё после
+        # opener молча.
+        pending_count = 1
+        pending_lines[pending_count] = line
         next
       }
       open_run = fence_open_run(line, "~")
       if (open_run >= 3) {
         in_fence = "TILDE"
         fence_len = open_run
+        pending_count = 1
+        pending_lines[pending_count] = line
         next
       }
       # Strip inline code spans на текущей строке — run-length matcher (F-2-inline).
@@ -191,15 +202,35 @@ tr -d '\r' | awk '
       if (in_fence == "BACKTICK" && fence_close_matches(line, "`", fence_len)) {
         in_fence = ""
         fence_len = 0
+        # Closer найден — pending успешно стриплен, очищаем буфер.
+        pending_count = 0
         next
       }
       if (in_fence == "TILDE" && fence_close_matches(line, "~", fence_len)) {
         in_fence = ""
         fence_len = 0
+        pending_count = 0
         next
       }
-      # Внутри fence — содержимое стрипуется (линия не выводится).
+      # Внутри fence — содержимое добавляется в pending buffer (не печатается).
+      # Если closer не найдётся до EOF, END-блок восстановит этот буфер как
+      # plain text (fail-safe против lone opener).
+      pending_count++
+      pending_lines[pending_count] = line
       next
+    }
+  }
+  END {
+    # Fail-safe для lone opener (Pass 2 G3, dolt-xn3): если EOF достигнут
+    # при in_fence != "" (opener без closer того же типа), restore pending
+    # buffer в output как plain text. Это защищает validator от fence-injection,
+    # когда attacker пишет ```\nInjected CHANGES_REQUESTED\n(без closer) —
+    # прежний код съедал хвост до EOF, прячa реальный вердикт в plain text,
+    # и validator ложно видел только APPROVED выше.
+    if (in_fence != "") {
+      for (k = 1; k <= pending_count; k++) {
+        print pending_lines[k]
+      }
     }
   }
 '

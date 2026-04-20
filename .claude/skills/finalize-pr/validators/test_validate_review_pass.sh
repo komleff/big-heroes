@@ -297,17 +297,20 @@ FENCE_T18_INPUT='## Review-pass
 assert_passes "fence_opener_4_closer_4_symmetric" "$FENCE_T18_INPUT"
 assert_substring_survives "fence_opener_4_closer_4_tail_survives" "$FENCE_T18_INPUT" "Теперь всё починено."
 
-# 19. Opener = 4 backticks, closer = 3 backticks → до fix closer ровно 3 закрывал
-# fence с opener=4 (ошибка: CommonMark требует closer длины >= opener).
-# После fix: closer=3 < opener=4 → fence остаётся открытым, содержимое внутри
-# стрипается, CHANGES_REQUESTED после ``` (неправильный closer) считается
-# внутри fence и тоже стрипается. Это acceptable safe default: validator не
-# видит CR, но и не видит APPROVED → falls through в NO_APPROVED (block).
-# Проверяем инвариант: опасная ситуация «closer меньше opener» НЕ даёт «fence
-# закрыт, хвост виден» — иначе validator может ложно увидеть APPROVED в хвосте.
+# 19. Opener = 4 backticks, closer = 3 backticks → closer короче opener НЕ
+# закрывает fence (CommonMark F-2-fence). Fence остаётся открытым до EOF —
+# это lone opener scenario. Pass 2 G3 (dolt-xn3) меняет поведение на
+# fail-safe восстановление pending buffer как plain text: реальный
+# CHANGES_REQUESTED в хвосте lone-opener-ного блока больше не прячется
+# от validator. Trade-off: «false APPROVED» в хвосте lone-opener-ного
+# блока теперь тоже видим — validator может ложно увидеть APPROVED.
+# Защита против этого — на уровне review шаблона (reviewer не должен
+# оставлять незакрытый fence с APPROVED в хвосте); validator предпочитает
+# видеть контент, чем прятать его (G3 adversarial analysis показал,
+# что hiding создаёт хуже surface для hard gate bypass).
 #
-# Input: opener=4, затем фальшивый closer=3, затем plain APPROVED в хвосте.
-# Ожидание: APPROVED должен БЫТЬ СТРИПАН (fence всё ещё открыт, хвост съеден).
+# Input: opener=4, фальшивый closer=3, APPROVED в хвосте.
+# После G3 fix ожидание: APPROVED ВИДЕН в stripped output (pending restored).
 FENCE_T19_INPUT='## Review-pass
 
 ````
@@ -317,11 +320,11 @@ FENCE_T19_INPUT='## Review-pass
 FENCE_T19_STRIPPED=$(printf '%s' "$FENCE_T19_INPUT" | bash "$STRIPPER")
 TESTS_RUN=$((TESTS_RUN + 1))
 if printf '%s\n' "$FENCE_T19_STRIPPED" | grep -qF 'Вердикт: APPROVED'; then
-  echo "FAIL: fence_opener_4_closer_3_tail_swallowed — ложный APPROVED в хвосте пролез после closer меньшей длины"
-  TESTS_FAILED=$((TESTS_FAILED + 1))
-else
-  echo "PASS: fence_opener_4_closer_3_tail_swallowed"
+  echo "PASS: fence_opener_4_closer_3_restored_as_plain_after_g3_fix"
   TESTS_PASSED=$((TESTS_PASSED + 1))
+else
+  echo "FAIL: fence_opener_4_closer_3_restored_as_plain_after_g3_fix — pending buffer не восстановлен после lone opener (G3 fail-safe не сработал)"
+  TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # 20. Opener = 3, closer = 4 → CommonMark: closer длины >= opener закрывает fence.
@@ -384,6 +387,52 @@ assert_passes "inline_double_backtick_span_with_embedded_single" \
 # `CHANGES_REQUESTED` (single) + ``finished`` (double) — оба должны стрипаться.
 assert_passes "inline_mixed_single_and_double_run_lengths" \
 'Вердикт: APPROVED `CHANGES_REQUESTED` затем ``finished`` конец'
+
+echo "=== Pass 2 G3: fence lone opener fail-safe (dolt-xn3) ==="
+
+# CommonMark: fenced code block opener без closer до EOF. Прежняя реализация
+# awk молча стрипала весь хвост до EOF, позволяя attacker спрятать реальный
+# CHANGES_REQUESTED в plain text после lone opener. Теперь awk буферизует
+# строки от opener; если closer не найден до EOF, END-блок восстанавливает
+# pending buffer в output как plain text — validator видит реальный вердикт.
+
+# 26. G3 HIGH: lone opener без closer → хвост восстанавливается как plain
+# text → validator видит CHANGES_REQUESTED → block. Input ниже содержит
+# APPROVED ДО fence opener'а И CHANGES_REQUESTED ВНУТРИ lone-opener-ного
+# блока. При старой реализации CHANGES_REQUESTED съедался вместе с
+# pending, validator видел только APPROVED → ложный pass. После fix:
+# pending restored → CR в stripped → assert_blocks (validator блокирует).
+assert_blocks "g3_lone_opener_preserves_plain_cr_below" '## Review-pass
+Вердикт: APPROVED
+
+```
+unclosed fence content
+Вердикт: CHANGES_REQUESTED'
+
+# 27. G3 sanity: закрытый fence продолжает стрипать content как раньше.
+# Opener + content + closer → всё внутри убирается. Проверка, что fix не
+# сломал основной happy path (существующие тесты #1–#25 это уже покрывают,
+# но дублируем для явного G3 контракта).
+assert_passes "g3_closed_fence_still_strips" '## Review-pass
+Вердикт: APPROVED
+
+```
+inside fence CHANGES_REQUESTED
+```
+done'
+
+echo "=== Pass 2 F1: inline N-backtick mutation test ==="
+
+# 28. F1: single-backtick span где внутри content есть N>1 run backticks.
+# `CHANGES_REQUESTED`` more` — opener N=1, closer — run N=1 ПОСЛЕ `more`.
+# Содержимое span-а: `CHANGES_REQUESTED`` more` интерпретируется как
+# (opener=1) + "CHANGES_REQUESTED" + (intermediate run=2, not matching N=1) +
+# " more" + (closer=1). Valid N-run matcher должен стрипать весь span.
+# Mutation gap: если matcher проверяет N>=M вместо N==M, двойной run в
+# середине ложно считается closer'ом и partial span CHANGES_REQUESTED попадает
+# в plain text → ложный block. Тест фиксирует правильное поведение (N==M).
+assert_passes "f1_inline_span_with_longer_inner_run_stripped" \
+'Вердикт: APPROVED `CHANGES_REQUESTED`` more` done'
 
 echo ""
 echo "=== Summary ==="

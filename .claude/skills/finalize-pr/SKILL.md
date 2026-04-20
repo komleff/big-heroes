@@ -279,6 +279,20 @@ if [ "$TIER" = "sprint-final" ]; then
 fi
 ```
 
+### Debug / regression helpers
+
+Помощники для отладки stripper'а и проверки регрессий — запускаются вручную PM'ом при подозрении на infrastructure false positive / false negative, не вызываются автоматически из hard gate.
+
+- `.claude/skills/finalize-pr/validators/test_validate_review_pass.sh` — unit-тесты stripper'а (после Pass 2: 27 baseline + 2 G3 + 1 F1 = 30 ожидается).
+- `.claude/skills/finalize-pr/validators/regression_pr14.sh` — regression prove на реальной истории PR #14 (VC-5). Требует `$COMMENTS_DIR` с раскладкой `c*.txt` (см. docstring скрипта). Запуск:
+  ```bash
+  mkdir -p /tmp/pr14_comments
+  for i in $(seq 0 24); do
+    gh pr view 14 --json comments -q ".comments[$i].body" > /tmp/pr14_comments/c$i.txt
+  done
+  bash .claude/skills/finalize-pr/validators/regression_pr14.sh
+  ```
+
 ## Фаза 2: triage-проверки
 
 > Активируется автоматически после внедрения triage-протокола (план v3.3 шаг 1.4 — реализован в `PM_ROLE.md` секция 2.3 и `AGENT_ROLES.md`). До внедрения триажа фаза 2 пропускается, публикуется шаблон фазы 1.
