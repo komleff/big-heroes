@@ -94,6 +94,29 @@ TESTS = [
     # с продолжением. Явно фиксируем через coverage.
     ("gh pr comment 1 --body 'готов к merge, когда X'", 1, "nw5: symmetry — запятая + когда"),
     ("gh pr comment 1 --body 'готов к merge, как только X'", 1, "nw5: symmetry — запятая + как только"),
+    # === dolt-ihl: ASCII ':' + CJK + full-width terminators (Pass 1 external F-1) ===
+    # GPT-5.4 + GPT-5.3-Codex independent repro показал bypass через 5 terminators,
+    # не покрытых прежним classом [.!?,;\u2026]:
+    #   - `:` (ASCII colon) — частый separator в markdown-списках и декларациях.
+    #   - `。` (U+3002) — CJK ideographic full stop.
+    #   - `！` (U+FF01) — full-width exclamation mark.
+    #   - `？` (U+FF1F) — full-width question mark.
+    #   - `，` (U+FF0C) — full-width comma.
+    # Расширяем class до [.!?,;:\u2026\u3002\uff01\uff1f\uff0c].
+    # 5 bypass-кейсов (по одному на каждый новый terminator):
+    ("gh pr comment 1 --body 'ready to merge: landing'", 1, "ihl: colon terminator EN"),
+    ("gh pr comment 1 --body 'готов к merge。следующий шаг'", 1, "ihl: CJK full stop U+3002 RU"),
+    ("gh pr comment 1 --body 'ready to merge！next'", 1, "ihl: full-width exclamation U+FF01"),
+    ("gh pr comment 1 --body 'ready to merge？maybe'", 1, "ihl: full-width question U+FF1F"),
+    ("gh pr comment 1 --body 'готов к merge，landing artifacts inside'", 1, "ihl: full-width comma U+FF0C"),
+    # 5 symmetric discussion-continuation кейсов (терминатор + продолжение) —
+    # подтверждают, что расширение class-coverage покрывает реальные
+    # narrative-попытки обхода.
+    ("gh pr comment 1 --body '## ✅ Готов к merge: landing commit follows'", 1, "ihl: RU marker + colon terminator"),
+    ("gh pr comment 1 --body '## ✅ Готов к merge。landing commit следом'", 1, "ihl: RU marker + CJK full stop"),
+    ("gh pr comment 1 --body 'ready to merge！see CI'", 1, "ihl: EN + full-width exclamation + продолжение"),
+    ("gh pr comment 1 --body 'ready to merge？see you later'", 1, "ihl: EN + full-width question + продолжение"),
+    ("gh pr comment 1 --body '## Готов к merge，если X'", 1, "ihl: RU ## + full-width comma + продолжение"),
     # === Copilot round 28: zero-width char / HTML entity bypass ===
     ("gh pr comment 1 --body 'ready\u200bto merge'", 1, "zero-width space bypass"),
     ("gh pr comment 1 --body '## ✅ Готов\u200b к merge'", 1, "ZWSP in RU marker"),

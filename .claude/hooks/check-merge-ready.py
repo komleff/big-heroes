@@ -52,6 +52,14 @@ import sys
 # Tester gate PR #15: `;` и `…` — symmetric punctuation-terminators, дают
 # тот же bypass, что и запятая до ase. Итого terminator class: `.!?,;…`.
 # ASCII-троеточие `...` уже покрыто литеральным `.` в классе.
+# dolt-ihl (v3.5, Pass 1 external F-1): GPT-5.4 + GPT-5.3-Codex independent repro
+# выявил 5 symmetric terminators, не покрытых прежним classом:
+#   - `:` (ASCII colon) — частый separator в декларациях (`ready to merge: X`);
+#   - `。` (U+3002 CJK ideographic full stop);
+#   - `！` (U+FF01 full-width exclamation);
+#   - `？` (U+FF1F full-width question);
+#   - `，` (U+FF0C full-width comma).
+# Итог: terminator class покрывает ASCII + basic CJK + full-width punctuation.
 _MERGE_READY_CANDIDATE = re.compile(
     r"(?im)^(?P<prefix>[^\n]*?)"
     r"(?:##\s*(?:✅\s*)?)?"
@@ -61,7 +69,7 @@ _MERGE_READY_CANDIDATE = re.compile(
     r"|merge\s*ready"
     r"|merge\s*is\s*ready"
     r")"
-    r"\s*(?:[.!?,;\u2026]|(?:$|\n|['\"]))",
+    r"\s*(?:[.!?,;:\u2026\u3002\uff01\uff1f\uff0c]|(?:$|\n|['\"]))",
 )
 
 # Слова-отрицания перед фразой — снимают блокировку. Покрывают частые паттерны
