@@ -117,6 +117,33 @@ TESTS = [
     ("gh pr comment 1 --body 'ready to merge！see CI'", 1, "ihl: EN + full-width exclamation + продолжение"),
     ("gh pr comment 1 --body 'ready to merge？see you later'", 1, "ihl: EN + full-width question + продолжение"),
     ("gh pr comment 1 --body '## Готов к merge，если X'", 1, "ihl: RU ## + full-width comma + продолжение"),
+    # === dolt-0di: G1 systemic Unicode punctuation terminators (Pass 2) ===
+    # Pass 2 Tester gate выявил 12+ Unicode punctuation codepoints, обходящих
+    # прежний enumeration terminator class [.!?,;:\u2026\u3002\uff01\uff1f\uff0c].
+    # Fix: unicodedata.category(ch).startswith('P') — любая Unicode
+    # punctuation семантически отделяет declaration от продолжения, не нужен
+    # enumeration. Регрессия-guard для всех 12 символов.
+    ("gh pr comment 1 --body 'ready to merge、landing'", 1, "G1: U+3001 ideographic comma"),
+    ("gh pr comment 1 --body 'готов к merge：next'", 1, "G1: U+FF1A full-width colon"),
+    ("gh pr comment 1 --body 'ready to merge；next'", 1, "G1: U+FF1B full-width semicolon"),
+    ("gh pr comment 1 --body 'ready to merge،next'", 1, "G1: U+060C Arabic comma"),
+    ("gh pr comment 1 --body 'ready to merge؛next'", 1, "G1: U+061B Arabic semicolon"),
+    ("gh pr comment 1 --body 'ready to merge؟'", 1, "G1: U+061F Arabic question"),
+    ("gh pr comment 1 --body 'ready to merge׃next'", 1, "G1: U+05C3 Hebrew sof pasuq"),
+    ("gh pr comment 1 --body 'ready to merge᠂next'", 1, "G1: U+1802 Mongolian comma"),
+    ("gh pr comment 1 --body 'ready to merge։next'", 1, "G1: U+0589 Armenian full stop"),
+    ("gh pr comment 1 --body 'ready to merge・next'", 1, "G1: U+30FB Japanese middle dot"),
+    ("gh pr comment 1 --body 'ready to merge．next'", 1, "G1: U+FF0E full-width period"),
+    # === dolt-0di: G2 combining diacritic / accent bypass (Pass 2) ===
+    # NFKC-нормализация стабилизирует compatibility forms; спейсом-акцент
+    # `\u00b4` (ACUTE ACCENT) классифицируется как Sk (symbol modifier), но
+    # стоит он ПЕРЕД terminator `:` → hook всё равно должен увидеть phrase
+    # `ready to merge` → acute — content continuation → `:` → terminator.
+    # Combining U+0301 на `é` в конце `mergé` делает phrase ortographically
+    # другим, regex НЕ матчит `merge`. Это защита по другому механизму
+    # (phrase orthography), оставляем как регрессионный baseline.
+    ("gh pr comment 1 --body 'ready to merge\u00b4:landing'", 1, "G2: acute accent U+00B4 + colon"),
+    ("gh pr comment 1 --body 'ready to merge\u0301:landing'", 1, "G2: combining acute U+0301 + colon"),
     # === Copilot round 28: zero-width char / HTML entity bypass ===
     ("gh pr comment 1 --body 'ready\u200bto merge'", 1, "zero-width space bypass"),
     ("gh pr comment 1 --body '## ✅ Готов\u200b к merge'", 1, "ZWSP in RU marker"),
