@@ -42,9 +42,14 @@ import unicodedata
 # Терминатор фразы проверяется в is_forbidden через unicodedata.category
 # (systemic Unicode approach, dolt-0di, Pass 2 G1+G2). Regex ловит только
 # саму phrase + prefix; символ сразу после phrase (с пропуском horizontal
-# whitespace) проверяется на `unicodedata.category().startswith('P')` —
-# любая Unicode punctuation → terminator, любая буква/цифра → narrative
-# continuation (discussion, not declaration).
+# whitespace + combining marks) проверяется на принадлежность категориям
+# Po (Other punctuation) и Pf (Final quote) — минимальное семантически-
+# корректное множество terminator punctuation. Pass 4 E-1 сузил класс с
+# прежнего `startswith('P')`, потому что Ps (Open), Pi (Initial quote),
+# Pe (Close), Pc (Connector), Pd (Dash) — не sentence terminators:
+# `ready to merge (if CI passes)` / «после review» — narrative continuation,
+# не declaration. Любая буква/цифра → narrative continuation (discussion,
+# not declaration).
 #
 # Историю enumeration-подхода см. в `Addresses: dolt-ihl` / Copilot round 22
 # (ASCII `.!?`) / big-heroes-ase (`,`) / big-heroes-nw5 (`;` + `…`). Все эти
@@ -422,8 +427,11 @@ def is_forbidden(command: str) -> bool:
     U+0301); последующий фильтр `category not in ("Mn","Mc","Me")`
     удаляет combining marks, возвращая чистую base-form phrase для
     regex. Post-match проверка: первый non-whitespace символ после
-    phrase → если `P*` (любая Unicode punctuation) → terminator,
-    declaration блокируется. Letter/digit → narrative continuation, skip.
+    phrase → если категория `Po` (Other punctuation) или `Pf` (Final
+    quote) → terminator, declaration блокируется. Pass 4 E-1 сузил
+    класс: Ps/Pi/Pe/Pc/Pd НЕ включаются как terminator (`(`, `[`, `{`,
+    «, ', ), ], }, ‒, —, ‿ — narrative continuation, не sentence
+    terminators). Letter/digit → narrative continuation, skip.
     Rationale NFKC → NFKD: NFKC *composes* base+mark обратно в
     precomposed codepoint (для `é` regex всё равно рассыпется, если в
     phrase есть combining), NFKD *decomposes* до атомов, что даёт
