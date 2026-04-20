@@ -253,8 +253,27 @@ validate_review_pass_body() {
   fi
 
   # Mask code spans перед regex-проверкой (strip_code_spans.sh — stdin→stdout).
+  # Pass 3 Copilot CP-3 (закрывает dolt-hta): используем absolute path через
+  # git rev-parse --show-toplevel. Прежний relative путь ломался если
+  # /finalize-pr вызывался из subdirectory (cwd != repo root) → stripper
+  # не найден → fail-secure fallback на raw grep, где backtick-wrapped
+  # CHANGES_REQUESTED снова триггерит infrastructure false positive.
+  local repo_root
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "СТОП: не удалось определить корень git-репозитория для strip_code_spans."
+    echo "Повтори запуск /finalize-pr из git-репозитория."
+    exit 1
+  }
+
+  local stripper_path="${repo_root}/.claude/skills/finalize-pr/validators/strip_code_spans.sh"
+  if [ ! -f "$stripper_path" ]; then
+    echo "СТОП: не найден stripper по пути: $stripper_path"
+    echo "Убедись, что .claude/skills/finalize-pr/validators/ присутствует в репо."
+    exit 1
+  fi
+
   local stripped_body
-  stripped_body=$(printf '%s' "$review_body" | bash .claude/skills/finalize-pr/validators/strip_code_spans.sh)
+  stripped_body=$(printf '%s' "$review_body" | bash "$stripper_path")
 
   if printf '%s\n' "$stripped_body" | grep -qE '(^|[^A-Z_])CHANGES_REQUESTED([^A-Z_]|$)'; then
     echo "СТОП: в последнем ${review_kind} review-pass на $HEAD_COMMIT есть CHANGES_REQUESTED по одному из аспектов/ревьюеров."
