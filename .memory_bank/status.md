@@ -1,10 +1,44 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-20
-**Фаза:** **Sprint Pipeline v3.4 Pre-Merge Landing Protocol — PR [#14](https://github.com/komleff/big-heroes/pull/14) ✅ COMPLETE 2026-04-20** (pre-merge finalize на commit `3519b4e`), ожидает operator merge. Предыдущие: Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED + PR [#13](https://github.com/komleff/big-heroes/pull/13) chore/landing-pr-12 MERGED + Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
-**master HEAD:** `c027920` (pre-merge для v3.4) · План архивирован в `docs/archive/sprint-pipeline-v3-4-pre-merge-landing.md`.
+**Обновлён:** 2026-04-21
+**Фаза:** **Sprint Pipeline v3.5 Cleanup after v3.4 — PR [#15](https://github.com/komleff/big-heroes/pull/15) ✅ COMPLETE 2026-04-21** (pre-merge finalize на commit `7d1517d`, Option B: 10 deferred known limitations → v3.6), ожидает operator merge. Предыдущие: Sprint Pipeline v3.4 Pre-Merge Landing (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED + PR [#13](https://github.com/komleff/big-heroes/pull/13) chore/landing-pr-12 MERGED + Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
+**Base master HEAD:** `d3dab6b` (base для v3.5 pre-merge) · План архивирован **на HEAD ветки PR** в `docs/archive/sprint-pipeline-v3-5-cleanup.md` (ещё не в master до merge).
 
-## Sprint v3.4 Pre-Merge Landing Protocol итог (COMPLETE 2026-04-20, первый финализирующий /finalize-pr на `3519b4e`)
+## Sprint v3.5 Cleanup after v3.4 итог (COMPLETE 2026-04-21, первый финализирующий /finalize-pr на `7d1517d`)
+
+- Tracking: `big-heroes-nw5` closed; fix-now tasks `big-heroes-hyo` / `big-heroes-rux` / `big-heroes-ase` / `big-heroes-0pk` closed.
+- Цель (Option B после Pass 7 escalation): устранить v3.4 narrative-backtick false positive PR #14 на baseline CommonMark cases + backlog cleanup v3.4-triage beads. Оператор выбрал Option B — accept known limitations + defer systemic Python rewrite strip_code_spans в v3.6 (`big-heroes-55m` P1 sprint-opener).
+- **Dogfood (второй sprint под v3.4 pre-merge landing flow):** landing commit в ветке PR между первым /finalize-pr --pre-landing и merge.
+- Артефакты:
+  - `.claude/skills/finalize-pr/SKILL.md` — Шаг 5 validator интеграция через `strip_code_spans.sh` helper + Known Limitations section (7 deferred items с bead-refs).
+  - `.claude/skills/finalize-pr/validators/strip_code_spans.sh` — awk CommonMark stripper 358 LoC (Option B revert: 420→358, removed E-2 multiline scanner Pass 6 overfit).
+  - `.claude/skills/finalize-pr/validators/test_validate_review_pass.sh` — 55/55 unit тестов.
+  - `.claude/skills/finalize-pr/validators/regression_pr14.sh` — VC-5 regression prove (4/4 APPROVED passed, 1/1 CR blocked).
+  - `.claude/hooks/check-merge-ready.py` — terminator class `(Po, Pf)` Option B revert Pe/Pd (source of E-14/E-15 overmatch). 150/150 tests.
+  - `.agents/PM_ROLE.md §2.5 Шаг 4` — fenced bd remember block (markdown rendering fix, `big-heroes-hyo`).
+  - `docs/archive/sprint-pipeline-v3-4-pre-merge-landing.md:320` — Test plan qualifier `--pre-landing` для первого Sprint Final finalize (`big-heroes-rux`).
+- Review cycle (9 internal passes + 6 external Mode A/C + 7 Copilot rounds):
+  - Tester gate GATE_PASS (после `;` `…` class coverage delta-fix).
+  - Internal Claude: Pass 1 APPROVED, Pass 2 adversarial CR (2 CRITICAL + 1 WARNING CommonMark fences), Pass 3-6 APPROVED, Pass 7 CR escalation (overfitting pattern), Pass 8 delta-closure Option B APPROVED, Pass 9 delta-verify docs-only APPROVED.
+  - External: 3 pass Mode A на рабочем Mac (BE-11 блокировал Windows) → Pass 7 escalation → Pass 5 Mode A cross-model на home PC (API key rotation + `sandbox_mode=danger-full-access` обход BE-11) — GPT-5.4 + GPT-5.3-Codex консенсус APPROVED на `ebaf786` → Pass 6 delta-note на `7d1517d`.
+  - Triage: ~30 fix-now applied через 7 fix-rounds, 10 defer to Beads (Option B), 5 reject-with-rationale.
+- Convention change: BE-11 Windows sandbox обход через `codex review -c sandbox_mode='"danger-full-access"'` — workaround для Mode A на Windows dev-host без WSL. API key rotation 2026-04-20 (старый 401, новый от рабочего аккаунта валидный).
+- Deferred Beads (10 items `[from-v3.5-dropped]` → v3.6):
+  - `big-heroes-55m` P1 sprint-opener — Python rewrite strip_code_spans (закрывает ≥7 из 10 systemically).
+  - `big-heroes-6bp` P2 — structural inline CR survives (theoretical false APPROVED).
+  - `big-heroes-36d` P3 — blockquote paragraph terminator.
+  - `big-heroes-42a` P3 — setext underline.
+  - `big-heroes-zhe` P3 — HTML block.
+  - `big-heroes-ytx` P3 — hook Pe/Pd catch-all.
+  - `big-heroes-16e` P3 — hook `:` Po overmatch в backtick quoted (Mode A Pass 5 GPT-5.4 rerepro extension).
+  - `big-heroes-3ed` P3 — hook `/` `.` Po overmatch в paths/branches.
+  - `big-heroes-1mm` P3 — regression_pr14.sh tautology (Pass 5 GPT-5.4).
+  - `big-heroes-la3` P3 — regression_pr14.sh rc handling (Pass 6 Copilot).
+- ⚠️ Partial fix метка в финальном /finalize-pr — honest disclosure per Claude tells it like it is doctrine.
+
+---
+
+## Sprint v3.4 Pre-Merge Landing Protocol итог (MERGED 2026-04-19, финализирующий /finalize-pr на `3519b4e`)
 
 - Tracking: `big-heroes-sz4` closed; task `big-heroes-cfn` closed.
 - Цель: перенос Landing the Plane из post-merge отдельного `chore/landing-pr-N` PR во pre-merge inline-commit в ту же ветку Sprint PR. Убран bureaucratic toil второго merge без safety value.
