@@ -200,6 +200,51 @@ assert_passes "multiple_fenced_blocks_alternating" \
 
 Заключение: всё починено.'
 
+echo "=== Pass 2 adversarial: CommonMark fence class coverage ==="
+
+# 14. F-1: tilde fence ~~~ — CommonMark эквивалент ``` (должен стрипаться)
+assert_passes "tilde_fenced_block_ignored" \
+'## Review-pass
+Вердикт: APPROVED
+
+~~~
+Вердикт: CHANGES_REQUESTED
+~~~
+Теперь всё починено.'
+
+# 15. F-2: indented triple-backtick fence (2 leading spaces) — CommonMark допускает 0-3 indent
+assert_passes "indented_backtick_fenced_block_ignored" \
+'## Review-pass
+Вердикт: APPROVED
+
+  ```
+  Вердикт: CHANGES_REQUESTED
+  ```
+Теперь всё починено.'
+
+# 16. F-1 + F-2 combined: indented tilde fence (3 leading spaces)
+assert_passes "indented_tilde_fenced_block_ignored" \
+'## Review-pass
+Вердикт: APPROVED
+
+   ~~~
+   Вердикт: CHANGES_REQUESTED
+   ~~~
+Теперь всё починено.'
+
+# 17. Mismatched fence type: opener ``` не закрывается ~~~ — CommonMark требует симметрии.
+# Всё между ``` и реальным ``` должно быть вырезано, ~~~ внутри не считается closer.
+assert_passes "mismatched_fence_tilde_does_not_close_backtick" \
+'## Review-pass
+Вердикт: APPROVED
+
+```
+Вердикт: CHANGES_REQUESTED somewhere
+~~~
+не является закрытием
+```
+Финал.'
+
 echo ""
 echo "=== Summary ==="
 echo "Run: $TESTS_RUN, Passed: $TESTS_PASSED, Failed: $TESTS_FAILED"

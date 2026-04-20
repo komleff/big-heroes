@@ -6,9 +6,21 @@
 # и narrative-текст с цитатой `CHANGES_REQUESTED` внутри code span ложно
 # блокирует hard gate (infrastructure false positive v3.4 #14).
 #
-# Что делаем: заменяем содержимое code spans (inline `...` и fenced ```...```)
+# Что делаем: заменяем содержимое code spans (inline `...` и fenced блоки)
 # на пустоту ДО того, как validator grep'ает слова. Реальные вердикты в
 # plain text остаются, narrative-цитаты из code spans — нет.
+#
+# CommonMark coverage (Pass 2 class-coverage fix, big-heroes-nw5):
+#   - fenced blocks: opener/closer — тройной бэктик ``` ИЛИ тильда ~~~;
+#   - indent tolerance: 0-3 leading spaces перед маркером (CommonMark spec);
+#   - fence type matching: ``` закрывается только ```, ~~~ только ~~~;
+#   - mismatched marker (``` внутри ~~~ fence или наоборот) — игнорируется,
+#     fence остаётся открытым до реального closer того же типа.
+#
+# НЕ покрыто (deferred):
+#   - blockquote-prefixed fences (`> ```) — big-heroes-wz6;
+#   - indented code blocks (4+ spaces без маркера) — редкий случай в
+#     review-pass, safe default: остаётся plain text, validator блокирует.
 #
 # Поток: читаем stdin, пишем stdout.
 # Зависимости: bash, awk (POSIX). Без внешних тулов.
@@ -25,61 +37,79 @@
 set -u
 
 # 1) Нормализуем CRLF → LF. Оператор на Windows может прислать \r\n.
-# 2) Strip fenced blocks: awk-toggle включается на строке, НАЧИНАЮЩЕЙСЯ с
-#    тройного бэктика (с опциональным language hint), выключается на
-#    следующей такой строке. Внутри — всё вырезается.
+# 2) Strip fenced blocks: awk state-machine с типизированным fence tracking.
+#    in_fence ∈ {"", "BACKTICK", "TILDE"}. Opener — строка с 0-3 leading spaces
+#    и маркером ``` или ~~~. Closer — того же типа, с 0-3 indent и без другого
+#    контента (только optional trailing whitespace).
 # 3) Strip inline code spans: в каждой строке, которая НЕ внутри fenced
 #    блока (после шага 2 таких не осталось), проходим посимвольно и
 #    удаляем содержимое между парными одиночными бэктиками.
 #    Непарный backtick оставляет хвост строки как есть (best-effort).
 tr -d '\r' | awk '
-  # Fenced block toggle. Маркер — строка вида ```... (три бэктика в начале, затем что угодно до EOL).
-  /^```/ {
-    if (in_fence) {
-      in_fence = 0
-      next  # закрывающий маркер — не печатаем
-    } else {
-      in_fence = 1
-      next  # открывающий маркер — не печатаем
-    }
-  }
+  BEGIN { in_fence = "" }
   {
-    if (in_fence) {
-      next  # строка внутри fenced — вырезаем целиком
-    }
-    # Strip inline code spans на текущей строке.
-    # Проход посимвольно: toggle at `, не-code символы копируем.
     line = $0
-    out = ""
-    in_span = 0
-    n = length(line)
-    for (i = 1; i <= n; i++) {
-      c = substr(line, i, 1)
-      if (c == "`") {
-        in_span = !in_span
-        # сам бэктик не сохраняем (и open, и close)
-        continue
+
+    if (in_fence == "") {
+      # Не внутри fence — проверить, это ли opener.
+      # CommonMark: 0-3 leading spaces, затем ``` или ~~~.
+      # Opener может иметь language hint (```bash) — часть после marker
+      # игнорируется при strip, печатать эту строку не нужно.
+      if (match(line, /^[ ]{0,3}```/)) {
+        in_fence = "BACKTICK"
+        next
       }
-      if (!in_span) {
-        out = out c
+      if (match(line, /^[ ]{0,3}~~~/)) {
+        in_fence = "TILDE"
+        next
       }
-      # если in_span — пропускаем символ
+      # Strip inline code spans на текущей строке.
+      # Проход посимвольно: toggle at `, не-code символы копируем.
+      out = ""
+      in_span = 0
+      n = length(line)
+      for (i = 1; i <= n; i++) {
+        c = substr(line, i, 1)
+        if (c == "`") {
+          in_span = !in_span
+          # сам бэктик не сохраняем (и open, и close)
+          continue
+        }
+        if (!in_span) {
+          out = out c
+        }
+        # если in_span — пропускаем символ
+      }
+      # Если строка закончилась с in_span=1 (непарный `), оставшийся хвост
+      # УЖЕ не попал в out — это удалило бы text и могло спрятать реальный
+      # CHANGES_REQUESTED. Восстанавливаем: если закрытия не было, вернём
+      # хвост от последнего ` как plain text (best-effort safe default).
+      if (in_span) {
+        # Найдём последний бэктик и возьмём всё ПОСЛЕ него как plain text.
+        last_tick = 0
+        for (j = n; j >= 1; j--) {
+          if (substr(line, j, 1) == "`") { last_tick = j; break }
+        }
+        if (last_tick > 0 && last_tick < n) {
+          tail = substr(line, last_tick + 1)
+          out = out tail
+        }
+      }
+      print out
+    } else {
+      # Внутри fence — ищем close ТОГО ЖЕ типа.
+      # Closer: 0-3 leading spaces + marker + optional trailing whitespace.
+      # Mismatched marker (~~~ внутри BACKTICK или vice versa) игнорируется.
+      if (in_fence == "BACKTICK" && match(line, /^[ ]{0,3}```[ \t]*$/)) {
+        in_fence = ""
+        next
+      }
+      if (in_fence == "TILDE" && match(line, /^[ ]{0,3}~~~[ \t]*$/)) {
+        in_fence = ""
+        next
+      }
+      # Внутри fence — содержимое стрипуется (линия не выводится).
+      next
     }
-    # Если строка закончилась с in_span=1 (непарный `), оставшийся хвост
-    # УЖЕ не попал в out — это удалило бы text и могло спрятать реальный
-    # CHANGES_REQUESTED. Восстанавливаем: если закрытия не было, вернём
-    # хвост от последнего ` как plain text (best-effort safe default).
-    if (in_span) {
-      # Найдём последний бэктик и возьмём всё ПОСЛЕ него как plain text.
-      last_tick = 0
-      for (j = n; j >= 1; j--) {
-        if (substr(line, j, 1) == "`") { last_tick = j; break }
-      }
-      if (last_tick > 0 && last_tick < n) {
-        tail = substr(line, last_tick + 1)
-        out = out tail
-      }
-    }
-    print out
   }
 '
