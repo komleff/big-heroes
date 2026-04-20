@@ -369,6 +369,24 @@ TESTS = [
     # E-1 Pf sanity: closing quote — terminator (Final quote category Pf).
     ("gh pr comment 1 --body 'ready to merge\u201d next'", 1, "E-1: closing Pf quote U+201D = terminator"),
     ("gh pr comment 1 --body 'ready to merge» next'", 1, "E-1: closing Pf quillemet » = terminator"),
+    # === Pass 5 E-5 WARNING: backtick (Sk) в skip-loop — удалить Sk ===
+    # Developer Pass 2 добавил Sk/Lm в skip-set для G2 combining diacritic
+    # U+00B4 (ACUTE ACCENT, Sk). Но backtick U+0060 — тоже Sk: skip-loop
+    # проглатывал closing backtick после phrase в легитимных inline code
+    # span командах, затем встречал shell-quote и ложно считал её
+    # terminator-ом. Bypass legitimate workflow:
+    # `gh pr comment 1 --body 'Use \`ready to merge\`'` ложно блокировался.
+    # Fix: убрать Sk/Lm из skip-set. G2 остаётся закрытым через NFKD
+    # normalization — combining marks разносятся, Mn/Mc/Me strip'аются.
+    ("gh pr comment 1 --body 'Use `ready to merge`'", 0, "E-5: quoted inline code passes"),
+    ("gh pr comment 1 --body 'Example: `готов к merge` phrase'", 0, "E-5: RU quoted inline code"),
+    ("gh pr comment 1 --body 'Here is `merge ready` in docs'", 0, "E-5: bare phrase in inline code"),
+    # E-5 regression: G2 combining diacritic still blocks via NFKD decomposition
+    # (не через Sk skip). U+00B4 acute accent под NFKD → U+0020 + U+0301 →
+    # space+combining → strip Mn → clean phrase. Terminator-check видит `:`.
+    ("gh pr comment 1 --body 'ready to merg\u00e9:landing'", 1, "E-5 regression: precomposed é NFKD decomposes"),
+    ("gh pr comment 1 --body 'ready to merge\u0301:landing'", 1, "E-5 regression: combining acute U+0301 still block"),
+    ("gh pr comment 1 --body 'ready to merge\u00b4:landing'", 1, "E-5 regression: acute accent Sk via NFKD path"),
 ]
 
 

@@ -37,12 +37,19 @@ TESTS_FAILED=0
 # Централизованный runner: exit 2 при сбое stripper'а, иначе возвращает
 # stripped content через global STRIPPED_RESULT (нельзя использовать echo,
 # т.к. awk в stripper может вставить trailing \n).
+#
+# Pass 5 CX-6: прежняя версия использовала `if ! STRIPPED=$(...); then ... exit $?`.
+# После `if !`-инверсии `$?` — это 0 (инвертированный exit), не реальный rc
+# stripper'а. FATAL message печатала «exit 0», теряя информацию о сбое.
+# Fix: сохраняем $? В local rc ДО любой инверсии через простое assignment.
 run_stripper() {
   local input="$1"
-  if ! STRIPPED_RESULT=$(printf '%s' "$input" | bash "$STRIPPER" 2>/dev/null); then
-    echo "FATAL: stripper failed in test harness (exit $?)" >&2
+  STRIPPED_RESULT=$(printf '%s' "$input" | bash "$STRIPPER" 2>/dev/null)
+  local rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "FATAL: stripper failed in test harness (exit $rc)" >&2
     echo "Input follows:" >&2
-    printf '%s\n' "$input" >&2
+    printf '%s\n' "$input" | head -5 >&2
     exit 2
   fi
 }

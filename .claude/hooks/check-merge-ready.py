@@ -483,11 +483,27 @@ def is_forbidden(command: str) -> bool:
         # `c.isspace() and c not in "\n\r"` покрывает whole class Zs/Zl/Zp
         # плюс ASCII \t/\v/\f, исключая вертикальные separator'ы.
         #
-        # Combining marks и modifier symbols/letters (Mn/Mc/Me, Sk, Lm) —
-        # «невидимые» модификаторы буквы, visually сливающиеся с phrase.
-        # G2 bypass Pass 2: `ready to merge\u00b4:` (Sk). Расширяем класс
-        # этими же категориями — мутация NFKD не затрагивает их, они
-        # должны явно пропускаться в skip-loop.
+        # Combining marks (Mn/Mc/Me) — «невидимые» диакритики, которые
+        # visually сливаются с phrase и не являются sentence terminators.
+        #
+        # Pass 5 E-5 (WARNING): прежняя версия включала Sk (Symbol modifier)
+        # и Lm (Letter modifier) в skip-set для покрытия G2 bypass через
+        # U+00B4 (ACUTE ACCENT, Sk). Но backtick U+0060 — тоже Sk, и skip-
+        # loop проглатывал closing backtick после phrase в легитимных
+        # командах вроде `gh pr comment 1 --body 'Use \`ready to merge\`'`
+        # (inline code span в обсуждении). После Sk-backtick скипался и
+        # shell-quote `'` триггерил terminator-check → false block
+        # легитимного comment.
+        #
+        # Теперь Sk/Lm НЕ включаются. G2 combining diacritic bypass всё
+        # ещё закрыт через NFKD normalization выше: precomposed `mergé`
+        # → `merge` + U+0301 (Mn) → strip marks → clean phrase, regex
+        # match → terminator check видит чистое `:`/`.` после NFKD-
+        # декомпозированного текста. U+00B4 acute accent под NFKD
+        # декомпозируется в U+0020 + U+0301 → space+mark → после strip
+        # marks остаётся space, который isspace() пропускает. Pathway
+        # через нормализацию работает для всего класса G2 без включения
+        # Sk в skip-set.
         i = 0
         n = len(tail)
         while i < n:
@@ -500,8 +516,11 @@ def is_forbidden(command: str) -> bool:
                 i += 1
                 continue
             cat = unicodedata.category(c)
-            # Combining marks и невидимые spacing-модификаторы — пропускаем.
-            if cat in ("Mn", "Mc", "Me", "Sk", "Lm"):
+            # Только combining marks — семантически «невидимые» диакритики.
+            # Spacing modifier symbols (Sk, включая backtick) и modifier
+            # letters (Lm) НЕ skip — они могут быть legitimate delimiters
+            # или закрывающими quotes в shell-команде.
+            if cat in ("Mn", "Mc", "Me"):
                 i += 1
                 continue
             break
