@@ -229,6 +229,19 @@ fi
 #   1) в теле НЕТ ни одного CHANGES_REQUESTED (иначе один из аспектов
 #      или ревьюеров сигналит CHANGES_REQUESTED, скрытый поздним APPROVED);
 #   2) в теле есть хотя бы один APPROVED.
+#
+# Предобработка strip_code_spans.sh (Sprint v3.5, big-heroes-nw5):
+# вхождения CHANGES_REQUESTED и APPROVED внутри inline code spans
+# (парные одиночные бэктики) и fenced code blocks (тройные бэктики)
+# — это historical/narrative цитаты в review-pass комментариях,
+# они НЕ должны матчиться regex'ом. Раньше бэктики попадали в
+# non-[A-Z_] boundary и давали infrastructure false positive
+# (v3.4 PR #14: narrative «оснований для `CHANGES_REQUESTED` не
+# вижу» блокировал hard gate при реальном Вердикт: APPROVED).
+# Stripper читает тело из stdin и возвращает текст с вырезанными
+# code spans, затем grep работает на plain text. Реальные вердикты
+# в plain text продолжают блокировать/пропускать как раньше.
+# Unit-тесты: .claude/skills/finalize-pr/validators/test_validate_review_pass.sh.
 validate_review_pass_body() {
   local review_kind="$1"   # "internal" | "external"
   local review_body="$2"
@@ -239,13 +252,17 @@ validate_review_pass_body() {
     exit 1
   fi
 
-  if printf '%s\n' "$review_body" | grep -qE '(^|[^A-Z_])CHANGES_REQUESTED([^A-Z_]|$)'; then
+  # Mask code spans перед regex-проверкой (strip_code_spans.sh — stdin→stdout).
+  local stripped_body
+  stripped_body=$(printf '%s' "$review_body" | bash .claude/skills/finalize-pr/validators/strip_code_spans.sh)
+
+  if printf '%s\n' "$stripped_body" | grep -qE '(^|[^A-Z_])CHANGES_REQUESTED([^A-Z_]|$)'; then
     echo "СТОП: в последнем ${review_kind} review-pass на $HEAD_COMMIT есть CHANGES_REQUESTED по одному из аспектов/ревьюеров."
     echo "После CHANGES_REQUESTED обязателен повторный ${review_kind} review-pass с APPROVED по всем аспектам на текущем commit."
     exit 1
   fi
 
-  if ! printf '%s\n' "$review_body" | grep -qE '(^|[^A-Z_])APPROVED([^A-Z_]|$)'; then
+  if ! printf '%s\n' "$stripped_body" | grep -qE '(^|[^A-Z_])APPROVED([^A-Z_]|$)'; then
     echo "СТОП: в последнем ${review_kind} review-pass не найден APPROVED."
     echo "Проверь, что отчёт публикуется по шаблону sprint-pr-cycle и содержит явный 'Вердикт: APPROVED'."
     exit 1
