@@ -349,6 +349,26 @@ TESTS = [
     ('gh pr comment 1 -b "$(head /tmp/x)"', 1, "-b с cmd-subst $(head) блокируется"),
     ('gh pr comment 1 -b "$(echo $BODY)"', 1, "-b с cmd-subst $(echo $VAR) блокируется"),
     ('gh pr comment 1 -b "Prefix $BODY"', 1, "-b с concat prefix+$BODY блокируется"),
+    # === Pass 4 E-1 WARNING: opening punctuation false positive ===
+    # GPT-5.4 + GPT-5.3-Codex Pass 3: systemic startswith('P') блокировал
+    # Ps (Open) и Pi (Initial quote) — но `(`, `[`, `{`, «, ' — это
+    # openers clauses / subordinate, а не sentence terminators.
+    # Bypass workflow: `ready to merge (if CI passes)` ложно блок'ался.
+    # Fix: class = Po ∪ Pf (Other punct + Final quote) — минимальная
+    # семантически-корректная terminator-класс.
+    ("gh pr comment 1 --body 'ready to merge (if CI passes)'", 0, "E-1: open paren = narrative continuation"),
+    ("gh pr comment 1 --body 'ready to merge [tracking issue]'", 0, "E-1: open bracket = narrative"),
+    ("gh pr comment 1 --body 'ready to merge {if deps resolve}'", 0, "E-1: open brace = narrative"),
+    ("gh pr comment 1 --body 'готов к merge «после review»'", 0, "E-1: initial quote « = narrative"),
+    ("gh pr comment 1 --body 'ready to merge \u2018after X\u2019'", 0, "E-1: initial single quote U+2018 = narrative"),
+    # E-1 regression: real terminators продолжают block.
+    ("gh pr comment 1 --body 'ready to merge.'", 1, "E-1 regression: period still block"),
+    ("gh pr comment 1 --body 'ready to merge。'", 1, "E-1 regression: CJK period block"),
+    ("gh pr comment 1 --body 'ready to merge!'", 1, "E-1 regression: bang block"),
+    ("gh pr comment 1 --body 'ready to merge: next'", 1, "E-1 regression: colon (Po) still block"),
+    # E-1 Pf sanity: closing quote — terminator (Final quote category Pf).
+    ("gh pr comment 1 --body 'ready to merge\u201d next'", 1, "E-1: closing Pf quote U+201D = terminator"),
+    ("gh pr comment 1 --body 'ready to merge» next'", 1, "E-1: closing Pf quillemet » = terminator"),
 ]
 
 

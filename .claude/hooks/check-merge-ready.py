@@ -515,11 +515,36 @@ def is_forbidden(command: str) -> bool:
         if ch in "\"'":
             # Закрывающая shell-quote — declaration (`--body 'ready to merge'`).
             return True
-        # Unicode punctuation category — любой P* = terminator.
-        # P-categories: Pc (connector), Pd (dash), Pe (close), Pf (final
-        # quote), Pi (initial quote), Po (other), Ps (open). Все семантически
-        # отделяют declaration от продолжения.
-        if unicodedata.category(ch).startswith("P"):
+        # Unicode punctuation category — только closing/other punctuation
+        # семантически отделяет declaration от продолжения. Opening punctuation
+        # (Ps, Pi) начинает subordinate clause / цитату — narrative continuation.
+        #
+        # Pass 4 E-1 (WARNING): прежний `cat.startswith('P')` блокировал
+        # легитимные `(`, `[`, `{`, `'`, `"`, `«` — фразы типа «ready to merge
+        # (if CI passes)» ложно считались декларацией. Opening-bracket/quote
+        # подкатегории Ps (Open punctuation) и Pi (Initial quote) —
+        # openers clause, НЕ sentence terminators.
+        #
+        # Включаем только:
+        #   Po — Other punctuation (`.`, `!`, `?`, `:`, `;`, CJK `。`, `、`,
+        #        full-width `．`, `！`, `？`, `，`, Arabic `،`, `؛`, `؟`,
+        #        Hebrew `׃`, Mongolian `᠂`, Armenian `։`, Japanese `・`);
+        #   Pf — Final quote (`”`, `»`, `’`) — closing quote может быть
+        #        terminator для narrative «цитата закончилась, continuation».
+        #
+        # НЕ включаем:
+        #   Ps — Open punctuation (`(`, `[`, `{`) — начинает clause, narrative;
+        #   Pi — Initial quote (`“`, `«`, `‘`) — открывающая цитата, narrative;
+        #   Pe — Close punctuation (`)`, `]`, `}`) — ambiguous: может быть
+        #        closing narrative-clause, не обязательно sentence terminator.
+        #        Safe default: не терминатор;
+        #   Pc — Connector (`_`, `‿`) — тоже не sentence separator;
+        #   Pd — Dash (`-`, `—`, `–`) — narrative dash, не terminator.
+        #
+        # Минимальное семантически-корректное множество terminator punctuation:
+        # Po + Pf.
+        cat = unicodedata.category(ch)
+        if cat in ("Po", "Pf"):
             return True
         # Letter, digit, space-like separator (Z*, но только Zs после strip
         # whitespace выше не должен появиться), symbol — narrative continuation.

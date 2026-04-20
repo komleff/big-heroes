@@ -272,8 +272,20 @@ validate_review_pass_body() {
     exit 1
   fi
 
+  # Pass 4 CX-2: fail-secure exit-code проверка stripper'а.
+  # Прежняя форма `stripped_body=$(... | bash "$stripper_path")` игнорировала
+  # exit code stripper'а — при segfault/ошибке переменная получала пустую
+  # строку, grep не находил ни CHANGES_REQUESTED ни APPROVED, validator
+  # fall-through на «нет APPROVED → СТОП». Это корректный fail-secure, но
+  # маскирует реальную ошибку: оператор видит «нет APPROVED», а не «stripper
+  # упал». Явная if-guard: если stripper упал — немедленная остановка
+  # с диагностикой, без попыток grep'ать мусор.
   local stripped_body
-  stripped_body=$(printf '%s' "$review_body" | bash "$stripper_path")
+  if ! stripped_body=$(printf '%s' "$review_body" | bash "$stripper_path"); then
+    echo "СТОП: strip_code_spans.sh завершился с ошибкой при проверке ${review_kind} review-pass."
+    echo "Это fail-secure остановка: sanitizer review-pass не отработал, поэтому продолжать проверку небезопасно."
+    exit 1
+  fi
 
   if printf '%s\n' "$stripped_body" | grep -qE '(^|[^A-Z_])CHANGES_REQUESTED([^A-Z_]|$)'; then
     echo "СТОП: в последнем ${review_kind} review-pass на $HEAD_COMMIT есть CHANGES_REQUESTED по одному из аспектов/ревьюеров."

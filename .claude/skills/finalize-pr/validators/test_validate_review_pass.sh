@@ -31,15 +31,30 @@ TESTS_RUN=0
 TESTS_PASSED=0
 TESTS_FAILED=0
 
+# Pass 4 CX-1: fail-secure exit-code проверка stripper'а.
+# Прежний test helper игнорировал exit code stripper'а — при segfault/ошибке
+# тесты ложно проходили (stripped пустое → CR не найден → assert_passes OK).
+# Централизованный runner: exit 2 при сбое stripper'а, иначе возвращает
+# stripped content через global STRIPPED_RESULT (нельзя использовать echo,
+# т.к. awk в stripper может вставить trailing \n).
+run_stripper() {
+  local input="$1"
+  if ! STRIPPED_RESULT=$(printf '%s' "$input" | bash "$STRIPPER" 2>/dev/null); then
+    echo "FATAL: stripper failed in test harness (exit $?)" >&2
+    echo "Input follows:" >&2
+    printf '%s\n' "$input" >&2
+    exit 2
+  fi
+}
+
 # Обёртка-оракул: прогоняем вход через stripper, затем имитируем grep из SKILL.md.
 # Возвращаем 0 если регекс НЕ матчится (validator пропускает — APPROVED путь),
 # 1 если матчится (validator блокирует — CR путь).
 # Это точно такой же grep, как в validate_review_pass_body для CHANGES_REQUESTED.
 check_changes_requested_blocks() {
   local input="$1"
-  local stripped
-  stripped=$(printf '%s' "$input" | bash "$STRIPPER")
-  if printf '%s\n' "$stripped" | grep -qE '(^|[^A-Z_])CHANGES_REQUESTED([^A-Z_]|$)'; then
+  run_stripper "$input"
+  if printf '%s\n' "$STRIPPED_RESULT" | grep -qE '(^|[^A-Z_])CHANGES_REQUESTED([^A-Z_]|$)'; then
     return 1  # блокирует (match found)
   fi
   return 0    # пропускает (no match)
@@ -48,9 +63,8 @@ check_changes_requested_blocks() {
 # Аналог для APPROVED: ищет подстановку в тексте после strip.
 check_approved_present() {
   local input="$1"
-  local stripped
-  stripped=$(printf '%s' "$input" | bash "$STRIPPER")
-  if printf '%s\n' "$stripped" | grep -qE '(^|[^A-Z_])APPROVED([^A-Z_]|$)'; then
+  run_stripper "$input"
+  if printf '%s\n' "$STRIPPED_RESULT" | grep -qE '(^|[^A-Z_])APPROVED([^A-Z_]|$)'; then
     return 0  # APPROVED найден (validator пропускает)
   fi
   return 1    # APPROVED не найден (validator бы блокировал)
@@ -62,9 +76,8 @@ check_approved_present() {
 check_substring_survives() {
   local input="$1"
   local needle="$2"
-  local stripped
-  stripped=$(printf '%s' "$input" | bash "$STRIPPER")
-  if printf '%s\n' "$stripped" | grep -qF "$needle"; then
+  run_stripper "$input"
+  if printf '%s\n' "$STRIPPED_RESULT" | grep -qF "$needle"; then
     return 0
   fi
   return 1
@@ -320,7 +333,8 @@ FENCE_T19_INPUT='## Review-pass
 Внутри блока.
 ```
 Вердикт: APPROVED — ложный, из-за неправильного closer.'
-FENCE_T19_STRIPPED=$(printf '%s' "$FENCE_T19_INPUT" | bash "$STRIPPER")
+run_stripper "$FENCE_T19_INPUT"
+FENCE_T19_STRIPPED="$STRIPPED_RESULT"
 TESTS_RUN=$((TESTS_RUN + 1))
 if printf '%s\n' "$FENCE_T19_STRIPPED" | grep -qF 'Вердикт: APPROVED'; then
   echo "PASS: fence_opener_4_closer_3_restored_as_plain_after_g3_fix"
