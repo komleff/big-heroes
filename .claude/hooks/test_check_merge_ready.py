@@ -144,6 +144,19 @@ TESTS = [
     # (phrase orthography), оставляем как регрессионный baseline.
     ("gh pr comment 1 --body 'ready to merge\u00b4:landing'", 1, "G2: acute accent U+00B4 + colon"),
     ("gh pr comment 1 --body 'ready to merge\u0301:landing'", 1, "G2: combining acute U+0301 + colon"),
+    # === Pass 3 Copilot CP-1: NBSP / em-space horizontal whitespace ===
+    # После html.unescape `&nbsp;` → U+00A0 (NBSP). Прежний skip-loop класс
+    # `c in " \t"` пропускал только ASCII SPACE/TAB. Хотя NFKD обычно
+    # декомпозирует NBSP в regular space (покрывая этот кейс), defense-in-depth
+    # требует explicit c.isspace() and c not in "\n\r" — любой horizontal
+    # whitespace должен быть прозрачен для terminator-check, независимо от
+    # нормализации. Это широкая G2-closure: все Zs, Zl (кроме \n), и ASCII
+    # \t/\v/\f → skip. Регрессия-guard: после fix CP-1 эти кейсы продолжают
+    # блокироваться даже если будущий rewrite нормализации изменит маппинг.
+    ("gh pr comment 1 --body 'ready to merge\u00a0:landing'", 1, "CP-1: NBSP + colon terminator"),
+    ("gh pr comment 1 --body 'готов к merge\u00a0：next'", 1, "CP-1: NBSP + fullwidth colon"),
+    ("gh pr comment 1 --body 'ready to merge\u2003:next'", 1, "CP-1: em space + colon"),
+    ("gh pr comment 1 --body 'ready to merge\u00a0after X'", 0, "CP-1 sanity: NBSP + narrative не блокирует"),
     # === Copilot round 28: zero-width char / HTML entity bypass ===
     ("gh pr comment 1 --body 'ready\u200bto merge'", 1, "zero-width space bypass"),
     ("gh pr comment 1 --body '## ✅ Готов\u200b к merge'", 1, "ZWSP in RU marker"),

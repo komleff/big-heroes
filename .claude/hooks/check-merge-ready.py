@@ -52,7 +52,8 @@ import unicodedata
 # 12+ symmetric Unicode terminators из Pass 2 Tester gate (ideographic comma,
 # full-width colon/semicolon, Arabic comma/question/semicolon, Hebrew sof
 # pasuq, Mongolian comma, Armenian full stop, Japanese middle dot,
-# full-width period) и G2 combining diacritic bypass (нормализацией NFKC).
+# full-width period) и G2 combining diacritic bypass (нормализацией NFKD
+# с последующим strip Mn/Mc/Me — см. is_forbidden для подробностей).
 _MERGE_READY_CANDIDATE = re.compile(
     r"(?im)^(?P<prefix>[^\n]*?)"
     r"(?:##\s*(?:✅\s*)?)?"
@@ -414,15 +415,22 @@ def is_forbidden(command: str) -> bool:
     декодируем HTML entities, чтобы `ready&#x200b;to merge` и подобные
     обходы не проходили.
 
-    dolt-0di (v3.5, Pass 2 G1+G2): NFKC normalization + systemic
-    terminator check через `unicodedata.category`. Нормализация
-    склеивает combining diacritics (`é` = `e` + U+0301 → предкомбинированный
-    `é`), гарантируя что regex на «ready to merge» не рассыпется на
-    промежуточном codepoint. Post-match проверка: первый non-whitespace
-    символ после phrase → если `P*` (любая Unicode punctuation) → terminator,
+    dolt-0di (v3.5, Pass 2 G1+G2): NFKD normalization + strip Mn/Mc/Me +
+    systemic terminator check через `unicodedata.category`. NFKD (в
+    отличие от NFKC) декомпозирует compatibility forms и precomposed
+    символы на base + combining marks (например `mergé` → `merge` +
+    U+0301); последующий фильтр `category not in ("Mn","Mc","Me")`
+    удаляет combining marks, возвращая чистую base-form phrase для
+    regex. Post-match проверка: первый non-whitespace символ после
+    phrase → если `P*` (любая Unicode punctuation) → terminator,
     declaration блокируется. Letter/digit → narrative continuation, skip.
-    Это закрывает whole class Unicode-punctuation bypass'ов (12+ векторов)
-    без enumeration terminator-символов.
+    Rationale NFKC → NFKD: NFKC *composes* base+mark обратно в
+    precomposed codepoint (для `é` regex всё равно рассыпется, если в
+    phrase есть combining), NFKD *decomposes* до атомов, что даёт
+    возможность strip'нуть marks и привести phrase к каноничной
+    base-форме. Это закрывает whole class Unicode-punctuation bypass'ов
+    (12+ векторов) без enumeration terminator-символов, плюс G2
+    orthographic bypass (combining accent на последней букве phrase).
 
     Двухстадийный matcher (см. комментарий к _MERGE_READY_CANDIDATE):
     candidate → проверка префикса на отрицание → True только если
@@ -461,19 +469,34 @@ def is_forbidden(command: str) -> bool:
             continue
         # Systemic terminator check: что идёт сразу после phrase?
         tail = normalized[match.end():]
-        # Пропускаем horizontal whitespace (SPACE, TAB) + combining/modifier
-        # codepoints (Mn/Mc/Me — combining marks; Sk — symbol modifier как
-        # `\u00b4` acute accent; Lm — modifier letter). G2 bypass (Pass 2):
-        # `ready to merge\u00b4:landing` вставляет spacing acute между phrase
-        # и terminator — символ категории Sk, не P*, но визуально «сливается»
-        # с буквой. Пропускаем такие «невидимые» модификаторы, чтобы next
-        # meaningful char совпадал с тем, что видит человек в rendered тексте.
-        # Вертикальный whitespace (\n, \r) — terminator (EOL → declaration).
+        # Пропускаем horizontal whitespace + combining/modifier codepoints.
+        # Вертикальный whitespace (\n, \r) — terminator (EOL → declaration),
+        # его пропускать нельзя. Всё остальное horizontal whitespace
+        # (SPACE, TAB, NBSP U+00A0, em-space U+2003, и любая Zs-категория,
+        # уцелевшая после NFKD) — безопасно пропустить.
+        #
+        # Pass 3 CP-1 (Copilot MEDIUM): прежний класс `c in " \t"` пропускал
+        # только ASCII SPACE/TAB. После html.unescape `&nbsp;` → U+00A0;
+        # NFKD обычно декомпозирует его в ` `, но defense-in-depth требует
+        # explicit handling — любой Unicode horizontal whitespace должен
+        # быть прозрачен для terminator-check'а, независимо от нормализации.
+        # `c.isspace() and c not in "\n\r"` покрывает whole class Zs/Zl/Zp
+        # плюс ASCII \t/\v/\f, исключая вертикальные separator'ы.
+        #
+        # Combining marks и modifier symbols/letters (Mn/Mc/Me, Sk, Lm) —
+        # «невидимые» модификаторы буквы, visually сливающиеся с phrase.
+        # G2 bypass Pass 2: `ready to merge\u00b4:` (Sk). Расширяем класс
+        # этими же категориями — мутация NFKD не затрагивает их, они
+        # должны явно пропускаться в skip-loop.
         i = 0
         n = len(tail)
         while i < n:
             c = tail[i]
-            if c in " \t":
+            if c in "\n\r":
+                # Вертикальный whitespace — terminator, выход из skip-loop.
+                break
+            if c.isspace():
+                # Горизонтальный whitespace (ASCII + NBSP/em-space/прочее Zs).
                 i += 1
                 continue
             cat = unicodedata.category(c)
