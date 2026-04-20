@@ -73,6 +73,90 @@ TESTS = [
     ("gh pr comment 1 --body '## ✅ Готов к merge.'", 1, "final marker RU + dot"),
     ("gh pr comment 1 --body '## ✅ Готов к merge!'", 1, "final marker RU + bang"),
     ("gh pr comment 1 --body '## ✅ Готов к merge?'", 1, "final marker RU + question"),
+    # === big-heroes-ase: запятая как terminator (regression v3.5) ===
+    # Pre-existing bypass: фраза «готов к merge, <продолжение>» обходила hook
+    # с запятой-разделителем. Репродьюсер: PM_ROLE §2.5 Шаг 8 и
+    # sprint-pr-cycle Фаза 4.5.7 содержат «готов к merge, landing artifacts
+    # уже внутри» — если PM копирует дословно в gh pr comment, hook должен
+    # блокировать, а не пропускать как «обсуждение».
+    ("gh pr comment 14 --body 'PR готов к merge, landing inside'", 1, "ase: comma terminator RU"),
+    ("gh pr comment 1 --body 'ready to merge, landing inside'", 1, "ase: comma terminator EN"),
+    ("gh pr comment 1 --body '## ✅ Готов к merge, landing artifacts уже внутри'", 1, "ase: RU marker + запятая + продолжение"),
+    # === big-heroes-nw5: semicolon и ellipsis как terminator (Tester gate v3.5) ===
+    # После закрытия bd-ase запятой Tester обнаружил class-coverage gap:
+    # `;` и `…` (U+2026) — symmetric punctuation-terminators, обходят hook
+    # тем же способом. Расширяем класс: [.!?,] → [.!?,;…].
+    ("gh pr comment 15 --body '## ✅ Готов к merge; landing commit следом'", 1, "nw5: semicolon terminator RU"),
+    ("gh pr comment 15 --body 'ready to merge; see CI'", 1, "nw5: semicolon terminator EN"),
+    ("gh pr comment 15 --body 'готов к merge… если X'", 1, "nw5: ellipsis U+2026 terminator RU"),
+    # Symmetry semantic для discussion-continuations: `когда X` и `как только X`
+    # ведут себя как `если X` — запятая делает их terminator, декларация readiness
+    # с продолжением. Явно фиксируем через coverage.
+    ("gh pr comment 1 --body 'готов к merge, когда X'", 1, "nw5: symmetry — запятая + когда"),
+    ("gh pr comment 1 --body 'готов к merge, как только X'", 1, "nw5: symmetry — запятая + как только"),
+    # === dolt-ihl: ASCII ':' + CJK + full-width terminators (Pass 1 external F-1) ===
+    # GPT-5.4 + GPT-5.3-Codex independent repro показал bypass через 5 terminators,
+    # не покрытых прежним classом [.!?,;\u2026]:
+    #   - `:` (ASCII colon) — частый separator в markdown-списках и декларациях.
+    #   - `。` (U+3002) — CJK ideographic full stop.
+    #   - `！` (U+FF01) — full-width exclamation mark.
+    #   - `？` (U+FF1F) — full-width question mark.
+    #   - `，` (U+FF0C) — full-width comma.
+    # Расширяем class до [.!?,;:\u2026\u3002\uff01\uff1f\uff0c].
+    # 5 bypass-кейсов (по одному на каждый новый terminator):
+    ("gh pr comment 1 --body 'ready to merge: landing'", 1, "ihl: colon terminator EN"),
+    ("gh pr comment 1 --body 'готов к merge。следующий шаг'", 1, "ihl: CJK full stop U+3002 RU"),
+    ("gh pr comment 1 --body 'ready to merge！next'", 1, "ihl: full-width exclamation U+FF01"),
+    ("gh pr comment 1 --body 'ready to merge？maybe'", 1, "ihl: full-width question U+FF1F"),
+    ("gh pr comment 1 --body 'готов к merge，landing artifacts inside'", 1, "ihl: full-width comma U+FF0C"),
+    # 5 symmetric discussion-continuation кейсов (терминатор + продолжение) —
+    # подтверждают, что расширение class-coverage покрывает реальные
+    # narrative-попытки обхода.
+    ("gh pr comment 1 --body '## ✅ Готов к merge: landing commit follows'", 1, "ihl: RU marker + colon terminator"),
+    ("gh pr comment 1 --body '## ✅ Готов к merge。landing commit следом'", 1, "ihl: RU marker + CJK full stop"),
+    ("gh pr comment 1 --body 'ready to merge！see CI'", 1, "ihl: EN + full-width exclamation + продолжение"),
+    ("gh pr comment 1 --body 'ready to merge？see you later'", 1, "ihl: EN + full-width question + продолжение"),
+    ("gh pr comment 1 --body '## Готов к merge，если X'", 1, "ihl: RU ## + full-width comma + продолжение"),
+    # === dolt-0di: G1 systemic Unicode punctuation terminators (Pass 2) ===
+    # Pass 2 Tester gate выявил 12+ Unicode punctuation codepoints, обходящих
+    # прежний enumeration terminator class [.!?,;:\u2026\u3002\uff01\uff1f\uff0c].
+    # Fix: unicodedata.category(ch).startswith('P') — любая Unicode
+    # punctuation семантически отделяет declaration от продолжения, не нужен
+    # enumeration. Регрессия-guard для всех 12 символов.
+    ("gh pr comment 1 --body 'ready to merge、landing'", 1, "G1: U+3001 ideographic comma"),
+    ("gh pr comment 1 --body 'готов к merge：next'", 1, "G1: U+FF1A full-width colon"),
+    ("gh pr comment 1 --body 'ready to merge；next'", 1, "G1: U+FF1B full-width semicolon"),
+    ("gh pr comment 1 --body 'ready to merge،next'", 1, "G1: U+060C Arabic comma"),
+    ("gh pr comment 1 --body 'ready to merge؛next'", 1, "G1: U+061B Arabic semicolon"),
+    ("gh pr comment 1 --body 'ready to merge؟'", 1, "G1: U+061F Arabic question"),
+    ("gh pr comment 1 --body 'ready to merge׃next'", 1, "G1: U+05C3 Hebrew sof pasuq"),
+    ("gh pr comment 1 --body 'ready to merge᠂next'", 1, "G1: U+1802 Mongolian comma"),
+    ("gh pr comment 1 --body 'ready to merge։next'", 1, "G1: U+0589 Armenian full stop"),
+    ("gh pr comment 1 --body 'ready to merge・next'", 1, "G1: U+30FB Japanese middle dot"),
+    ("gh pr comment 1 --body 'ready to merge．next'", 1, "G1: U+FF0E full-width period"),
+    # === dolt-0di: G2 combining diacritic / accent bypass (Pass 2) ===
+    # NFKC-нормализация стабилизирует compatibility forms; спейсом-акцент
+    # `\u00b4` (ACUTE ACCENT) классифицируется как Sk (symbol modifier), но
+    # стоит он ПЕРЕД terminator `:` → hook всё равно должен увидеть phrase
+    # `ready to merge` → acute — content continuation → `:` → terminator.
+    # Combining U+0301 на `é` в конце `mergé` делает phrase ortographically
+    # другим, regex НЕ матчит `merge`. Это защита по другому механизму
+    # (phrase orthography), оставляем как регрессионный baseline.
+    ("gh pr comment 1 --body 'ready to merge\u00b4:landing'", 1, "G2: acute accent U+00B4 + colon"),
+    ("gh pr comment 1 --body 'ready to merge\u0301:landing'", 1, "G2: combining acute U+0301 + colon"),
+    # === Pass 3 Copilot CP-1: NBSP / em-space horizontal whitespace ===
+    # После html.unescape `&nbsp;` → U+00A0 (NBSP). Прежний skip-loop класс
+    # `c in " \t"` пропускал только ASCII SPACE/TAB. Хотя NFKD обычно
+    # декомпозирует NBSP в regular space (покрывая этот кейс), defense-in-depth
+    # требует explicit c.isspace() and c not in "\n\r" — любой horizontal
+    # whitespace должен быть прозрачен для terminator-check, независимо от
+    # нормализации. Это широкая G2-closure: все Zs, Zl (кроме \n), и ASCII
+    # \t/\v/\f → skip. Регрессия-guard: после fix CP-1 эти кейсы продолжают
+    # блокироваться даже если будущий rewrite нормализации изменит маппинг.
+    ("gh pr comment 1 --body 'ready to merge\u00a0:landing'", 1, "CP-1: NBSP + colon terminator"),
+    ("gh pr comment 1 --body 'готов к merge\u00a0：next'", 1, "CP-1: NBSP + fullwidth colon"),
+    ("gh pr comment 1 --body 'ready to merge\u2003:next'", 1, "CP-1: em space + colon"),
+    ("gh pr comment 1 --body 'ready to merge\u00a0after X'", 0, "CP-1 sanity: NBSP + narrative не блокирует"),
     # === Copilot round 28: zero-width char / HTML entity bypass ===
     ("gh pr comment 1 --body 'ready\u200bto merge'", 1, "zero-width space bypass"),
     ("gh pr comment 1 --body '## ✅ Готов\u200b к merge'", 1, "ZWSP in RU marker"),
@@ -80,10 +164,18 @@ TESTS = [
     ("gh pr comment 1 --body 'ready\ufeffto merge'", 1, "BOM char bypass"),
     # === Пропуск: обсуждения и цитаты ===
     ("gh pr comment 1 --body 'не готов к merge — тесты красные'", 0, "отрицание"),
-    ("gh pr comment 1 --body 'почти готов к merge, жду review'", 0, "«почти готов»"),
-    ("gh pr comment 1 --body 'готов к merge, если X'", 0, "фраза без ##"),
-    ("gh pr comment 1 --body '## Готов к merge после исправлений'", 0, "## + продолжение"),
-    ("gh pr comment 1 --body '## Готов к merge, если X'", 0, "## + запятая"),
+    ("gh pr comment 1 --body 'почти готов к merge, жду review'", 0, "«почти готов» — negation wins"),
+    ("gh pr comment 1 --body '## Готов к merge после исправлений'", 0, "## + продолжение без terminator"),
+    # big-heroes-ase (v3.5): запятая теперь terminator. Прежние кейсы с
+    # «готов к merge, если X» (ранее expected 0 как «обсуждение») переведены
+    # в block: фраза с запятой неотличима от декларации с продолжением.
+    # Narrative-фразы без terminator (например «готов к merge in the future»)
+    # продолжают проходить — см. тесты ниже.
+    ("gh pr comment 1 --body 'готов к merge, если X'", 1, "ase: запятая terminator (было 0)"),
+    ("gh pr comment 1 --body '## Готов к merge, если X'", 1, "ase: ## + запятая terminator (было 0)"),
+    # Narrative без terminator — не блокируется (позитивный sanity для task 3).
+    ("gh pr comment 1 --body 'готов к merge in the future'", 0, "narrative без terminator"),
+    ("gh pr comment 1 --body 'PR будет готов к merge после CI'", 0, "narrative с negation «будет»"),
     # === Пропуск: markdown blockquote (GPT-5.4 round 15 WARNING) ===
     ("gh pr comment 1 --body '> ready to merge'", 0, "blockquote bare EN"),
     ("gh pr comment 1 --body '> готов к merge'", 0, "blockquote bare RU"),
@@ -257,6 +349,62 @@ TESTS = [
     ('gh pr comment 1 -b "$(head /tmp/x)"', 1, "-b с cmd-subst $(head) блокируется"),
     ('gh pr comment 1 -b "$(echo $BODY)"', 1, "-b с cmd-subst $(echo $VAR) блокируется"),
     ('gh pr comment 1 -b "Prefix $BODY"', 1, "-b с concat prefix+$BODY блокируется"),
+    # === Pass 4 E-1 WARNING: opening punctuation false positive ===
+    # GPT-5.4 + GPT-5.3-Codex Pass 3: systemic startswith('P') блокировал
+    # Ps (Open) и Pi (Initial quote) — но `(`, `[`, `{`, «, ' — это
+    # openers clauses / subordinate, а не sentence terminators.
+    # Bypass workflow: `ready to merge (if CI passes)` ложно блок'ался.
+    # Fix: class = Po ∪ Pf (Other punct + Final quote) — минимальная
+    # семантически-корректная terminator-класс.
+    ("gh pr comment 1 --body 'ready to merge (if CI passes)'", 0, "E-1: open paren = narrative continuation"),
+    ("gh pr comment 1 --body 'ready to merge [tracking issue]'", 0, "E-1: open bracket = narrative"),
+    ("gh pr comment 1 --body 'ready to merge {if deps resolve}'", 0, "E-1: open brace = narrative"),
+    ("gh pr comment 1 --body 'готов к merge «после review»'", 0, "E-1: initial quote « = narrative"),
+    ("gh pr comment 1 --body 'ready to merge \u2018after X\u2019'", 0, "E-1: initial single quote U+2018 = narrative"),
+    # E-1 regression: real terminators продолжают block.
+    ("gh pr comment 1 --body 'ready to merge.'", 1, "E-1 regression: period still block"),
+    ("gh pr comment 1 --body 'ready to merge。'", 1, "E-1 regression: CJK period block"),
+    ("gh pr comment 1 --body 'ready to merge!'", 1, "E-1 regression: bang block"),
+    ("gh pr comment 1 --body 'ready to merge: next'", 1, "E-1 regression: colon (Po) still block"),
+    # E-1 Pf sanity: closing quote — terminator (Final quote category Pf).
+    ("gh pr comment 1 --body 'ready to merge\u201d next'", 1, "E-1: closing Pf quote U+201D = terminator"),
+    ("gh pr comment 1 --body 'ready to merge» next'", 1, "E-1: closing Pf quillemet » = terminator"),
+    # === Pass 5 E-5 WARNING: backtick (Sk) в skip-loop — удалить Sk ===
+    # Developer Pass 2 добавил Sk/Lm в skip-set для G2 combining diacritic
+    # U+00B4 (ACUTE ACCENT, Sk). Но backtick U+0060 — тоже Sk: skip-loop
+    # проглатывал closing backtick после phrase в легитимных inline code
+    # span командах, затем встречал shell-quote и ложно считал её
+    # terminator-ом. Bypass legitimate workflow:
+    # `gh pr comment 1 --body 'Use \`ready to merge\`'` ложно блокировался.
+    # Fix: убрать Sk/Lm из skip-set. G2 остаётся закрытым через NFKD
+    # normalization — combining marks разносятся, Mn/Mc/Me strip'аются.
+    ("gh pr comment 1 --body 'Use `ready to merge`'", 0, "E-5: quoted inline code passes"),
+    ("gh pr comment 1 --body 'Example: `готов к merge` phrase'", 0, "E-5: RU quoted inline code"),
+    ("gh pr comment 1 --body 'Here is `merge ready` in docs'", 0, "E-5: bare phrase in inline code"),
+    # E-5 regression: G2 combining diacritic still blocks via NFKD decomposition
+    # (не через Sk skip). U+00B4 acute accent под NFKD → U+0020 + U+0301 →
+    # space+combining → strip Mn → clean phrase. Terminator-check видит `:`.
+    ("gh pr comment 1 --body 'ready to merg\u00e9:landing'", 1, "E-5 regression: precomposed é NFKD decomposes"),
+    ("gh pr comment 1 --body 'ready to merge\u0301:landing'", 1, "E-5 regression: combining acute U+0301 still block"),
+    ("gh pr comment 1 --body 'ready to merge\u00b4:landing'", 1, "E-5 regression: acute accent Sk via NFKD path"),
+    # === v3.5 Option B revert: Pe (close) / Pd (dash) удалены из terminator class ===
+    # Pass 6 E-7 расширил terminator class до Po+Pf+Pe+Pd. Pe/Pd overmatch
+    # открыл surface overmatch: `/`/`.` в paths/branches (big-heroes-3ed, E-15)
+    # и `:` в backtick-quoted inline code (big-heroes-16e, E-14). Каждый
+    # tactical fix Pe/Pd overmatch вскрывал новые findings — overfitting cycle.
+    # Option B (big-heroes-nw5): вернули Po+Pf (Pass 4 E-1 baseline, proven
+    # minimum). Systemic Python rewrite — big-heroes-55m (v3.6 sprint-opener),
+    # big-heroes-ytx (Po overmatch).
+    #
+    # Sanity: после revert `(ready to merge)` и `ready to merge — landing`
+    # больше НЕ блокируются (narrative) — known limitation v3.5.
+    # Deferred coverage — big-heroes-ytx (v3.6 Python rewrite).
+    ("gh pr comment 1 --body '(ready to merge)'", 0, "Option B revert: Pe close paren — narrative (deferred big-heroes-ytx v3.6)"),
+    ("gh pr comment 1 --body 'ready to merge — landing'", 0, "Option B revert: Pd em-dash — narrative (deferred big-heroes-ytx v3.6)"),
+    # E-1 regression (Po+Pf baseline): open-punct (Ps) / initial quote (Pi)
+    # продолжают рассматриваться как narrative.
+    ("gh pr comment 1 --body 'ready to merge (if CI passes)'", 0, "E-1 baseline: narrative open paren (Ps)"),
+    ("gh pr comment 1 --body 'ready to merge [tracking]'", 0, "E-1 baseline: narrative open bracket (Ps)"),
 ]
 
 

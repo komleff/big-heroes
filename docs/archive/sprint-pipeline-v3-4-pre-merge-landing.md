@@ -317,7 +317,7 @@ Tier: Sprint Final
 - [ ] Tester gate (Critical class = pipeline-artifacts)
 - [ ] Claude Reviewer Pass 1 + Pass 2
 - [ ] Sprint Final /external-review (Mode C degraded expected due to BE-11)
-- [ ] /finalize-pr (первый)
+- [ ] /finalize-pr (первый, для Sprint Final: --pre-landing)
 - [ ] Pre-merge landing commit (dogfood)
 - [ ] /finalize-pr (второй, новый HEAD)
 

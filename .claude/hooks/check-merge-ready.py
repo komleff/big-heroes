@@ -24,6 +24,7 @@ import html
 import os
 import re
 import sys
+import unicodedata
 
 
 # Паттерны маркера финального комментария readiness.
@@ -38,10 +39,26 @@ import sys
 #   2) _NEGATION_WORDS — постфильтр: если префикс содержит отрицание / «почти»,
 #      это обсуждение, не декларация готовности. Пропускаем.
 #
-# Терминаторы фразы строгие: конец строки / newline / закрывающая shell-кавычка /
-# пунктуация `.!?`. Продолжение предложения («готов к merge после X»,
-# «ready to merge, если Y») не матчится — это именно точный маркер готовности.
-# Copilot round 22 CRITICAL: пунктуация `.!?` обходила прежний терминатор.
+# Терминатор фразы проверяется в is_forbidden через unicodedata.category
+# (systemic Unicode approach, dolt-0di, Pass 2 G1+G2). Regex ловит только
+# саму phrase + prefix; символ сразу после phrase (с пропуском horizontal
+# whitespace + combining marks) проверяется на принадлежность категориям
+# Po (Other punctuation) и Pf (Final quote) — минимальное семантически-
+# корректное множество terminator punctuation. Pass 4 E-1 сузил класс с
+# прежнего `startswith('P')`, потому что Ps (Open), Pi (Initial quote),
+# Pe (Close), Pc (Connector), Pd (Dash) — не sentence terminators:
+# `ready to merge (if CI passes)` / «после review» — narrative continuation,
+# не declaration. Любая буква/цифра → narrative continuation (discussion,
+# not declaration).
+#
+# Историю enumeration-подхода см. в `Addresses: dolt-ihl` / Copilot round 22
+# (ASCII `.!?`) / big-heroes-ase (`,`) / big-heroes-nw5 (`;` + `…`). Все эти
+# кейсы закрываются systemic-проверкой без конкретизации classа, вместе с
+# 12+ symmetric Unicode terminators из Pass 2 Tester gate (ideographic comma,
+# full-width colon/semicolon, Arabic comma/question/semicolon, Hebrew sof
+# pasuq, Mongolian comma, Armenian full stop, Japanese middle dot,
+# full-width period) и G2 combining diacritic bypass (нормализацией NFKD
+# с последующим strip Mn/Mc/Me — см. is_forbidden для подробностей).
 _MERGE_READY_CANDIDATE = re.compile(
     r"(?im)^(?P<prefix>[^\n]*?)"
     r"(?:##\s*(?:✅\s*)?)?"
@@ -50,8 +67,7 @@ _MERGE_READY_CANDIDATE = re.compile(
     r"|ready\s*(?:to|for)\s*merge"
     r"|merge\s*ready"
     r"|merge\s*is\s*ready"
-    r")"
-    r"\s*(?:[.!?]\s*)?(?:$|\n|['\"])",
+    r")",
 )
 
 # Слова-отрицания перед фразой — снимают блокировку. Покрывают частые паттерны
@@ -404,15 +420,48 @@ def is_forbidden(command: str) -> bool:
     декодируем HTML entities, чтобы `ready&#x200b;to merge` и подобные
     обходы не проходили.
 
+    dolt-0di (v3.5, Pass 2 G1+G2): NFKD normalization + strip Mn/Mc/Me +
+    systemic terminator check через `unicodedata.category`. NFKD (в
+    отличие от NFKC) декомпозирует compatibility forms и precomposed
+    символы на base + combining marks (например `mergé` → `merge` +
+    U+0301); последующий фильтр `category not in ("Mn","Mc","Me")`
+    удаляет combining marks, возвращая чистую base-form phrase для
+    regex. Post-match проверка: первый non-whitespace символ после
+    phrase → если категория `Po` (Other punctuation) или `Pf` (Final
+    quote) → terminator, declaration блокируется. Pass 4 E-1 сузил
+    класс: Ps/Pi/Pe/Pc/Pd НЕ включаются как terminator (`(`, `[`, `{`,
+    «, ', ), ], }, ‒, —, ‿ — narrative continuation, не sentence
+    terminators). Letter/digit → narrative continuation, skip.
+    Rationale NFKC → NFKD: NFKC *composes* base+mark обратно в
+    precomposed codepoint (для `é` regex всё равно рассыпется, если в
+    phrase есть combining), NFKD *decomposes* до атомов, что даёт
+    возможность strip'нуть marks и привести phrase к каноничной
+    base-форме. Это закрывает whole class Unicode-punctuation bypass'ов
+    (12+ векторов) без enumeration terminator-символов, плюс G2
+    orthographic bypass (combining accent на последней букве phrase).
+
     Двухстадийный matcher (см. комментарий к _MERGE_READY_CANDIDATE):
     candidate → проверка префикса на отрицание → True только если
-    префикс чист.
+    префикс чист И за phrase идёт terminator (punctuation/EOL/shell-quote).
     """
     # Декодируем HTML entities: &#x200b; → символ, &nbsp; → пробел и т.д.
     normalized = html.unescape(command)
     # Удаляем zero-width и невидимые Unicode символы, которые GitHub рендерит
     # как пустое место, но regex не видит.
     normalized = re.sub(r"[\u200b-\u200f\u2028-\u202f\ufeff\u00ad\u2060]", "", normalized)
+    # NFKD + удаление combining marks: combining diacritics разносятся на
+    # base + mark, затем Mn/Mc/Me вычищаются. `ready to merge\u0301:landing`
+    # после NFKD = `ready to merge\u0301:landing`, после strip marks =
+    # `ready to merge:landing` → regex матчит phrase, `:` триггерит
+    # terminator. Без этого combining acute на последней `e` в `merge` (или
+    # precomposed `mergé` после NFC) рассыпал regex — bypass (Pass 2 G2).
+    # NFKD также нормализует compatibility forms: `\uFE55` (small colon) →
+    # `:` (Po, уже terminator по unicodedata.category). Effect: G2 закрыт
+    # whole class — любая комбинация base+mark в phrase сводится к base.
+    normalized = unicodedata.normalize("NFKD", normalized)
+    normalized = "".join(
+        ch for ch in normalized if unicodedata.category(ch) not in ("Mn", "Mc", "Me")
+    )
     normalized = re.sub(r"[_\-]+", " ", normalized)
     for match in _MERGE_READY_CANDIDATE.finditer(normalized):
         prefix = match.group("prefix") or ""
@@ -426,7 +475,120 @@ def is_forbidden(command: str) -> bool:
             # объявление. Финальный комментарий /finalize-pr публикуется как
             # `## ✅ Готов к merge`, без blockquote — реального bypass не создаёт.
             continue
-        return True
+        # Systemic terminator check: что идёт сразу после phrase?
+        tail = normalized[match.end():]
+        # Пропускаем horizontal whitespace + combining/modifier codepoints.
+        # Вертикальный whitespace (\n, \r) — terminator (EOL → declaration),
+        # его пропускать нельзя. Всё остальное horizontal whitespace
+        # (SPACE, TAB, NBSP U+00A0, em-space U+2003, и любая Zs-категория,
+        # уцелевшая после NFKD) — безопасно пропустить.
+        #
+        # Pass 3 CP-1 (Copilot MEDIUM): прежний класс `c in " \t"` пропускал
+        # только ASCII SPACE/TAB. После html.unescape `&nbsp;` → U+00A0;
+        # NFKD обычно декомпозирует его в ` `, но defense-in-depth требует
+        # explicit handling — любой Unicode horizontal whitespace должен
+        # быть прозрачен для terminator-check'а, независимо от нормализации.
+        # `c.isspace() and c not in "\n\r"` покрывает whole class Zs/Zl/Zp
+        # плюс ASCII \t/\v/\f, исключая вертикальные separator'ы.
+        #
+        # Combining marks (Mn/Mc/Me) — «невидимые» диакритики, которые
+        # visually сливаются с phrase и не являются sentence terminators.
+        #
+        # Pass 5 E-5 (WARNING): прежняя версия включала Sk (Symbol modifier)
+        # и Lm (Letter modifier) в skip-set для покрытия G2 bypass через
+        # U+00B4 (ACUTE ACCENT, Sk). Но backtick U+0060 — тоже Sk, и skip-
+        # loop проглатывал closing backtick после phrase в легитимных
+        # командах вроде `gh pr comment 1 --body 'Use \`ready to merge\`'`
+        # (inline code span в обсуждении). После Sk-backtick скипался и
+        # shell-quote `'` триггерил terminator-check → false block
+        # легитимного comment.
+        #
+        # Теперь Sk/Lm НЕ включаются. G2 combining diacritic bypass всё
+        # ещё закрыт через NFKD normalization выше: precomposed `mergé`
+        # → `merge` + U+0301 (Mn) → strip marks → clean phrase, regex
+        # match → terminator check видит чистое `:`/`.` после NFKD-
+        # декомпозированного текста. U+00B4 acute accent под NFKD
+        # декомпозируется в U+0020 + U+0301 → space+mark → после strip
+        # marks остаётся space, который isspace() пропускает. Pathway
+        # через нормализацию работает для всего класса G2 без включения
+        # Sk в skip-set.
+        i = 0
+        n = len(tail)
+        while i < n:
+            c = tail[i]
+            if c in "\n\r":
+                # Вертикальный whitespace — terminator, выход из skip-loop.
+                break
+            if c.isspace():
+                # Горизонтальный whitespace (ASCII + NBSP/em-space/прочее Zs).
+                i += 1
+                continue
+            cat = unicodedata.category(c)
+            # Только combining marks — семантически «невидимые» диакритики.
+            # Spacing modifier symbols (Sk, включая backtick) и modifier
+            # letters (Lm) НЕ skip — они могут быть legitimate delimiters
+            # или закрывающими quotes в shell-команде.
+            if cat in ("Mn", "Mc", "Me"):
+                i += 1
+                continue
+            break
+        if i >= n:
+            # EOF сразу после phrase — declaration (no continuation possible).
+            return True
+        ch = tail[i]
+        if ch in "\n\r":
+            # Newline — declaration (phrase в конце строки).
+            return True
+        if ch in "\"'":
+            # Закрывающая shell-quote — declaration (`--body 'ready to merge'`).
+            return True
+        # Unicode punctuation category — только closing/other punctuation
+        # семантически отделяет declaration от продолжения. Opening punctuation
+        # (Ps, Pi) начинает subordinate clause / цитату — narrative continuation.
+        #
+        # Pass 4 E-1 (WARNING): прежний `cat.startswith('P')` блокировал
+        # легитимные `(`, `[`, `{`, `'`, `"`, `«` — фразы типа «ready to merge
+        # (if CI passes)» ложно считались декларацией. Opening-bracket/quote
+        # подкатегории Ps (Open punctuation) и Pi (Initial quote) —
+        # openers clause, НЕ sentence terminators.
+        #
+        # v3.5 Option B revert (10cdf47 E-7 reverted): класс ограничен Po+Pf.
+        # Pass 6 E-7 расширение до Po+Pf+Pe+Pd создало overmatch surface:
+        #   - Pe overmatch: `(ready to merge)` closing `)` — legitimate, но
+        #     в связке с Po (`:` в inline backtick quote) открыл bypass surface
+        #     `big-heroes-16e` (E-14);
+        #   - Pd overmatch: `/` и `.` внутри paths/branches — ASCII hyphen уже
+        #     normalized pre-strip, Unicode en/em-dash `—` `–` в narrative
+        #     «ready to merge — landing follows» остаётся ambiguous между
+        #     declaration и narrative. Породил `big-heroes-3ed` (E-15).
+        # Option B: вернули Po+Pf как минимальный proven-safe класс (Pass 4 E-1
+        # baseline). Pe/Pd overmatch (E-7) и сопутствующие E-14/E-15 defer'ятся
+        # до Python rewrite в v3.6 (`big-heroes-55m`, `big-heroes-ytx`).
+        #
+        # Включаем:
+        #   Po — Other punctuation (`.`, `!`, `?`, `:`, `;`, CJK `。`, `、`,
+        #        full-width `．`, `！`, `？`, `，`, Arabic `،`, `؛`, `؟`,
+        #        Hebrew `׃`, Mongolian `᠂`, Armenian `։`, Japanese `・`);
+        #   Pf — Final quote (`”`, `»`, `’`) — closing quote может быть
+        #        terminator для narrative «цитата закончилась, continuation».
+        #
+        # НЕ включаем:
+        #   Ps — Open punctuation (`(`, `[`, `{`) — начинает clause, narrative;
+        #   Pi — Initial quote (`“`, `«`, `‘`) — открывающая цитата, narrative;
+        #   Pe — Close punctuation (`)`, `]`, `}`) — reverted v3.5 Option B
+        #        (E-7 tactical overfit → E-14 surface, deferred v3.6);
+        #   Pd — Dash (`-`, `—`, `–`) — reverted v3.5 Option B (E-7 →
+        #        E-15 surface, deferred v3.6);
+        #   Pc — Connector (`_`, `‿`) — не sentence separator.
+        #
+        # Минимальный proven-safe terminator класс: Po + Pf (Pass 4 E-1 baseline).
+        cat = unicodedata.category(ch)
+        if cat in ("Po", "Pf"):
+            return True
+        # Letter, digit, space-like separator (Z*, но только Zs после strip
+        # whitespace выше не должен появиться), symbol — narrative continuation.
+        # `готов к merge after X` / `ready to merge in the future` — пропускаем.
+        continue
     return False
 
 

@@ -229,6 +229,19 @@ fi
 #   1) в теле НЕТ ни одного CHANGES_REQUESTED (иначе один из аспектов
 #      или ревьюеров сигналит CHANGES_REQUESTED, скрытый поздним APPROVED);
 #   2) в теле есть хотя бы один APPROVED.
+#
+# Предобработка strip_code_spans.sh (Sprint v3.5, big-heroes-nw5):
+# вхождения CHANGES_REQUESTED и APPROVED внутри inline code spans
+# (парные одиночные бэктики) и fenced code blocks (тройные бэктики)
+# — это historical/narrative цитаты в review-pass комментариях,
+# они НЕ должны матчиться regex'ом. Раньше бэктики попадали в
+# non-[A-Z_] boundary и давали infrastructure false positive
+# (v3.4 PR #14: narrative «оснований для `CHANGES_REQUESTED` не
+# вижу» блокировал hard gate при реальном Вердикт: APPROVED).
+# Stripper читает тело из stdin и возвращает текст с вырезанными
+# code spans, затем grep работает на plain text. Реальные вердикты
+# в plain text продолжают блокировать/пропускать как раньше.
+# Unit-тесты: .claude/skills/finalize-pr/validators/test_validate_review_pass.sh.
 validate_review_pass_body() {
   local review_kind="$1"   # "internal" | "external"
   local review_body="$2"
@@ -239,13 +252,48 @@ validate_review_pass_body() {
     exit 1
   fi
 
-  if printf '%s\n' "$review_body" | grep -qE '(^|[^A-Z_])CHANGES_REQUESTED([^A-Z_]|$)'; then
+  # Mask code spans перед regex-проверкой (strip_code_spans.sh — stdin→stdout).
+  # Pass 3 Copilot CP-3 (закрывает dolt-hta): используем absolute path через
+  # git rev-parse --show-toplevel. Прежний relative путь ломался если
+  # /finalize-pr вызывался из subdirectory (cwd != repo root) → stripper
+  # не найден → fail-secure fallback на raw grep, где backtick-wrapped
+  # CHANGES_REQUESTED снова триггерит infrastructure false positive.
+  local repo_root
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "СТОП: не удалось определить корень git-репозитория для strip_code_spans."
+    echo "Повтори запуск /finalize-pr из git-репозитория."
+    exit 1
+  }
+
+  local stripper_path="${repo_root}/.claude/skills/finalize-pr/validators/strip_code_spans.sh"
+  if [ ! -f "$stripper_path" ]; then
+    echo "СТОП: не найден stripper по пути: $stripper_path"
+    echo "Убедись, что .claude/skills/finalize-pr/validators/ присутствует в репо."
+    exit 1
+  fi
+
+  # Pass 4 CX-2: fail-secure exit-code проверка stripper'а.
+  # Прежняя форма `stripped_body=$(... | bash "$stripper_path")` игнорировала
+  # exit code stripper'а — при segfault/ошибке переменная получала пустую
+  # строку, grep не находил ни CHANGES_REQUESTED ни APPROVED, validator
+  # fall-through на «нет APPROVED → СТОП». Это корректный fail-secure, но
+  # маскирует реальную ошибку: оператор видит «нет APPROVED», а не «stripper
+  # упал». Явная if-guard: если stripper упал — немедленная остановка
+  # с диагностикой, без попыток grep'ать мусор.
+  local stripped_body
+  if ! stripped_body=$(printf '%s' "$review_body" | bash "$stripper_path"); then
+    echo "СТОП: strip_code_spans.sh завершился с ошибкой при проверке ${review_kind} review-pass."
+    echo "Это fail-secure остановка: sanitizer review-pass не отработал, поэтому продолжать проверку небезопасно."
+    exit 1
+  fi
+
+  if printf '%s\n' "$stripped_body" | grep -qE '(^|[^A-Z_])CHANGES_REQUESTED([^A-Z_]|$)'; then
     echo "СТОП: в последнем ${review_kind} review-pass на $HEAD_COMMIT есть CHANGES_REQUESTED по одному из аспектов/ревьюеров."
     echo "После CHANGES_REQUESTED обязателен повторный ${review_kind} review-pass с APPROVED по всем аспектам на текущем commit."
     exit 1
   fi
 
-  if ! printf '%s\n' "$review_body" | grep -qE '(^|[^A-Z_])APPROVED([^A-Z_]|$)'; then
+  if ! printf '%s\n' "$stripped_body" | grep -qE '(^|[^A-Z_])APPROVED([^A-Z_]|$)'; then
     echo "СТОП: в последнем ${review_kind} review-pass не найден APPROVED."
     echo "Проверь, что отчёт публикуется по шаблону sprint-pr-cycle и содержит явный 'Вердикт: APPROVED'."
     exit 1
@@ -261,6 +309,39 @@ if [ "$TIER" = "sprint-final" ]; then
   validate_review_pass_body "external" "$LAST_EXTERNAL"
 fi
 ```
+
+### Known limitations (v3.5, deferred to v3.6)
+
+Awk-based CommonMark stripper покрывает базовый subset spec:
+- Fenced code blocks (backtick/tilde, 0-3 indent, info-string validation для backtick-fences);
+- Inline code spans (N-backtick run-length matching, per-line scanning, backslash-escape для opener);
+- Structural line recognition (ATX heading `#`, list item `-*+`, thematic break `---`/`***`/`___`) — emit raw без inline-scan.
+
+**Не покрыто (deferred до Python rewrite — `big-heroes-55m` P1 v3.6 sprint-opener):**
+
+1. **Multiline inline spans** (opener на строке N, closer на строке N+1) — `big-heroes-55m`. v3.5 Option B revert per-line scanning; multi-line спаны трактуются как unmatched backticks → safe default (fallback в plain text, validator блокирует).
+2. **Blockquote** (`>` prefix) как paragraph terminator — `big-heroes-36d`.
+3. **Setext heading** (`===` / `---` underline) как paragraph terminator — `big-heroes-42a`.
+4. **HTML block** (`<div>`, `<details>`, CommonMark §4.6 block tags) как terminator — `big-heroes-zhe`.
+5. **Structural-line inline strip** — ATX heading / list item lines emit raw; inline `` `CR` `` в structural-line survives — `big-heroes-6bp` (P2, theoretical false APPROVED).
+6. **Ellipsis U+2026 terminator** — оставлено для hook (уже покрыто), не stripper-concern.
+7. **Hook Po overmatch:** `:` в backtick quote (`big-heroes-16e`), `/` `.` в paths/branches (`big-heroes-3ed`), `Pe`/`Pd` broad categories (`big-heroes-ytx`).
+
+Low exploitability: требуют malicious reviewer с specific markdown construct. Systemic Python rewrite в v3.6 (`big-heroes-55m`) решает все пункты вместе, на единой AST-based реализации с полным CommonMark-покрытием.
+
+### Debug / regression helpers
+
+Помощники для отладки stripper'а и проверки регрессий — запускаются вручную PM'ом при подозрении на infrastructure false positive / false negative, не вызываются автоматически из hard gate.
+
+- `.claude/skills/finalize-pr/validators/test_validate_review_pass.sh` — unit-тесты stripper'а; актуальный набор кейсов и их число смотри в самом скрипте.
+- `.claude/skills/finalize-pr/validators/regression_pr14.sh` — regression prove на реальной истории PR #14 (VC-5). Требует `$COMMENTS_DIR` с раскладкой `c*.txt` (см. docstring скрипта). Запуск:
+  ```bash
+  mkdir -p /tmp/pr14_comments
+  for i in $(seq 0 24); do
+    gh pr view 14 --json comments -q ".comments[$i].body" > /tmp/pr14_comments/c$i.txt
+  done
+  bash .claude/skills/finalize-pr/validators/regression_pr14.sh
+  ```
 
 ## Фаза 2: triage-проверки
 
