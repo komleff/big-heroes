@@ -347,6 +347,44 @@ FENCE_T21_INPUT='## Review-pass
 assert_passes "fence_opener_5_tildes_symmetric" "$FENCE_T21_INPUT"
 assert_substring_survives "fence_opener_5_tildes_tail_survives" "$FENCE_T21_INPUT" "Теперь всё починено."
 
+echo "=== Pass 1 external F-2-inline: N-backtick run-length matching (dolt-cet) ==="
+
+# CommonMark: inline code span — opener N backticks, closer строго того же run
+# length N. Между ними — любой текст (включая одиночные `, пока их count ≠ N).
+# Прежний toggle на одиночных backticks ломал N-backtick spans через два
+# симметричных bypass:
+#
+#   (a) Двойной opener без пробела: ``CHANGES_REQUESTED``. Toggle flip-flip
+#       (пустой span) → CHANGES_REQUESTED попадает как plain → ложный block.
+#   (b) Тройной opener: ```CHANGES_REQUESTED```. Toggle 3 раза flip, в итоге
+#       in_span=1, токен CHANGES_REQUESTED стрипается — но только если за ним
+#       идут симметрично тройные backticks. Смещение run-length → false match.
+#
+# GPT-5.4 finding. Fix: pure-awk run-length matcher (len = длина run-а при
+# встрече `; ищем closer того же run-length; между ними содержимое стрипается).
+
+# 22. Двойной backtick inline span без пробелов (``CONTENT``).
+# Ожидание: CHANGES_REQUESTED стрипается целиком как содержимое spana.
+# Под toggle: flip-flip → пустой span, CHANGES_REQUESTED попадает как plain →
+# assert_passes падает (CR найден после strip).
+assert_passes "inline_double_backtick_span_no_spaces" \
+'Вердикт: APPROVED ``CHANGES_REQUESTED`` finished'
+
+# 23. Тройной backtick inline span (редко, но валидно в CommonMark).
+assert_passes "inline_triple_backtick_span" \
+'Вердикт: APPROVED ```CHANGES_REQUESTED``` finished'
+
+# 24. Двойной backtick span с embedded single backticks внутри (CommonMark
+# explicit use case для N-backtick: когда content сам содержит backticks).
+# Прежний toggle: посчитает одиночные внутри и в итоге разъедется.
+assert_passes "inline_double_backtick_span_with_embedded_single" \
+'Вердикт: APPROVED. Было `` `CHANGES_REQUESTED` `` в истории.'
+
+# 25. Смешанные run lengths: одиночный span и двойной на одной строке.
+# `CHANGES_REQUESTED` (single) + ``finished`` (double) — оба должны стрипаться.
+assert_passes "inline_mixed_single_and_double_run_lengths" \
+'Вердикт: APPROVED `CHANGES_REQUESTED` затем ``finished`` конец'
+
 echo ""
 echo "=== Summary ==="
 echo "Run: $TESTS_RUN, Passed: $TESTS_PASSED, Failed: $TESTS_FAILED"

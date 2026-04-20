@@ -41,9 +41,12 @@
 #   - CRLF — нормализуем через tr перед awk;
 #   - inline backticks внутри fenced блока — fenced strip работает первым
 #     и удаляет весь блок целиком, внутренние ` не ломают логику;
-#   - непарный одиночный ` — best-effort, text после него проходит как есть
-#     (лучше ложное блокирование чем ложный пропуск);
-#   - множественные inline spans на одной строке — toggle на bench.
+#   - непарный run backticks — best-effort: весь run + хвост строки идут в out
+#     как plain text (safe default: не прячем потенциальный CHANGES_REQUESTED);
+#   - множественные inline spans на одной строке — run-length matcher;
+#   - N-backtick inline spans (``content``, ```content``` и т.п., CommonMark
+#     F-2-inline, Pass 1 external dolt-cet): opener/closer одинаковой
+#     run-length N, содержимое между ними стрипается целиком.
 
 set -u
 
@@ -124,36 +127,60 @@ tr -d '\r' | awk '
         fence_len = open_run
         next
       }
-      # Strip inline code spans на текущей строке.
-      # Проход посимвольно: toggle at `, не-code символы копируем.
+      # Strip inline code spans на текущей строке — run-length matcher (F-2-inline).
+      # CommonMark: inline code span — opener N backticks, closer строго того же
+      # run-length N. Между ними — любой текст (включая backticks ≠ N).
+      # Прежний posimvolniy toggle ломал N-backtick spans (``CONTENT`` и т.п.):
+      # flip-flip давало пустой span, content оставался plain.
+      #
+      # Алгоритм:
+      #   i проходит по строке слева направо.
+      #   При встрече run-а backticks длиной N ищем справа следующий run
+      #   ровно той же длины N. Если найден — содержимое (вкл. non-N backticks
+      #   внутри) стрипаем, сам opener+closer не сохраняем, i перепрыгивает
+      #   после closer-run. Если не найден — текущий run + остаток строки
+      #   идут в out как plain text (best-effort safe default: не скрывать
+      #   CHANGES_REQUESTED потенциально лежащий в хвосте).
       out = ""
-      in_span = 0
       n = length(line)
-      for (i = 1; i <= n; i++) {
+      i = 1
+      while (i <= n) {
         c = substr(line, i, 1)
-        if (c == "`") {
-          in_span = !in_span
-          # сам бэктик не сохраняем (и open, и close)
+        if (c != "`") {
+          out = out c
+          i++
           continue
         }
-        if (!in_span) {
-          out = out c
+        # Нашли начало run-а. Считаем его длину N.
+        N = 0
+        start = i
+        while (i <= n && substr(line, i, 1) == "`") { N++; i++ }
+        # Ищем closer — run ровно длины N, начиная с позиции i (после opener-run).
+        found_close_start = 0
+        j = i
+        while (j <= n) {
+          if (substr(line, j, 1) != "`") { j++; continue }
+          # Считаем длину run-а на позиции j.
+          M = 0
+          rj = j
+          while (rj <= n && substr(line, rj, 1) == "`") { M++; rj++ }
+          if (M == N) {
+            found_close_start = j
+            close_end = rj - 1  # последний символ closer-run
+            break
+          }
+          # Run длины M != N — не наш closer, перескочить через него.
+          j = rj
         }
-        # если in_span — пропускаем символ
-      }
-      # Если строка закончилась с in_span=1 (непарный `), оставшийся хвост
-      # УЖЕ не попал в out — это удалило бы text и могло спрятать реальный
-      # CHANGES_REQUESTED. Восстанавливаем: если закрытия не было, вернём
-      # хвост от последнего ` как plain text (best-effort safe default).
-      if (in_span) {
-        # Найдём последний бэктик и возьмём всё ПОСЛЕ него как plain text.
-        last_tick = 0
-        for (j = n; j >= 1; j--) {
-          if (substr(line, j, 1) == "`") { last_tick = j; break }
-        }
-        if (last_tick > 0 && last_tick < n) {
-          tail = substr(line, last_tick + 1)
-          out = out tail
+        if (found_close_start > 0) {
+          # Валидный span — ни opener, ни content, ни closer не сохраняем.
+          i = close_end + 1
+        } else {
+          # Closer не нашёлся — восстановим opener + остаток строки как plain.
+          # Это best-effort safe default (лучше ложно показать хвост и дать
+          # validator-grep блокировать, чем съесть реальный CHANGES_REQUESTED).
+          out = out substr(line, start, n - start + 1)
+          i = n + 1
         }
       }
       print out
