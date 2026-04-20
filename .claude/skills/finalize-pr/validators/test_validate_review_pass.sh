@@ -641,6 +641,101 @@ assert_blocks "e6_tab_only_line_as_paragraph_break" "$E6_TAB_INPUT"
 E6_MIXED_INPUT=$'Вердикт: APPROVED\n`history\n \t \nВердикт: CHANGES_REQUESTED`'
 assert_blocks "e6_mixed_whitespace_line_as_paragraph_break" "$E6_MIXED_INPUT"
 
+echo "=== Pass 6 E-8: escape inside code span content — не применяется (CommonMark §6.1) ==="
+
+# CommonMark §6.1: «backslash escapes do not work in code spans». Прежний
+# E-3 escape detection (count preceding backslashes, odd = escaped) ошибочно
+# применялся и в scan-loop-е (closer detection). Repro `` `foo \` CR` ``:
+# opener=1 backtick, сканер видел первый ` после \, считал его escaped,
+# продолжал скан, находил closer в конце → весь span включая CR стрипался
+# (false APPROVED).
+# Fix: escape-check только для opener detection (до первого run-а).
+# В scan-loop после opener — escape игнорируется, просто ищем run-length == N.
+
+# E-8: backslash перед closer НЕ экранирует — span = `foo \`, closer после \,
+# хвост ` CHANGES_REQUESTED`` (incl. орфанный closer) → CR виден в plain text.
+assert_blocks "e8_backslash_before_closer_does_not_escape" \
+'Вердикт: APPROVED
+`foo \` CHANGES_REQUESTED`'
+
+# E-3 regression: escape-check для OPENER detection продолжает работать.
+# `\` перед первым backtick в paragraph → literal `, span не открывается,
+# CR между escaped backticks виден как plain text.
+assert_blocks "e3_regression_escaped_opener_not_span_after_e8" \
+'Вердикт: APPROVED
+Вердикт: \`CHANGES_REQUESTED\`'
+
+# E-8 sanity: обычный span без backslash продолжает стрипать content.
+assert_passes "e8_sanity_plain_span_still_strips" \
+'Вердикт: APPROVED
+Был статус `CHANGES_REQUESTED` в истории'
+
+echo "=== Pass 6 E-9: paragraph termination on ATX/list/thematic break (CommonMark §4) ==="
+
+# CommonMark §4: paragraph ends not only on blank line but also on block-
+# level structural elements: ATX heading (§4.2), thematic break (§4.1),
+# list items (§5.2/5.3). Прежняя проверка `$0 ~ /^[ \t]*$/` ловила только
+# blank/whitespace-only строки. Bypass: unclosed inline opener + heading
+# на следующих строках склеивались в один «paragraph» через SEP, scanner
+# матчил opener и искал closer через весь block → CR между ними ложно
+# стрипался как span content.
+# Fix: добавлены regex-checks для ATX, bullet/ordered list, thematic break.
+
+# E-9 ATX heading: ### на строке 3 завершает paragraph с unclosed opener
+# на строке 2 → CR preserved в heading plain text.
+assert_blocks "e9_atx_heading_terminates_paragraph" \
+'Вердикт: APPROVED
+`history
+### Вердикт: CHANGES_REQUESTED`'
+
+# E-9 bullet list item: `-` / `*` / `+` + space завершает paragraph.
+assert_blocks "e9_bullet_list_terminates_paragraph" \
+'Вердикт: APPROVED
+`open
+- CHANGES_REQUESTED list item`'
+
+assert_blocks "e9_asterisk_list_terminates_paragraph" \
+'Вердикт: APPROVED
+`open
+* CHANGES_REQUESTED asterisk item`'
+
+# E-9 ordered list: digits + `.` или `)` + space.
+assert_blocks "e9_ordered_list_terminates_paragraph" \
+'Вердикт: APPROVED
+`open
+1. CHANGES_REQUESTED ordered item`'
+
+# E-9 thematic break: `---` / `***` / `___` (3+).
+assert_blocks "e9_thematic_break_dash_terminates_paragraph" \
+'Вердикт: APPROVED
+`open
+---
+CHANGES_REQUESTED`'
+
+assert_blocks "e9_thematic_break_asterisk_terminates_paragraph" \
+'Вердикт: APPROVED
+`open
+***
+CHANGES_REQUESTED`'
+
+# E-9 ATX heading levels: H1-H6.
+assert_blocks "e9_atx_h1_terminates_paragraph" \
+'Вердикт: APPROVED
+`open
+# CHANGES_REQUESTED h1`'
+
+assert_blocks "e9_atx_h6_terminates_paragraph" \
+'Вердикт: APPROVED
+`open
+###### CHANGES_REQUESTED h6`'
+
+# E-9 sanity: обычный текст без structural marker продолжает paragraph
+# и позволяет multi-line inline span (E-2 happy path).
+assert_passes "e9_sanity_multiline_span_still_works" \
+'Вердикт: APPROVED
+`CHANGES_REQUESTED
+still quoted` rest'
+
 echo ""
 echo "=== Summary ==="
 echo "Run: $TESTS_RUN, Passed: $TESTS_PASSED, Failed: $TESTS_FAILED"

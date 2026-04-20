@@ -552,26 +552,36 @@ def is_forbidden(command: str) -> bool:
         # подкатегории Ps (Open punctuation) и Pi (Initial quote) —
         # openers clause, НЕ sentence terminators.
         #
-        # Включаем только:
+        # Pass 6 E-7 (CRITICAL): Pass 4 E-1 fix сузил класс до Po+Pf, но
+        # исключил Pe (close punctuation) и Pd (dash). Результат — bypass:
+        #   `(ready to merge)` — closing `)` (Pe) после phrase не блокировался;
+        #   `[ready to merge]` — closing `]` (Pe) не блокировался;
+        #   `ready to merge — landing` — em-dash (Pd) не блокировался.
+        # Declaration, завершённая close-bracket'ом или dash'ем, — это
+        # legitimate declaration form (bracketed phrase / list-style dash).
+        # Symmetry: opener `(`/`[` (Ps) — narrative continuation (E-1), но
+        # closer `)`/`]` (Pe) после phrase — declaration closing.
+        #
+        # Включаем:
         #   Po — Other punctuation (`.`, `!`, `?`, `:`, `;`, CJK `。`, `、`,
         #        full-width `．`, `！`, `？`, `，`, Arabic `،`, `؛`, `؟`,
         #        Hebrew `׃`, Mongolian `᠂`, Armenian `։`, Japanese `・`);
         #   Pf — Final quote (`”`, `»`, `’`) — closing quote может быть
-        #        terminator для narrative «цитата закончилась, continuation».
+        #        terminator для narrative «цитата закончилась, continuation»;
+        #   Pe — Close punctuation (`)`, `]`, `}`) — declaration-closing
+        #        форма: `(ready to merge)`, `[ready to merge]` (E-7);
+        #   Pd — Dash (`-`, `—`, `–`) — list-style dash declaration:
+        #        `ready to merge — landing follows` (E-7).
         #
         # НЕ включаем:
         #   Ps — Open punctuation (`(`, `[`, `{`) — начинает clause, narrative;
         #   Pi — Initial quote (`“`, `«`, `‘`) — открывающая цитата, narrative;
-        #   Pe — Close punctuation (`)`, `]`, `}`) — ambiguous: может быть
-        #        closing narrative-clause, не обязательно sentence terminator.
-        #        Safe default: не терминатор;
-        #   Pc — Connector (`_`, `‿`) — тоже не sentence separator;
-        #   Pd — Dash (`-`, `—`, `–`) — narrative dash, не terminator.
+        #   Pc — Connector (`_`, `‿`) — не sentence separator.
         #
-        # Минимальное семантически-корректное множество terminator punctuation:
-        # Po + Pf.
+        # Семантически-корректное множество terminator punctuation:
+        # Po + Pf + Pe + Pd.
         cat = unicodedata.category(ch)
-        if cat in ("Po", "Pf"):
+        if cat in ("Po", "Pf", "Pe", "Pd"):
             return True
         # Letter, digit, space-like separator (Z*, но только Zs после strip
         # whitespace выше не должен появиться), symbol — narrative continuation.

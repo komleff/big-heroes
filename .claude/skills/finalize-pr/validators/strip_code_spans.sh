@@ -259,10 +259,18 @@ tr -d '\r' | awk '
   #      (append в out), остаток run-а длиной N-1 продолжает span-поиск
   #      (если N-1 ≥ 1; иначе ничего не открывается).
   #   3. Если effective run-length N ≥ 1 — ищем closer того же run-length N.
-  #   4. В closer тоже учитываем escape: если backslash-run перед backtick-run
-  #      нечётный, первый из closer-run экранирован → effective run короче
-  #      на 1 и начинается на символ вперёд. Если eff_run == N → closer
-  #      валиден; иначе ищем следующий.
+  #   4. В closer escape НЕ учитывается (E-8, Pass 6, CommonMark §6.1):
+  #      backslash внутри code span содержимого не имеет семантики escape,
+  #      первый backtick-run подходящей длины после opener — это closer.
+  #
+  # Pass 6 E-8 (CRITICAL, fixed): прежняя версия E-3 применяла escape-check
+  # и в scan-loop (closer detection), что нарушало CommonMark §6.1:
+  # backslash escape не работают внутри code spans. Repro `foo \CR CR`:
+  # opener = backtick, scan находил first backtick после backslash, считал
+  # его escaped (bs2%2==1), пропускал, находил следующий backtick в конце
+  # → весь span включая CR стрипался (false APPROVED). Fix: escape-check
+  # только для opener detection (шаг 2). В scan-loop (шаг 3) escape
+  # игнорируется — просто ищем run-length == N.
   #
   # Sentinel внутри inline span (multi-line code) — стрипается вместе с
   # content; outside span — восстанавливается как реальный newline при
@@ -300,27 +308,22 @@ tr -d '\r' | awk '
         continue
       }
       # Ищем closer — run ровно длины N, начиная с позиции i (после opener-run).
+      # Pass 6 E-8 (CRITICAL): escape-check НЕ применяется в scan-loop. CommonMark
+      # §6.1: backslash escape не работают внутри code span content. Первый
+      # backtick-run длины N после opener — это closer, независимо от того,
+      # сколько backslash перед ним. Без этого bypass: foo-backslash-CR-тик
+      # (opener=1, backslash внутри content, closer=1, потом plain CR +
+      # closer=1) — ложно стрипался как один span, CR исчезал → false APPROVED.
       found_close_start = 0
       close_end = 0
       j = i
       while (j <= n) {
         if (substr(buf, j, 1) != "`") { j++; continue }
-        # Считаем backslash-run перед j (но не заходим внутрь opener-run).
-        bs2 = 0
-        jj = j - 1
-        while (jj >= start + N && substr(buf, jj, 1) == "\\") { bs2++; jj-- }
         M = 0
         rj = j
         while (rj <= n && substr(buf, rj, 1) == "`") { M++; rj++ }
-        eff_j = j
-        eff_M = M
-        if ((bs2 % 2) == 1) {
-          # Первый backtick closer-run-а экранирован — не считается частью closer.
-          eff_j = j + 1
-          eff_M = M - 1
-        }
-        if (eff_M == N) {
-          found_close_start = eff_j
+        if (M == N) {
+          found_close_start = j
           close_end = rj - 1
           break
         }
@@ -366,6 +369,36 @@ tr -d '\r' | awk '
         print process_paragraph(para)
       }
       print $0   # сохраняем оригинальную whitespace-строку (не ломаем line numbering)
+      para = ""
+      para_has_content = 0
+      next
+    }
+    # Pass 6 E-9 (CRITICAL, CommonMark §4): paragraph terminates не только
+    # на blank line, но и на block-level structural elements. Без этого
+    # unclosed inline opener + heading/list/thematic break на следующих
+    # строках склеиваются в один «paragraph» через SEP, inline scanner
+    # матчит opener и ищет closer через весь block → реальный CR между
+    # ними ложно стрипается как span content.
+    #
+    # Block terminators (все с 0-3 leading spaces, CommonMark §4.1-4.4):
+    #   §4.2 ATX heading:   # ## ### #### ##### ###### + space или EOL;
+    #   §4.1 Thematic break: 3+ `-`/`*`/`_` того же типа (whitespace между ok);
+    #   §5.2/5.3 List item:  `-`/`*`/`+` + whitespace  (bullet list),
+    #                        digits + `.`/`)` + whitespace (ordered list).
+    #
+    # Emit текущий paragraph (если есть), затем печатаем структурный элемент
+    # как plain text (inline scanner в нём не работает — структурные маркеры
+    # не содержат code spans по семантике review-pass).
+    if ($0 ~ /^[ ]{0,3}#{1,6}([ \t]|$)/ ||
+        $0 ~ /^[ ]{0,3}[-*+][ \t]/ ||
+        $0 ~ /^[ ]{0,3}[0-9]+[.)][ \t]/ ||
+        $0 ~ /^[ ]{0,3}(\*[ \t]*){3,}$/ ||
+        $0 ~ /^[ ]{0,3}(-[ \t]*){3,}$/ ||
+        $0 ~ /^[ ]{0,3}(_[ \t]*){3,}$/) {
+      if (para_has_content) {
+        print process_paragraph(para)
+      }
+      print $0
       para = ""
       para_has_content = 0
       next
