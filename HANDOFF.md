@@ -1,8 +1,95 @@
 # PM Handoff — Sprint Pipeline v3.5, Pass 7 escalation
 
 **Создан:** 2026-04-20 (рабочий компьютер)
-**Кому:** PM-агент на домашнем компьютере оператора
-**Причина:** передача контекста без потерь при смене рабочего места.
+**Обновлён:** 2026-04-20 (домашний компьютер — checkpoint после Option B execution + API key rotation)
+**Кому:** PM-агент следующей сессии после рестарта Claude Code (для pick-up API key из settings.json)
+**Причина:** передача контекста без потерь при смене рабочего места + rotation auth.
+
+---
+
+## 🆕 Checkpoint 2026-04-20 (home PC, после Option B execution)
+
+**Оператор выбрал Option B** (accept known limitations + defer Python rewrite в v3.6).
+
+**Что сделано в session home-PC:**
+
+1. **Developer commit `ebaf786`** — semantic revert Pass 6 overfits:
+   - Hook `check-merge-ready.py` terminator class `(Po, Pf, Pe, Pd)` → `(Po, Pf)` (revert E-7 Pe/Pd overmatch).
+   - Stripper `strip_code_spans.sh` E-2 multiline paragraph scanner → per-line (revert over-complexity, 420→358 LoC).
+   - Kept legitimate: E-3 escape, E-4 blank line, E-5 Sk/Lm, E-8 semantics, E-9 structural limited.
+   - Added: SKILL.md секция `## Known limitations (v3.5, deferred to v3.6)` с 8 bead-refs.
+
+2. **8 новых `[from-v3.5-dropped]` беад созданы:**
+   - `big-heroes-55m` P1 — Python rewrite, promoted v3.6 sprint-opener (≡ dolt-079).
+   - `big-heroes-36d` P3 E-10 blockquote paragraph terminator.
+   - `big-heroes-42a` P3 E-11 setext underline.
+   - `big-heroes-zhe` P3 E-12 HTML block.
+   - `big-heroes-6bp` P2 E-16 structural inline CR survives.
+   - `big-heroes-ytx` P3 hook Pe/Pd broad category catch-all + E-13 edge (title expanded per Pass 8 INFO).
+   - `big-heroes-16e` P3 E-14 `:` в backtick quoted.
+   - `big-heroes-3ed` P3 E-15 `/` `.` Po overmatch.
+
+3. **Internal Pass 8 delta-closure APPROVED** (Claude Opus 4.7 on `ebaf786`):
+   - Semantic revert correct, Known Limitations corrent bead-refs, tests aligned (55/55 validator + 150/150 hook + 168/168 npm + regression_pr14 OK), no scope creep, build зелёный.
+   - Published: https://github.com/komleff/big-heroes/pull/15#issuecomment-4282712039
+   - Triage: 0 fix-now, 0 deferred, 1 reject (bd-ytx cosmetic — resolved PM через `bd update`).
+
+4. **External review Mode A attempt failed** — `codex review --base master` на Windows dev-host (ChatGPT login) выдал `CreateProcessWithLogonW failed: 1326` (BE-11 sandbox). Fallback начат Mode C.
+
+5. **Mode C Reviewer A (Claude Opus 4.7 standard) — APPROVED** на `ebaf786`, 0 findings в delivered scope. Output получен в PM context, НЕ опубликован (PM ждёт Reviewer B adversarial для консолидации).
+
+6. **🆕 Оператор предоставил новый OPENAI_API_KEY** (рабочий аккаунт, валидный):
+   - Placeholder добавлен в `C:\Users\komle\.claude\settings.json` блок `env`.
+   - Оператор заменит заглушку на реальный ключ.
+   - PM выполнил `codex logout` — сейчас `Not logged in`.
+   - На рестарте Claude Code SessionStart hook `.claude/hooks/codex-login.sh` auto-логинит с API key → `Logged in using API key` → Mode A доступен.
+
+**Current PR state:** https://github.com/komleff/big-heroes/pull/15 OPEN, MERGEABLE, CI SUCCESS, HEAD `ebaf786`.
+
+**HANDOFF.md commit state:** этот файл ещё не committed после checkpoint — new PM может commit'ить сам или оператор обновит на месте.
+
+---
+
+## ⏭ Plan для нового PM (после рестарта с API key)
+
+### Если BE-11 не затрагивает Mode A execution path (иной shell adapter при API key auth):
+
+1. Verify `codex login status` → `API key` expected.
+2. Запустить Mode A full:
+   ```bash
+   timeout 300 npx @openai/codex review --base master -c model='"gpt-5.4"' -c model_reasoning_effort='"high"' 2>&1 | tee /tmp/codex-review-v35-gpt54.txt
+   timeout 300 npx @openai/codex review --base master -c model='"gpt-5.3-codex"' -c model_reasoning_effort='"high"' 2>&1 | tee /tmp/codex-review-v35-codex.txt
+   ```
+3. Консолидация по external-review skill Шаг 5, публикация в PR с Mode A label.
+4. Copilot re-review request.
+5. Если Mode A findings `APPROVED` → `/finalize-pr 15 --pre-landing` с меткой `⚠️ Partial fix — edge cases deferred to big-heroes-55m (v3.6)`.
+
+### Если BE-11 снова блокирует Mode A (sandbox error независимо от auth):
+
+1. Fallback Mode C (автономно).
+2. Запустить Reviewer B (adversarial, но scope-locked на Option B verify как Reviewer A — НЕ full adversarial чтобы не попасть обратно в overfitting loop).
+3. Консолидация Mode C двух проходов с меткой `⚠️ Degraded mode с имитацией adversarial diversity. Не является cross-model review`.
+4. Publish в PR.
+5. `/finalize-pr 15 --pre-landing` с обеими метками (⚠️ Partial fix + ⚠️ Degraded external).
+
+### Reviewer A Mode C output (сохранён для Reviewer B консолидации если fallback)
+
+`ebaf786`, Claude Opus 4.7 standard Mode C, APPROVED, 0 findings в delivered scope. Полный текст в PR comment истории **не опубликован** (только prompt + response ассистента); новый PM должен либо опубликовать его standalone, либо — если Mode A заработает — проигнорировать и использовать Mode A raw outputs.
+
+### После /finalize-pr --pre-landing APPROVED
+
+Фаза 4.5 pre-merge landing (flow v3.4):
+1. Update `.memory_bank/status.md` с `Sprint v3.5 COMPLETE <finalize_date>`.
+2. `git mv docs/plans/sprint-pipeline-v3-5-cleanup.md docs/archive/`.
+3. `bd close big-heroes-nw5` + `bd close big-heroes-hyo big-heroes-rux big-heroes-ase big-heroes-0pk` (fix-now).
+4. `bd remember "Sprint v3.5 завершён <finalize_date>: validator code-span baseline + hook terminator class Po+Pf + Known Limitations defer 8 items → Python rewrite big-heroes-55m v3.6"`.
+5. `chore(landing): pre-merge artifacts — sprint-pipeline-v3-5` + push.
+6. Doc-only review round (Copilot auto + Claude delta).
+7. External review на landing HEAD (Mode A если работает, Mode C fallback).
+8. `/finalize-pr 15` (второй, без `--pre-landing`).
+9. Сообщить оператору — PR merge-ready.
+
+---
 
 ---
 
