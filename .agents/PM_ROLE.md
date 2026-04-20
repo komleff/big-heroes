@@ -173,10 +173,15 @@ bd show <id>               # детали конкретной задачи
 **Шаг 3 — Закрой задачи в Beads:** `bd close <id>` для sprint tracking + task issues
 с явным reason (результат, commit hash).
 
-**Шаг 4 — Запиши memory pattern:** `bd remember "Sprint N завершён <finalize_date>:
-<key learnings>"` — формулировка `завершён <finalize_date>`, не `<merge_date>`.
-Рациональ: финализация = момент закрытия цикла, не момент административного действия
-оператора. Существующие sprint-1..5 memories остаются как исторические (merge_date).
+**Шаг 4 — Запиши memory pattern:**
+
+```bash
+bd remember "Sprint N завершён <finalize_date>: <key learnings>"
+```
+
+Формулировка `завершён <finalize_date>`, не `<merge_date>`. Рациональ: финализация =
+момент закрытия цикла, не момент административного действия оператора. Существующие
+sprint-1..5 memories остаются как исторические (merge_date).
 
 **Шаг 5 — Commit и push:**
 
