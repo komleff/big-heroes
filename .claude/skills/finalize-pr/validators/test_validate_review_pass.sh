@@ -577,6 +577,63 @@ assert_passes "e2_multiline_inline_span_stripped" \
 `CHANGES_REQUESTED
 still quoted` rest'
 
+echo "=== Pass 5 E-4: fence-strip paragraph boundary leak ==="
+
+# CommonMark §4.5: fenced code block — block element, всегда отделён от
+# окружающего текста paragraph boundary. Прежний fence-stripper делал
+# `next` при закрытии fence без emission blank line → Stage 2 (inline
+# scanner) видел pre-fence и post-fence контент как один непрерывный
+# параграф, и inline opener-backtick ДО fence мог match'нуться с closer-
+# backtick ПОСЛЕ fence, стрипая реальный CHANGES_REQUESTED между ними.
+# Fix: при закрытии fence emit пустую строку — paragraph break для Stage 2.
+#
+# Репро (Mode A fresh external): opener-backtick на строке 1, fence между
+# строкой 2 и 4, closer-backtick на строке 5 после fence. Без fix CHANGES_REQUESTED
+# стрипается как «inline span» через fence; с fix — preserved, validator блокирует.
+assert_blocks "e4_fence_strip_preserves_paragraph_boundary" \
+'` opener before fence
+```
+fenced content
+```
+ real CHANGES_REQUESTED posing as plain` tail'
+
+# E-4 sanity: normal fence с CHANGES_REQUESTED ВНУТРИ fence продолжает
+# стрипаться как раньше — blank line после closer не ломает happy path.
+assert_passes "e4_sanity_normal_fence_still_strips" \
+'## Pass
+Вердикт: APPROVED
+
+```
+CHANGES_REQUESTED in fence
+```
+after'
+
+echo "=== Pass 5 E-6: whitespace-only lines as paragraph break (CommonMark §4.9) ==="
+
+# CommonMark §4.9: blank line — любая строка, содержащая только whitespace
+# символы (пробелы и tabs). Прежняя проверка `$0 == ""` ловила только
+# полностью пустую строку, пропуская whitespace-only строки (`   `, `\t`).
+# Bypass: inline span opener на строке N, whitespace-only «разделитель»
+# между ними — Stage 2 не закрывал paragraph и склеивал строки через
+# sentinel, scanner видел opener и closer как один virtual paragraph →
+# реальный CHANGES_REQUESTED между ними ложно стрипался как span content.
+# Fix: `$0 ~ /^[ \t]*$/` — whitespace-only строки эквивалентны empty line.
+
+# E-6 space-only: paragraph break через whitespace-only строку —
+# CHANGES_REQUESTED во втором «параграфе» preserved.
+# Формируем через $'...'-строку, чтобы spaces в строке-разделителе
+# не съедались shell quoting.
+E6_SPACE_INPUT=$'Вердикт: APPROVED\n`history\n   \nВердикт: CHANGES_REQUESTED`'
+assert_blocks "e6_whitespace_only_line_as_paragraph_break" "$E6_SPACE_INPUT"
+
+# E-6 tab-only: та же логика для tabs.
+E6_TAB_INPUT=$'Вердикт: APPROVED\n`history\n\t\nВердикт: CHANGES_REQUESTED`'
+assert_blocks "e6_tab_only_line_as_paragraph_break" "$E6_TAB_INPUT"
+
+# E-6 mixed whitespace: smoke test для `\t  \t` (mixed tab+space).
+E6_MIXED_INPUT=$'Вердикт: APPROVED\n`history\n \t \nВердикт: CHANGES_REQUESTED`'
+assert_blocks "e6_mixed_whitespace_line_as_paragraph_break" "$E6_MIXED_INPUT"
+
 echo ""
 echo "=== Summary ==="
 echo "Run: $TESTS_RUN, Passed: $TESTS_PASSED, Failed: $TESTS_FAILED"

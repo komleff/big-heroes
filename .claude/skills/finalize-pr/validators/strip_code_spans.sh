@@ -190,17 +190,29 @@ tr -d '\r' | awk '
       # Внутри fence — ищем close ТОГО ЖЕ типа и длиной >= opener.
       # Mismatched marker (~~~ внутри BACKTICK или vice versa) игнорируется,
       # closer короче opener (M < fence_len) тоже игнорируется (CommonMark F-2-fence).
+      #
+      # Pass 5 E-4 (fence strip paragraph boundary leak): при закрытии fence
+      # эмитируем blank line, чтобы Stage 2 (inline scanner) трактовал
+      # pre-fence и post-fence контент как разные параграфы. Без blank line
+      # Stage 2 видел непрерывный поток non-fence строк и inline opener-
+      # backtick ДО fence мог сматчиться с closer-backtick ПОСЛЕ fence,
+      # стрипая реальный CHANGES_REQUESTED между ними. CommonMark §4.5:
+      # fenced code block — это block element, он всегда отделён от
+      # окружающего текста paragraph boundary. Blank line — канонический
+      # способ передать это Stage 2 через stream-based interface.
       if (in_fence == "BACKTICK" && fence_close_matches(line, "`", fence_len)) {
         in_fence = ""
         fence_len = 0
         # Closer найден — pending успешно стриплен, очищаем буфер.
         pending_count = 0
+        print ""   # emit blank line = paragraph break для Stage 2 (E-4)
         next
       }
       if (in_fence == "TILDE" && fence_close_matches(line, "~", fence_len)) {
         in_fence = ""
         fence_len = 0
         pending_count = 0
+        print ""   # emit blank line = paragraph break для Stage 2 (E-4)
         next
       }
       # Внутри fence — содержимое добавляется в pending buffer (не печатается).
@@ -339,14 +351,21 @@ tr -d '\r' | awk '
     para_has_content = 0
   }
   {
-    # Blank line — paragraph boundary. CommonMark §6.1: inline span НЕ
-    # пересекает paragraph boundary (blank line). Обрабатываем накопленный
-    # paragraph, печатаем результат, печатаем blank line отдельно, сбрасываем.
-    if ($0 == "") {
+    # Blank line — paragraph boundary. CommonMark §4.9: blank line — это
+    # любая строка, содержащая только whitespace-символы (пробелы, tabs).
+    # CommonMark §6.1: inline span НЕ пересекает paragraph boundary.
+    # Pass 5 E-6: прежняя проверка `$0 == ""` ловила только пустую строку,
+    # пропуская whitespace-only строки (`   `, `\t`, `\t  `) — они не
+    # закрывали paragraph, inline scanner видел opener на N-й строке и
+    # closer на N+2 через whitespace-only «разделитель» как одну virtual
+    # line → реальный CHANGES_REQUESTED между ними ложно стрипался.
+    # Теперь матчим regex `^[ \t]*$` (пер CommonMark §4.9) — whitespace-
+    # only строки эквивалентны empty line как paragraph boundary.
+    if ($0 ~ /^[ \t]*$/) {
       if (para_has_content) {
         print process_paragraph(para)
       }
-      print ""
+      print $0   # сохраняем оригинальную whitespace-строку (не ломаем line numbering)
       para = ""
       para_has_content = 0
       next
