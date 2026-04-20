@@ -314,7 +314,7 @@ fi
 
 Помощники для отладки stripper'а и проверки регрессий — запускаются вручную PM'ом при подозрении на infrastructure false positive / false negative, не вызываются автоматически из hard gate.
 
-- `.claude/skills/finalize-pr/validators/test_validate_review_pass.sh` — unit-тесты stripper'а (после Pass 2: 27 baseline + 2 G3 + 1 F1 = 30 ожидается).
+- `.claude/skills/finalize-pr/validators/test_validate_review_pass.sh` — unit-тесты stripper'а; актуальный набор кейсов и их число смотри в самом скрипте.
 - `.claude/skills/finalize-pr/validators/regression_pr14.sh` — regression prove на реальной истории PR #14 (VC-5). Требует `$COMMENTS_DIR` с раскладкой `c*.txt` (см. docstring скрипта). Запуск:
   ```bash
   mkdir -p /tmp/pr14_comments
