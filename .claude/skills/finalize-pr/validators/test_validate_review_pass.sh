@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Unit-тесты для validate_review_pass_body (Шаг 5 finalize-pr).
 #
-# Проверяют что predobработка code spans корректно:
+# Проверяют что предобработка code spans корректно:
 #   1. блокирует plain text «Вердикт: CHANGES_REQUESTED» (истинный вердикт);
 #   2. пропускает `CHANGES_REQUESTED` внутри inline code span (парные одиночные бэктики);
 #   3. пропускает CHANGES_REQUESTED внутри fenced block (тройные бэктики);
@@ -54,6 +54,34 @@ check_approved_present() {
     return 0  # APPROVED найден (validator пропускает)
   fi
   return 1    # APPROVED не найден (validator бы блокировал)
+}
+
+# Проверка сохранности произвольной подстроки в stripped output.
+# Нужно для F-2-fence: симметричный closer должен стрипать только содержимое
+# блока, а plain text после блока должен остаться.
+check_substring_survives() {
+  local input="$1"
+  local needle="$2"
+  local stripped
+  stripped=$(printf '%s' "$input" | bash "$STRIPPER")
+  if printf '%s\n' "$stripped" | grep -qF "$needle"; then
+    return 0
+  fi
+  return 1
+}
+
+assert_substring_survives() {
+  local name="$1"
+  local input="$2"
+  local needle="$3"
+  TESTS_RUN=$((TESTS_RUN + 1))
+  if check_substring_survives "$input" "$needle"; then
+    echo "PASS: $name"
+    TESTS_PASSED=$((TESTS_PASSED + 1))
+  else
+    echo "FAIL: $name — подстрока '$needle' пропала после strip (fence съел хвост?)"
+    TESTS_FAILED=$((TESTS_FAILED + 1))
+  fi
 }
 
 assert_blocks() {
@@ -244,6 +272,80 @@ assert_passes "mismatched_fence_tilde_does_not_close_backtick" \
 не является закрытием
 ```
 Финал.'
+
+echo "=== Pass 1 external F-2-fence: fence length symmetry (big-heroes-2iw) ==="
+
+# CommonMark spec: closing fence того же типа должен быть длины >= opener.
+# Прежний awk матчил opener через `^[ ]{0,3}```/~~~` (совпадение ≥3 маркеров),
+# а closer требовал ровно 3 → fence с opener ≥4 никогда не закрывался
+# симметричным маркером, остаток до EOF проглатывался как "внутри fence",
+# реальные CHANGES_REQUESTED / APPROVED после блока пропадали → ложный APPROVED.
+#
+# GPT-5.3-Codex + Copilot independent repro → escalation INFO → CRITICAL.
+# Fix: трекать opener run-length в awk state, closer — того же типа длиной >= opener.
+
+# 18. Opener = 4 backticks, closer = 4 → симметричный fence. Содержимое стрипается,
+# plain text после блока должен остаться (fix без регрессии для симметричных ≥4).
+FENCE_T18_INPUT='## Review-pass
+Вердикт: APPROVED
+
+````
+Внутри псевдо-блока
+Вердикт: CHANGES_REQUESTED  <!-- внутри fence, должно стрипаться -->
+````
+Теперь всё починено.'
+assert_passes "fence_opener_4_closer_4_symmetric" "$FENCE_T18_INPUT"
+assert_substring_survives "fence_opener_4_closer_4_tail_survives" "$FENCE_T18_INPUT" "Теперь всё починено."
+
+# 19. Opener = 4 backticks, closer = 3 backticks → до fix closer ровно 3 закрывал
+# fence с opener=4 (ошибка: CommonMark требует closer длины >= opener).
+# После fix: closer=3 < opener=4 → fence остаётся открытым, содержимое внутри
+# стрипается, CHANGES_REQUESTED после ``` (неправильный closer) считается
+# внутри fence и тоже стрипается. Это acceptable safe default: validator не
+# видит CR, но и не видит APPROVED → falls through в NO_APPROVED (block).
+# Проверяем инвариант: опасная ситуация «closer меньше opener» НЕ даёт «fence
+# закрыт, хвост виден» — иначе validator может ложно увидеть APPROVED в хвосте.
+#
+# Input: opener=4, затем фальшивый closer=3, затем plain APPROVED в хвосте.
+# Ожидание: APPROVED должен БЫТЬ СТРИПАН (fence всё ещё открыт, хвост съеден).
+FENCE_T19_INPUT='## Review-pass
+
+````
+Внутри блока.
+```
+Вердикт: APPROVED — ложный, из-за неправильного closer.'
+FENCE_T19_STRIPPED=$(printf '%s' "$FENCE_T19_INPUT" | bash "$STRIPPER")
+TESTS_RUN=$((TESTS_RUN + 1))
+if printf '%s\n' "$FENCE_T19_STRIPPED" | grep -qF 'Вердикт: APPROVED'; then
+  echo "FAIL: fence_opener_4_closer_3_tail_swallowed — ложный APPROVED в хвосте пролез после closer меньшей длины"
+  TESTS_FAILED=$((TESTS_FAILED + 1))
+else
+  echo "PASS: fence_opener_4_closer_3_tail_swallowed"
+  TESTS_PASSED=$((TESTS_PASSED + 1))
+fi
+
+# 20. Opener = 3, closer = 4 → CommonMark: closer длины >= opener закрывает fence.
+# Содержимое стрипается, plain text после closer'а (≥4) должен остаться.
+FENCE_T20_INPUT='## Review-pass
+
+```
+Внутри блока.
+Вердикт: CHANGES_REQUESTED  <!-- внутри fence, должно стрипаться -->
+````
+Теперь всё починено.'
+assert_passes "fence_opener_3_closer_4_closes_by_commonmark_rule" "$FENCE_T20_INPUT"
+assert_substring_survives "fence_opener_3_closer_4_tail_survives" "$FENCE_T20_INPUT" "Теперь всё починено."
+
+# 21. Opener = 5 tildes, closer = 5 tildes → симметрия для tilde-fences ≥4.
+FENCE_T21_INPUT='## Review-pass
+Вердикт: APPROVED
+
+~~~~~
+Вердикт: CHANGES_REQUESTED
+~~~~~
+Теперь всё починено.'
+assert_passes "fence_opener_5_tildes_symmetric" "$FENCE_T21_INPUT"
+assert_substring_survives "fence_opener_5_tildes_tail_survives" "$FENCE_T21_INPUT" "Теперь всё починено."
 
 echo ""
 echo "=== Summary ==="
