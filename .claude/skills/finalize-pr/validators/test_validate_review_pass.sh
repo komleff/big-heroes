@@ -199,10 +199,14 @@ assert_blocks "unmatched_single_backtick_fallback_to_block" \
 "## Review-pass
 Это \`битый markdown без закрытия — Вердикт: CHANGES_REQUESTED всё равно виден как plain."
 
-# 10. Множественные inline spans на одной строке
+# 10. Множественные inline spans на одной строке.
+# ВАЖНО: backticks литеральные (single-quote bash строка), НЕ escaped.
+# После Pass 4 E-3 escape-handling, backslash перед backtick делает его
+# literal (CommonMark §2.4) — тест с `\`` давал бы противоположный результат.
+# Here — чистые backticks без escape.
 assert_passes "multiple_inline_spans_same_line" \
 'Вердикт: APPROVED
-Было \`CHANGES_REQUESTED\` потом \`APPROVED\` потом \`CHANGES_REQUESTED\` снова.'
+Было `CHANGES_REQUESTED` потом `APPROVED` потом `CHANGES_REQUESTED` снова.'
 
 # 11. Fenced-блок распознаётся только по маркеру в начале строки
 # (0-3 leading spaces per CommonMark §4.5), не anywhere-on-line.
@@ -441,9 +445,20 @@ echo "=== Pass 3 Copilot D-1: backtick fence info-string validation ==="
 # реальным CHANGES_REQUESTED, validator видел только APPROVED выше
 # и пропускал finalize-pr. Для tilde-fence backticks в info допустимы.
 
-# 29. D-1: adversarial backtick opener с ` в info-string — fence НЕ открыт,
-# CR в «content» остаётся видимым в stripped output → validator блокирует.
-assert_blocks "d1_backtick_fence_with_backtick_in_info_string_rejected" \
+# 29. D-1: adversarial backtick opener с ` в info-string — fence НЕ открыт.
+# После Pass 4 E-2 fix (multi-line inline spans, §6.1 CommonMark): тот же
+# adversarial input теперь корректно трактуется как multi-line inline code
+# span (opener ``` на строке 4, closer ``` на строке 7, content между ними
+# стрипается). Это CommonMark-consistent — GitHub рендерит эту разметку
+# именно как inline-код, humans видят content как код, validator тоже.
+# Alignment с GitHub rendering выше приоритета поведения до E-2.
+#
+# Semantic D-1 fix сохранён: fence НЕ открывается (ключевой аспект info-string
+# validation). Но multi-line inline span на тех же символах — это корректная
+# CommonMark-разметка, её content корректно стрипается. Сила hard gate здесь
+# в том, что attacker ОБЯЗАН сделать visible-as-code разметку на GitHub,
+# иначе validator видит plain text и блокирует — это требуемое свойство.
+assert_passes "d1_backtick_fence_rejected_but_multiline_inline_span_valid" \
 '## Review-pass
 Вердикт: APPROVED
 
@@ -500,6 +515,53 @@ echo "=== Pass 3 Copilot D-2: inline run-length matcher mutation test ==="
 #   bash test_validate_review_pass.sh  # ожидание: FAIL d2_inline_run_mismatch
 assert_passes "d2_inline_run_mismatch_closer_longer_than_opener" \
 'Вердикт: APPROVED `open text ``fake-close`` CHANGES_REQUESTED` real-rest'
+
+echo "=== Pass 4 E-3: escaped backticks — literal, не span delimiter ==="
+
+# CommonMark §2.4: backslash escape `\` делает следующий символ literal.
+# Прежний inline scanner матчил любой run ` как span delimiter, игнорируя
+# backslash перед ним. Bypass: `\`CHANGES_REQUESTED\`` — опаковые backticks
+# воспринимались как span opener/closer, CHANGES_REQUESTED стрипался как
+# content span-а, реальный вердикт CR в escaped form становился невидим.
+#
+# Fix: считаем backslash-run ПЕРЕД backtick-run; нечётное количество →
+# первый backtick экранирован → не участвует в span (literal). Чётное
+# (включая 0) → backticks обычные, span-логика работает.
+
+# E-3: escaped backticks preserve CR as plain text, validator блокирует.
+assert_blocks "e3_escaped_backticks_around_cr_preserve_plain" \
+'Вердикт: APPROVED
+Вердикт: \`CHANGES_REQUESTED\`'
+
+# E-3 sanity: обычный (не escaped) code span продолжает стрипать CR.
+assert_passes "e3_sanity_real_code_span_strips" \
+'Вердикт: APPROVED
+Был статус `CHANGES_REQUESTED` в истории'
+
+# E-3 edge: двойной backslash перед backtick — это literal backslash +
+# обычный backtick (чётное количество → не escape). Real code span
+# открывается, CHANGES_REQUESTED внутри стрипается.
+assert_passes "e3_double_backslash_real_span" \
+'Вердикт: APPROVED
+Путь: C:\\`CHANGES_REQUESTED`'
+
+echo "=== Pass 4 E-2: multiline inline code spans (CommonMark §6.1) ==="
+
+# CommonMark §6.1: inline code span внутри одного параграфа может пересекать
+# newlines (line endings treated as spaces). Opener на строке N, closer на
+# строке N+1 — валидный inline span, content (вкл. newlines) стрипается.
+# Прежний scanner работал per-line и не видел closer за newline. Fix:
+# paragraph-level scanner, строки одного параграфа склеиваются через
+# sentinel SEP (\x01), scanner видит whole paragraph, blank line ends
+# paragraph (inline span НЕ пересекает paragraph boundary).
+
+# E-2: multiline inline span через один newline стрипается корректно.
+# Opener ` на строке 2, closer ` на строке 3 — span охватывает CHANGES_REQUESTED
+# и "still quoted" через newline. После strip: "Вердикт: APPROVED\n rest".
+assert_passes "e2_multiline_inline_span_stripped" \
+'Вердикт: APPROVED
+`CHANGES_REQUESTED
+still quoted` rest'
 
 echo ""
 echo "=== Summary ==="
