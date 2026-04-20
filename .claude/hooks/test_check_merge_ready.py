@@ -82,6 +82,18 @@ TESTS = [
     ("gh pr comment 14 --body 'PR готов к merge, landing inside'", 1, "ase: comma terminator RU"),
     ("gh pr comment 1 --body 'ready to merge, landing inside'", 1, "ase: comma terminator EN"),
     ("gh pr comment 1 --body '## ✅ Готов к merge, landing artifacts уже внутри'", 1, "ase: RU marker + запятая + продолжение"),
+    # === big-heroes-nw5: semicolon и ellipsis как terminator (Tester gate v3.5) ===
+    # После закрытия bd-ase запятой Tester обнаружил class-coverage gap:
+    # `;` и `…` (U+2026) — symmetric punctuation-terminators, обходят hook
+    # тем же способом. Расширяем класс: [.!?,] → [.!?,;…].
+    ("gh pr comment 15 --body '## ✅ Готов к merge; landing commit следом'", 1, "nw5: semicolon terminator RU"),
+    ("gh pr comment 15 --body 'ready to merge; see CI'", 1, "nw5: semicolon terminator EN"),
+    ("gh pr comment 15 --body 'готов к merge… если X'", 1, "nw5: ellipsis U+2026 terminator RU"),
+    # Symmetry semantic для discussion-continuations: `когда X` и `как только X`
+    # ведут себя как `если X` — запятая делает их terminator, декларация readiness
+    # с продолжением. Явно фиксируем через coverage.
+    ("gh pr comment 1 --body 'готов к merge, когда X'", 1, "nw5: symmetry — запятая + когда"),
+    ("gh pr comment 1 --body 'готов к merge, как только X'", 1, "nw5: symmetry — запятая + как только"),
     # === Copilot round 28: zero-width char / HTML entity bypass ===
     ("gh pr comment 1 --body 'ready\u200bto merge'", 1, "zero-width space bypass"),
     ("gh pr comment 1 --body '## ✅ Готов\u200b к merge'", 1, "ZWSP in RU marker"),

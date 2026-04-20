@@ -48,6 +48,10 @@ import sys
 # Теперь запятая трактуется как terminator декларации readiness (как `.`/`!`/`?`
 # сами по себе — без требования line-end после). Negation-префиксы (`не`,
 # «почти», «будет») по-прежнему снимают блок через _NEGATION_WORDS.
+# big-heroes-nw5 (v3.5): расширен class-coverage до `;` и `…` (U+2026 ellipsis).
+# Tester gate PR #15: `;` и `…` — symmetric punctuation-terminators, дают
+# тот же bypass, что и запятая до ase. Итого terminator class: `.!?,;…`.
+# ASCII-троеточие `...` уже покрыто литеральным `.` в классе.
 _MERGE_READY_CANDIDATE = re.compile(
     r"(?im)^(?P<prefix>[^\n]*?)"
     r"(?:##\s*(?:✅\s*)?)?"
@@ -57,7 +61,7 @@ _MERGE_READY_CANDIDATE = re.compile(
     r"|merge\s*ready"
     r"|merge\s*is\s*ready"
     r")"
-    r"\s*(?:[.!?,]|(?:$|\n|['\"]))",
+    r"\s*(?:[.!?,;\u2026]|(?:$|\n|['\"]))",
 )
 
 # Слова-отрицания перед фразой — снимают блокировку. Покрывают частые паттерны
