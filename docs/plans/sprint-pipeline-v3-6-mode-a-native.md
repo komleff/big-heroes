@@ -35,7 +35,7 @@
 
 **Архитектура.**
 - Файл: `.claude/tools/openai-review.mjs` (~150 LoC).
-- Зависимости: `.claude/tools/package.json` с `"openai": "4.70.0"` без `^` (pinned, см. Риск 1); `.claude/tools/package-lock.json` коммитится в репозиторий для воспроизводимости между машинами. **Важно:** lockfile — локальный для `.claude/tools/`, не корневой `package-lock.json` проекта (root lockfile управляет shared/client workspaces). Первая установка: `cd .claude/tools && npm install`. Повторяемая переустановка на чистой машине: `cd .claude/tools && npm ci` (строго по lockfile, без разрешения версий).
+- Зависимости: `.claude/tools/package.json` с `"openai": "6.34.0"` без `^` (pinned, см. Риск 1). **Почему 6.x:** Responses API (`client.responses.create`) появился в SDK ≥4.80 и стабилизирован в 5.x; исходный pinning 4.70.0 не содержал Responses и был скорректирован при dogfood-прогоне (Reviewer B падал с `undefined (reading 'create')`). `.claude/tools/package-lock.json` коммитится в репозиторий для воспроизводимости между машинами. **Важно:** lockfile — локальный для `.claude/tools/`, не корневой `package-lock.json` проекта (root lockfile управляет shared/client workspaces). Первая установка: `cd .claude/tools && npm install`. Повторяемая переустановка на чистой машине: `cd .claude/tools && npm ci` (строго по lockfile, без разрешения версий).
 - Вызов: PM-агент через Bash subprocess `node .claude/tools/openai-review.mjs --model gpt-5.4 --base "$(gh pr view <PR_NUMBER> --json baseRefName --jq '.baseRefName')"`. Base-ветка берётся из PR-метаданных, не хардкодится как `master`/`main` — consistent с паттерном `external-review/SKILL.md` (`BASE_BRANCH=$(gh pr view ...)`). API key — из `$OPENAI_API_KEY`.
 - Поддерживаемые модели: `gpt-5.4` (Reviewer A, reasoning-модель, endpoint `/v1/chat/completions`, **`reasoning_effort: "high"` обязательно на Final Review**) + `gpt-5.3-codex` (Reviewer B, code-specialized, endpoint `/v1/completions` или `/v1/responses` по verified probe). Обе модели — полноразмерные, не mini-версии: две мощные adversarial модели разных архитектур (reasoning vs code) сохраняют adversarial diversity пайплайна. Endpoint dispatch в script — по allowlist-metadata каждой модели.
 - Выход: raw markdown на stdout. PM мапит на 4 аспекта при консолидации (как сейчас в external-review).
@@ -301,7 +301,7 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 
 ## Риски
 
-1. **Правка 1 — OpenAI SDK breaking changes.** Зависимость `openai@4.70.0` (pinned, без caret) может потребовать явного обновления после v3.6. Это npm-зависимость, не vendoring — разрешение версий фиксируется через `package-lock.json`. Митигация: держать pinned version + lockfile, update только через explicit Beads-задачу (не автоматически npm update).
+1. **Правка 1 — OpenAI SDK breaking changes.** Зависимость `openai@6.34.0` (pinned, без caret) может потребовать явного обновления после v3.6. Это npm-зависимость, не vendoring — разрешение версий фиксируется через `package-lock.json`. Митигация: держать pinned version + lockfile, update только через explicit Beads-задачу (не автоматически npm update). Выбор версии 6.34.0 — стабильная, содержит Responses API для `gpt-5.3-codex` (в 4.70.0, указанном в исходной черновой редакции плана, Responses API отсутствовал).
 
 2. **Правка 1 — Codex CLI и Node.js native дают разный формат вывода.** `codex review` выдаёт структурированный вывод в своём формате, `gpt-4`-style API — свободный markdown. Митигация — system prompt в script задаёт жёсткий формат ответа, PM консолидация адаптирована.
 

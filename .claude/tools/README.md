@@ -33,7 +33,9 @@ cd .claude/tools
 npm ci
 ```
 
-Версия SDK `openai@4.70.0` закреплена без `^` (см. Риск 1 в `docs/plans/sprint-pipeline-v3-6-mode-a-native.md`). Lockfile `package-lock.json` — локальный для этого каталога, не затрагивает root workspaces проекта (`shared/` и `client/`).
+Версия SDK `openai@6.34.0` закреплена без `^` (см. Риск 1 в `docs/plans/sprint-pipeline-v3-6-mode-a-native.md`). Lockfile `package-lock.json` — локальный для этого каталога, не затрагивает root workspaces проекта (`shared/` и `client/`).
+
+**Почему 6.x:** Responses API (`client.responses.create`) появился только в SDK ≥4.80, стабилизирован в 5.x. 6.34.0 — текущий stable, поддерживает оба нужных endpoint'а (`chat.completions` и `responses`). Обновление SDK в будущем — отдельная задача с явной правкой плана.
 
 ## Использование
 

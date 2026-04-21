@@ -7,6 +7,6 @@
     "node": ">=18.17.0"
   },
   "dependencies": {
-    "openai": "4.70.0"
+    "openai": "6.34.0"
   }
 }
