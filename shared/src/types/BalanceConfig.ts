@@ -173,6 +173,20 @@ export interface IBalanceConfig {
     pvp: IPvpConfig;
 }
 
+// Пороги расчёта очков арены по дельте Elo (см. calcArenaPoints)
+export interface IPvpPointsThresholds {
+    small: number;   // eloDelta ≤ small → 1 очко
+    medium: number;  // small < eloDelta ≤ medium → 2 очка; > medium → 3 очка
+}
+
+// Конфигурация серии PvP-боёв (аренная сессия)
+export interface IPvpSessionConfig {
+    min_mass_threshold: number;         // Порог массы, ниже которого сессия завершается
+    critical_durability_percent: number; // Доля (0..1) прочности экипировки, ниже которой сессия завершается
+    max_battles: number;                // Максимум боёв в одной сессии
+    points_thresholds: IPvpPointsThresholds;
+}
+
 // Конфигурация PvP-арены
 export interface IPvpConfig {
     mass_loss_on_defeat: number;      // Доля потери массы при поражении (0.1 = 10%)
@@ -180,4 +194,5 @@ export interface IPvpConfig {
     bot_mass_multipliers: number[];   // Множители массы ботов относительно героя
     bot_rating_spread: number;        // Разброс рейтинга ботов ±N
     bot_names: string[];              // Имена AI-ботов
+    session: IPvpSessionConfig;       // Параметры серии боёв (истощение, очки)
 }

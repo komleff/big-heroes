@@ -7,6 +7,12 @@ const defaultConfig: IPvpConfig = {
     bot_mass_multipliers: [0.8, 1.0, 1.2],
     bot_rating_spread: 50,
     bot_names: ['Теневой рыцарь', 'Буря клинков', 'Каменный страж'],
+    session: {
+        min_mass_threshold: 30,
+        critical_durability_percent: 0.25,
+        max_battles: 10,
+        points_thresholds: { small: 10, medium: 25 },
+    },
 };
 
 describe('PvpSystem', () => {
