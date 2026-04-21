@@ -31,13 +31,13 @@
 
 ### Правка 1 (P1, новая). Node.js native OpenAI review script
 
-**Назначение.** Устранить Codex CLI subprocess как путь вызова внешних ревьюеров. Вместо `npx @openai/codex review` — локальный Node.js script, вызывающий **OpenAI Chat Completions API** через `openai` npm package. Обе модели review — исключительно chat-capable (см. Err5 allowlist): `gpt-5.4` (Reviewer A) + `gpt-5.4-mini` (Reviewer B). `*-codex` / `*-pro` модели **не используются** — requires different endpoint, добавляет complexity без выгоды (adversarial diversity достигается через размерность chat-capable моделей одной семьи).
+**Назначение.** Устранить Codex CLI subprocess как путь вызова внешних ревьюеров. Вместо `npx @openai/codex review` — локальный Node.js script, вызывающий **OpenAI API напрямую с dual endpoint support**: `/v1/chat/completions` для chat-capable моделей (gpt-5.4 и т.п.) + `/v1/completions` или `/v1/responses` для completion-only моделей (`*-codex`, `*-pro`). Обязательно сохраняем **две мощные adversarial модели разных архитектур**: `gpt-5.4` (Reviewer A, полная reasoning-модель) + `gpt-5.3-codex` (Reviewer B, code-specialized модель). Diversity через **специализацию**, не через размерность mini-версий. Script dispatches endpoint по allowlist-metadata каждой модели.
 
 **Архитектура.**
 - Файл: `.claude/tools/openai-review.mjs` (~150 LoC).
 - Зависимости: `.claude/tools/package.json` с `"openai": "4.70.0"` без `^` (pinned, см. Риск 1); `.claude/tools/package-lock.json` коммитится в репозиторий для воспроизводимости между машинами. **Важно:** lockfile — локальный для `.claude/tools/`, не корневой `package-lock.json` проекта (root lockfile управляет shared/client workspaces). Первая установка: `cd .claude/tools && npm install`. Повторяемая переустановка на чистой машине: `cd .claude/tools && npm ci` (строго по lockfile, без разрешения версий).
 - Вызов: PM-агент через Bash subprocess `node .claude/tools/openai-review.mjs --model gpt-5.4 --base "$(gh pr view <PR_NUMBER> --json baseRefName --jq '.baseRefName')"`. Base-ветка берётся из PR-метаданных, не хардкодится как `master`/`main` — consistent с паттерном `external-review/SKILL.md` (`BASE_BRANCH=$(gh pr view ...)`). API key — из `$OPENAI_API_KEY`.
-- Поддерживаемые модели (chat-capable allowlist по Err5): `gpt-5.4` (Reviewer A, full reasoning) + `gpt-5.4-mini` (Reviewer B, smaller model того же семейства — adversarial diversity через размерность). Обе verified chat-capable (API probe 2026-04-22). Script отказывается вызывать модели вне allowlist с явным сообщением.
+- Поддерживаемые модели: `gpt-5.4` (Reviewer A, reasoning-модель, endpoint `/v1/chat/completions`, **`reasoning_effort: "high"` обязательно на Final Review**) + `gpt-5.3-codex` (Reviewer B, code-specialized, endpoint `/v1/completions` или `/v1/responses` по verified probe). Обе модели — полноразмерные, не mini-версии: две мощные adversarial модели разных архитектур (reasoning vs code) сохраняют adversarial diversity пайплайна. Endpoint dispatch в script — по allowlist-metadata каждой модели.
 - Выход: raw markdown на stdout. PM мапит на 4 аспекта при консолидации (как сейчас в external-review).
 
 **Подкоманды скрипта.**
@@ -51,7 +51,7 @@
 1. На Windows dev-host запуск `/external-review` для любого PR проходит без CreateProcessWithLogonW, без `sandbox_mode=danger-full-access`, без `npx codex`.
 2. На macOS — тот же флоу, без изменений в поведении.
 3. Node.js script переносится копированием `.claude/tools/` + `npm install` на другой компьютер с Claude Code. Никаких дополнительных установок.
-4. Два прохода (`gpt-5.4` + `gpt-5.4-mini`, см. Err5 allowlist) публикуются в одном PR-комментарии, META JSON `"mode": "A"` валиден.
+4. Два прохода (`gpt-5.4` с `reasoning_effort: "high"` на Final Review + `gpt-5.3-codex` через соответствующий endpoint) публикуются в одном PR-комментарии, META JSON `"mode": "A"` валиден. Две полноразмерные модели, не mini-версии.
 
 **Файлы.**
 - `.claude/tools/openai-review.mjs` — новый, ~150 LoC.
@@ -239,15 +239,15 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 - Err2. Node.js версия < 18 (отсутствует `parseArgs`) → exit с сообщением о требовании версии.
 - Err3. OpenAI SDK breaking change в major → lockfile защищает, pinned version без caret.
 - Err4. Hook publish-after-each-pass ложно блокирует легитимный переход → override через operator ack-token, не silent bypass.
-- Err5. **Endpoint mismatch: `*-codex` и `*-pro` модели completion-only** (найдено live Mode A dogfood на `81aca54`, verified API probe на `c399f48`). Список проверен реальными вызовами `POST /v1/chat/completions` с `max_completion_tokens: 1000` по состоянию API 2026-04-22:
+- Err5. **Endpoint dispatch по типу модели** (найдено live Mode A dogfood на `81aca54`, verified API probe на `c399f48`). Список проверен реальными вызовами `POST /v1/chat/completions` с `max_completion_tokens: 1000` по состоянию API 2026-04-22:
 
-    **Chat-capable (verified):** `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.1-chat-latest`, `gpt-5.3-chat-latest`.
+    **Chat-capable (endpoint `/v1/chat/completions`):** `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.1-chat-latest`, `gpt-5.3-chat-latest`.
 
-    **Completion-only (verified, возвращают 400 «This is not a chat model»):** `gpt-5.3-codex`, `gpt-5.1-codex`, `gpt-5.2-codex`, `gpt-5.2-pro`.
+    **Completion-only / иной endpoint (возвращают 400 «This is not a chat model» на Chat Completions):** `gpt-5.3-codex`, `gpt-5.1-codex`, `gpt-5.2-codex`, `gpt-5.2-pro`. Для них Правка 1 должна использовать `/v1/completions` или `/v1/responses` — Developer делает verified probe обоих endpoint'ов при имплементации и фиксирует рабочий путь в allowlist-metadata.
 
-    **Acceptance criterion Правки 1:** script `.claude/tools/openai-review.mjs` поддерживает **только chat-capable allowlist** (CHAT_MODELS = приведённый verified список). При попытке вызвать модель вне allowlist → exit с сообщением «model X is completion-only, use chat-capable model from: gpt-5.4 | gpt-5.4-mini | gpt-5.4-nano | gpt-5.1-chat-latest | gpt-5.3-chat-latest». Никаких runtime-endpoint-dispatch гипотез — жёсткий whitelist.
+    **Acceptance criterion Правки 1:** script `.claude/tools/openai-review.mjs` содержит allowlist-metadata с тремя полями на модель: `{ model, endpoint, extra_params }`. Для `gpt-5.4` endpoint = `/v1/chat/completions`, extra_params = `{reasoning_effort: "high"}` (обязательно на Final Review). Для `gpt-5.3-codex` endpoint = `/v1/completions` или `/v1/responses` по verified probe, extra_params по документации. Попытка вызвать модель вне allowlist → exit с сообщением.
 
-    **Adversarial diversity Правки 1:** Ревьюер A = `gpt-5.4` (full reasoning), Ревьюер B = `gpt-5.4-mini` (smaller, different training cutoff — даёт diversity при той же chat-совместимости). Замена для Codex-ревьюера — не совместимая `*-codex`/`*-pro`, а chat-capable модель иной размерности.
+    **Adversarial diversity Правки 1 (обязательно полноразмерные модели):** Reviewer A = `gpt-5.4` (reasoning-модель) + Reviewer B = `gpt-5.3-codex` (code-specialized). Две мощные adversarial модели разных архитектур — reasoning-focus vs code-focus. **Запрещено:** заменять codex-ревьюера на mini-версию chat-модели (gpt-5.4-mini и подобные) — это регрессия adversarial diversity (mini-модель находит меньше, слабее критикует, пропускает specialized code findings). Mini-версии могут использоваться только для **дополнительного** pass, не как замена codex-ревьюера.
 
 ### Invariants
 
