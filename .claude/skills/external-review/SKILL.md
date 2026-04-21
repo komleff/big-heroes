@@ -77,20 +77,24 @@ if [[ -z "$HEAD_COMMIT" || "$HEAD_COMMIT" == "null" || ! "$HEAD_COMMIT" =~ ^[0-9
   exit 1
 fi
 
-# Установка openai SDK (если ещё нет node_modules):
+MODE_A_AVAILABLE=1
+
+# Установка openai SDK (если ещё нет node_modules). Падение npm install — это degraded, а не СТОП:
+# при проблемах сети/прокси логичнее перейти в Mode C/D, а не блокировать весь /external-review.
 if [ ! -d .claude/tools/node_modules ]; then
-  (cd .claude/tools && npm install) || {
-    echo "СТОП: npm install упал в .claude/tools/"; exit 1
-  }
+  if ! (cd .claude/tools && npm install); then
+    echo "ВНИМАНИЕ: npm install упал в .claude/tools/ — Mode A недоступен, переход в degraded-режим C/D."
+    MODE_A_AVAILABLE=0
+  fi
 fi
 
-# Ранняя проверка валидности $OPENAI_API_KEY (<2 сек, AC6 плана):
-if ! node .claude/tools/openai-review.mjs --ping; then
-  echo "ВНИМАНИЕ: Mode A недоступен (невалидный ключ / rate limit / network)."
-  echo "Скрипт перейдёт в degraded-режим C. Детали ошибки — на stderr выше."
-  MODE_A_AVAILABLE=0
-else
-  MODE_A_AVAILABLE=1
+# Ранняя проверка валидности $OPENAI_API_KEY (<2 сек, AC6 плана) — только если SDK установлен.
+if [ "$MODE_A_AVAILABLE" = "1" ]; then
+  if ! node .claude/tools/openai-review.mjs --ping; then
+    echo "ВНИМАНИЕ: Mode A недоступен (невалидный ключ / rate limit / network)."
+    echo "Скрипт перейдёт в degraded-режим C. Детали ошибки — на stderr выше."
+    MODE_A_AVAILABLE=0
+  fi
 fi
 ```
 
@@ -205,7 +209,7 @@ Exit 3 (`nothing to review`) — не ошибка, штатный сигнал 
 - Runtime allowlist (ровно две полноразмерные модели, отказ при любой другой).
 - Диспатч endpoint по модели (chat.completions vs responses).
 - Классификацию ошибок API (401/403 ключ, 429 rate limit, 400 oversized, 5xx сервер, network).
-- Таймауты (180 сек для review, 10 сек для `--ping`).
+- Таймауты: 180 сек для review (reasoning high может отрабатывать долго); 2 сек для `--ping` с одним retry (AC6 плана) — короткий бюджет для fail-fast на проблемах сети/ключа.
 
 **Формат вывода скрипта — готовый markdown**, не требует ручного маппинга на 4 аспекта — system prompt задаёт жёсткий формат `## Вердикт: ...` + `### Архитектура: ...` + 3 других аспекта.
 

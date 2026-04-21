@@ -34,7 +34,7 @@
 **Назначение.** Устранить Codex CLI subprocess как путь вызова внешних ревьюеров. Вместо `npx @openai/codex review` — локальный Node.js script, вызывающий **OpenAI API напрямую с dual endpoint support**: `/v1/chat/completions` для chat-capable моделей (gpt-5.4 и т.п.) + `/v1/completions` или `/v1/responses` для completion-only моделей (`*-codex`, `*-pro`). Обязательно сохраняем **две мощные adversarial модели разных архитектур**: `gpt-5.4` (Reviewer A, полная reasoning-модель) + `gpt-5.3-codex` (Reviewer B, code-specialized модель). Diversity через **специализацию**, не через размерность mini-версий. Script dispatches endpoint по allowlist-metadata каждой модели.
 
 **Архитектура.**
-- Файл: `.claude/tools/openai-review.mjs` (~150 LoC).
+- Файл: `.claude/tools/openai-review.mjs` — Node.js native скрипт для Mode A через OpenAI SDK. Исходная оценка в черновике (~150 строк) была оптимистичной; фактический размер после всех замечаний проверяющих — ~480 строк с комментариями (HTML-escape, валидация вывода, prompt-injection защита, endpoint dispatch, Node version check, retry/timeout политика).
 - Зависимости: `.claude/tools/package.json` с `"openai": "6.34.0"` без `^` (pinned, см. Риск 1). **Почему 6.x:** Responses API (`client.responses.create`) появился в SDK ≥4.80 и стабилизирован в 5.x; исходный pinning 4.70.0 не содержал Responses и был скорректирован при dogfood-прогоне (Reviewer B падал с `undefined (reading 'create')`). `.claude/tools/package-lock.json` коммитится в репозиторий для воспроизводимости между машинами. **Важно:** lockfile — локальный для `.claude/tools/`, не корневой `package-lock.json` проекта (root lockfile управляет shared/client workspaces). Первая установка: `cd .claude/tools && npm install`. Повторяемая переустановка на чистой машине: `cd .claude/tools && npm ci` (строго по lockfile, без разрешения версий).
 - Вызов: PM-агент через Bash subprocess `node .claude/tools/openai-review.mjs --model gpt-5.4 --base "$(gh pr view <PR_NUMBER> --json baseRefName --jq '.baseRefName')"`. Base-ветка берётся из PR-метаданных, не хардкодится как `master`/`main` — consistent с паттерном `external-review/SKILL.md` (`BASE_BRANCH=$(gh pr view ...)`). API key — из `$OPENAI_API_KEY`.
 - Поддерживаемые модели: `gpt-5.4` (Reviewer A, reasoning-модель, endpoint `/v1/chat/completions`, **`reasoning_effort: "high"` обязательно на Final Review**) + `gpt-5.3-codex` (Reviewer B, code-specialized, endpoint `/v1/completions` или `/v1/responses` по verified probe). Обе модели — полноразмерные, не mini-версии: две мощные adversarial модели разных архитектур (reasoning vs code) сохраняют adversarial diversity пайплайна. Endpoint dispatch в script — по allowlist-metadata каждой модели.
@@ -54,7 +54,7 @@
 4. Два прохода (`gpt-5.4` с `reasoning_effort: "high"` на Final Review + `gpt-5.3-codex` через соответствующий endpoint) публикуются в одном PR-комментарии, META JSON `"mode": "A"` валиден. Две полноразмерные модели, не mini-версии.
 
 **Файлы.**
-- `.claude/tools/openai-review.mjs` — новый, ~150 LoC.
+- `.claude/tools/openai-review.mjs` — новый, ~480 строк (размер уточнён после прохождения циклов ревью — см. Архитектура выше).
 - `.claude/tools/package.json` — новый, `openai` dep.
 - `.claude/tools/README.md` — setup и troubleshooting для переноса на другую машину.
 - [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md) — шаги 1.4, 2, 3.1 переписаны.
