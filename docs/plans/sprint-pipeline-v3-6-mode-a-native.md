@@ -87,7 +87,7 @@ PM пытается запустить следующий pass без публи
 
 **Требования.**
 В [.claude/skills/finalize-pr/SKILL.md](../../.claude/skills/finalize-pr/SKILL.md) шаг 4 (external review check) добавить:
-- Парсить `"mode"` из HTML META JSON в PM-комментарии (формат в external-review:249).
+- Парсить `"mode"` из HTML META JSON в PM-комментарии (формат определён в шаблоне [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md), секция «Шаг 5: Консолидация и публикация»).
 - Sprint Final tier на master-merge:
   - `mode == "A"` — проход без вопросов.
   - `mode == "B"` (включая label `B-manual`) — degraded manual fallback, не эквивалент Mode A. Допускается только с operator ack через `--accept-degraded=<reason>` или файл `.finalize-pr-ack`.
@@ -148,10 +148,10 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 
 ### Правка 6 (P3). Mode-label унификация в комментариях PM
 
-**Назначение.** В [.claude/skills/external-review/SKILL.md:246](../../.claude/skills/external-review/SKILL.md) первая строка уже содержит `Режим: __MODE__`. Распространить формат на комментарии из `sprint-pr-cycle` и `finalize-pr`.
+**Назначение.** В [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md) шаблон публикации отчёта уже начинается со строки `Режим: __MODE__`. Распространить формат на комментарии из `sprint-pr-cycle` и `finalize-pr`.
 
 **Требования.**
-Каждый комментарий PM в PR начинается с первой строки `Режим: <label>` где label ∈ {A, B-manual, C, D}. Формат `Режим:` (не `Mode:`) — такой же, как уже в шаблоне `external-review/SKILL.md:246`; единый ключ нужен для будущих парсеров. Label `B-manual` включён для совместимости с Правкой 7. Без hook enforcement — соглашение в шаблоне.
+Каждый комментарий PM в PR начинается с первой строки `Режим: <label>` где label ∈ {A, B-manual, C, D}. Формат `Режим:` (не `Mode:`) — такой же, как уже в шаблоне [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md); единый ключ нужен для будущих парсеров. Label `B-manual` включён для совместимости с Правкой 7. Без hook enforcement — соглашение в шаблоне.
 
 **Файлы.**
 - [.claude/skills/sprint-pr-cycle/SKILL.md](../../.claude/skills/sprint-pr-cycle/SKILL.md) — шаблоны комментариев.
