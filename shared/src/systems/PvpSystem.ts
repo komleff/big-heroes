@@ -1,6 +1,6 @@
 // Система PvP: генерация ботов, расчёт потерь и управление сессией арены
 
-import type { IPvpConfig, IPvpSessionConfig } from '../types/BalanceConfig';
+import type { IPvpConfig, IPvpSessionConfig, IPvpPointsThresholds } from '../types/BalanceConfig';
 import type { IHeroState, IEquipmentSlots, IArenaSession } from '../types/GameState';
 
 /** AI-противник для PvP */
@@ -164,4 +164,21 @@ export function applyBattleToSession(
         totalMassLost: session.totalMassLost + massLostIncrement,
         totalRatingDelta: session.totalRatingDelta + ratingDelta,
     };
+}
+
+/**
+ * Расчёт очков арены за победу по знаковой дельте Elo.
+ * - eloDelta ≤ small  → 1 очко (мелкая победа или отрицательная дельта)
+ * - small < delta ≤ medium → 2 очка
+ * - delta > medium → 3 очка
+ *
+ * Нестрогое сравнение на границах сохраняет стабильное поведение при
+ * целых значениях порогов. Функция вызывается только на victory, но
+ * отрицательная дельта защищается через ветку ≤ small (1 очко), чтобы
+ * случайный вызов на defeat не дал исключение/NaN.
+ */
+export function calcArenaPoints(eloDelta: number, thresholds: IPvpPointsThresholds): 1 | 2 | 3 {
+    if (eloDelta <= thresholds.small) return 1;
+    if (eloDelta <= thresholds.medium) return 2;
+    return 3;
 }

@@ -21,7 +21,7 @@ export { generateLoot, generateShopInventory, calcShopRepairCost } from './syste
 export type { ILootDrop, ILootResult, IShopItem } from './systems/LootSystem';
 export { resolveEventOutcome, getVariantProcChance } from './systems/EventSystem';
 export type { IEventEffectResult } from './systems/EventSystem';
-export { generateBots, calcPvpMassLoss, startSession, shouldEndSession, applyBattleToSession } from './systems/PvpSystem';
+export { generateBots, calcPvpMassLoss, startSession, shouldEndSession, applyBattleToSession, calcArenaPoints } from './systems/PvpSystem';
 export type { IPvpBot, ArenaSessionEndReason, IArenaSessionEndCheck } from './systems/PvpSystem';
 
 // Утилиты

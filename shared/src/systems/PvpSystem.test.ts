@@ -1,4 +1,4 @@
-import { generateBots, calcPvpMassLoss, startSession, shouldEndSession, applyBattleToSession } from './PvpSystem';
+import { generateBots, calcPvpMassLoss, startSession, shouldEndSession, applyBattleToSession, calcArenaPoints } from './PvpSystem';
 import type { IPvpConfig, IPvpSessionConfig } from '../types/BalanceConfig';
 import type { IHeroState, IEquipmentSlots, IArenaSession } from '../types/GameState';
 import type { IEquipmentItem } from '../types/Equipment';
@@ -326,6 +326,39 @@ describe('PvpSystem', () => {
             expect(session.battlesPlayed).toBe(3);
             expect(session.totalMassLost).toBe(8);      // только defeat добавил
             expect(session.totalRatingDelta).toBe(6);   // 10 − 12 + 8
+        });
+    });
+
+    describe('calcArenaPoints', () => {
+        const thresholds = { small: 10, medium: 25 };
+
+        it('eloDelta = 0 → 1 очко', () => {
+            expect(calcArenaPoints(0, thresholds)).toBe(1);
+        });
+
+        it('eloDelta ровно на пороге small (10) → 1 очко (нестрогое ≤)', () => {
+            expect(calcArenaPoints(10, thresholds)).toBe(1);
+        });
+
+        it('eloDelta = small + 1 (11) → 2 очка', () => {
+            expect(calcArenaPoints(11, thresholds)).toBe(2);
+        });
+
+        it('eloDelta ровно на пороге medium (25) → 2 очка', () => {
+            expect(calcArenaPoints(25, thresholds)).toBe(2);
+        });
+
+        it('eloDelta = medium + 1 (26) → 3 очка', () => {
+            expect(calcArenaPoints(26, thresholds)).toBe(3);
+        });
+
+        it('eloDelta = большое значение (100) → 3 очка', () => {
+            expect(calcArenaPoints(100, thresholds)).toBe(3);
+        });
+
+        it('отрицательный eloDelta → 1 очко (защита от defeat-вызова)', () => {
+            // calcArenaPoints вызывается только на victory, но защищаемся на будущее
+            expect(calcArenaPoints(-15, thresholds)).toBe(1);
         });
     });
 });
