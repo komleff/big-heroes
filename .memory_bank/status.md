@@ -1,8 +1,19 @@
 # Статус проекта Big Heroes
 
 **Обновлён:** 2026-04-21
-**Фаза:** **Sprint Pipeline v3.5 Cleanup after v3.4 — PR [#15](https://github.com/komleff/big-heroes/pull/15) ✅ COMPLETE 2026-04-21** (pre-merge finalize на commit `7d1517d`, Option B: 10 deferred known limitations → v3.6), ожидает operator merge. Предыдущие: Sprint Pipeline v3.4 Pre-Merge Landing (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED + PR [#13](https://github.com/komleff/big-heroes/pull/13) chore/landing-pr-12 MERGED + Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
-**Base master HEAD:** `d3dab6b` (base для v3.5 pre-merge) · План архивирован **на HEAD ветки PR** в `docs/archive/sprint-pipeline-v3-5-cleanup.md` (ещё не в master до merge).
+**Фаза:** **Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) ✅ COMPLETE 2026-04-21** (pre-merge landing commit на `c43eeaa`, ожидает operator merge). Предыдущие: Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
+**Base master HEAD:** `d3dab6b` · Sprint 6 план архивирован в `docs/archive/sprint-6-pvp-session-and-arena-ux.md`.
+
+## Sprint 6 PvP Arena Session итог (COMPLETE 2026-04-21, landing commit `c43eeaa`)
+
+- Tracking: `big-heroes-tgr` closed (core feature: серия PvP-боёв); `big-heroes-e0o`, `big-heroes-bfv`, `big-heroes-tqh` closed (P1 bugs); `big-heroes-91e`, `big-heroes-bb0`, `big-heroes-dy3`, `big-heroes-7r8`, `big-heroes-00q` closed (Arena UX cluster); `big-heroes-2eh` sprint tracker closed.
+- Реализовано: `startSession`, `shouldEndSession`, `applyBattleToSession`, `calcArenaPoints` в `shared/src/systems/PvpSystem.ts`; `IArenaSession` в `GameState.ts`; `PvpLobbyScene` с полным UX арены; `findFreeBeltSlotIndex` + авторазмещение расходников; `generateForkPaths` рефакторинг.
+- 196/196 тестов; VC-1..VC-4, VC-6, VC-9 покрыты. Verification Contract выполнен.
+- External review: Mode C (degraded, Claude adversarial 2 прохода). Codex CLI недоступен на Windows (BE-11). GPT-4.1 исключён оператором как нерелевантный.
+- Deferred Beads (12 items): `big-heroes-biu` (арх.doc drift), `big-heroes-6d3r` (formatEndReason), `big-heroes-bh1o` (IArenaSession.active), `big-heroes-fy7i` (Readonly params), `big-heroes-kgt2` (as-casts), `big-heroes-252b` (calcArenaPoints инвертированные пороги), `big-heroes-vf6u` (generateBots edge case), `big-heroes-nkfu` (shouldEndSession config edge cases), `big-heroes-4uzr` (applyBattleToSession active=false), `big-heroes-wzul` (nextY magic), `big-heroes-kfb4` (showPvpDefeatOverlay), `big-heroes-9ari` (lastWinPoints falsy).
+- VC-5, VC-7, VC-8 требуют ручного QA оператора (визуальный, arena flow, non-combat guard).
+
+---
 
 ## Sprint v3.5 Cleanup after v3.4 итог (COMPLETE 2026-04-21, первый финализирующий /finalize-pr на `7d1517d`)
 
