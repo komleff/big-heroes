@@ -6,7 +6,7 @@
 
 1. **BE-11 Windows sandbox блокирует Codex CLI.** `CreateProcessWithLogonW failed: 1326` — Codex CLI subprocess не запускается на Windows без `-c sandbox_mode='"danger-full-access"'`. Оператор работает на двух машинах (домашний Windows + рабочий ноутбук), половина времени — на Windows. `danger-full-access` — неприемлемая заглушка: отключает sandbox-изоляцию, формализовать её как convention нельзя.
 
-2. **BE-11 workaround не в скиллах.** Обход документирован только в [.memory_bank/status.md:25](../../.memory_bank/status.md). В [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md) — ни строчки. Любой первый запуск `/external-review` на Windows упадёт.
+2. **BE-11 workaround не в скиллах.** Обход документирован только в [.memory_bank/status.md](../../.memory_bank/status.md) (секция Sprint v3.5 Cleanup, convention change). В [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md) — ни строчки. Любой первый запуск `/external-review` на Windows упадёт.
 
 3. **`/finalize-pr` не проверяет, что Mode A реально применялся.** JSON META (`"mode": "A"`) валидируется синтаксически, но нет hard gate. Тихая деградация Codex → Mode C пройдёт как валидный review — регрессия v3.4 воспроизводится.
 
