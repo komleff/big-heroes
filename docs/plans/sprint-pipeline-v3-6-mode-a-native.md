@@ -218,7 +218,7 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 ### Expected behaviors
 
 - B1. `node openai-review.mjs --ping` с валидным `$OPENAI_API_KEY` → exit 0 + stdout `OK` или эквивалент.
-- B2. `node openai-review.mjs --model <id> --base <branch>` → stdout содержит структурированный review в 4 аспектах + вердикт APPROVED/CHANGES_REQUESTED.
+- B2. `node openai-review.mjs --model <id> --base <branch>` → stdout содержит структурированный разбор по 4 аспектам + один из трёх вердиктов: `APPROVED`, `CHANGES_REQUESTED`, `ESCALATION` (последний — когда модель не может вынести однозначное решение и требует вмешательства оператора; согласовано с ролью Reviewer в `.agents/AGENT_ROLES.md §3`).
 - B3. `--base` берётся динамически из `gh pr view --json baseRefName --jq '.baseRefName'` (не хардкод `master`).
 - B4. При Mode A-fallback на Codex CLI отчёт явно помечен, PM не выдаёт его за native-режим.
 - B5. `/finalize-pr --accept-degraded=<reason>` пропускает degraded mode с явной строкой в итоговом комментарии.
@@ -243,11 +243,15 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 
     **Chat-capable (endpoint `/v1/chat/completions`):** `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.1-chat-latest`, `gpt-5.3-chat-latest`.
 
-    **Completion-only / иной endpoint (возвращают 400 «This is not a chat model» на Chat Completions):** `gpt-5.3-codex`, `gpt-5.1-codex`, `gpt-5.2-codex`, `gpt-5.2-pro`. Для них Правка 1 должна использовать `/v1/completions` или `/v1/responses` — Developer делает verified probe обоих endpoint'ов при имплементации и фиксирует рабочий путь в allowlist-metadata.
+    **Требуют иной конечной точки (возвращают 400 «This is not a chat model» на Chat Completions):** `gpt-5.3-codex`, `gpt-5.1-codex`, `gpt-5.2-codex`, `gpt-5.2-pro`. Проверенный вариант для `gpt-5.3-codex` — `/v1/responses` (HTTP 200, поддерживает `reasoning.effort: "high"`; подтверждено live probe 2026-04-22).
 
-    **Acceptance criterion Правки 1:** script `.claude/tools/openai-review.mjs` содержит allowlist-metadata с тремя полями на модель: `{ model, endpoint, extra_params }`. Для `gpt-5.4` endpoint = `/v1/chat/completions`, extra_params = `{reasoning_effort: "high"}` (обязательно на Final Review). Для `gpt-5.3-codex` endpoint = `/v1/completions` или `/v1/responses` по verified probe, extra_params по документации. Попытка вызвать модель вне allowlist → exit с сообщением.
+    **Канонический runtime для Правки 1 (ровно две полноразмерные модели):**
+    - **Reviewer A** = `gpt-5.4`, endpoint `/v1/chat/completions`, параметры `{reasoning_effort: "high"}` — обязательно на Sprint Final.
+    - **Reviewer B** = `gpt-5.3-codex`, endpoint `/v1/responses`, параметры `{reasoning: {effort: "high"}}`.
 
-    **Adversarial diversity Правки 1 (обязательно полноразмерные модели):** Reviewer A = `gpt-5.4` (reasoning-модель) + Reviewer B = `gpt-5.3-codex` (code-specialized). Две мощные adversarial модели разных архитектур — reasoning-focus vs code-focus. **Запрещено:** заменять codex-ревьюера на mini-версию chat-модели (gpt-5.4-mini и подобные) — это регрессия adversarial diversity (mini-модель находит меньше, слабее критикует, пропускает specialized code findings). Mini-версии могут использоваться только для **дополнительного** pass, не как замена codex-ревьюера.
+    Справочные таблицы выше (5 chat-совместимых + 4 с иной точкой) — материал для будущего расширения пайплайна (v3.7+), не runtime. Скрипт `.claude/tools/openai-review.mjs` содержит allowlist-metadata **только для этих двух runtime-моделей**: `{ model, endpoint, extra_params }`. Попытка вызвать модель вне runtime-allowlist → ранний выход с конкретным сообщением и ссылкой на справочную таблицу. Расширение runtime-allowlist — отдельная задача, требующая явной правки плана и согласования с оператором.
+
+    **Adversarial diversity Правки 1 — только полноразмерные модели:** Reviewer A (reasoning-специализация) и Reviewer B (code-специализация) — разные архитектуры, обе полной мощности. **Запрещено** заменять codex-проверяющего на mini-версию chat-модели (gpt-5.4-mini и т.п.) — это регрессия adversarial diversity (mini-модель находит меньше замечаний, слабее критикует, пропускает code-specific находки). Mini-версии допустимы только как **дополнительный** третий проход, не как замена Reviewer B.
 
 ### Invariants
 
