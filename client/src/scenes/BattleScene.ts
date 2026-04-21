@@ -10,7 +10,7 @@ import { tweenProperty } from '../utils/Tween';
 import { addRelicWithUI } from '../utils/relicHelper';
 import { autoEquipIfBetter, autoPlaceConsumableOnBelt } from '../utils/autoEquip';
 import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic, IArenaSession, IEquipmentSlots } from 'shared';
-import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange, calcPvpMassLoss, applyBattleToSession, shouldEndSession, calcArenaPoints } from 'shared';
+import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange, calcPvpMassLoss, applyBattleToSession, shouldEndSession, calcArenaPoints, startSession } from 'shared';
 import { ProgressBar } from '../ui/ProgressBar';
 import balanceConfig from '@config/balance.json';
 
@@ -813,14 +813,16 @@ export class BattleScene extends BaseScene {
         barLabel.position.set(W / 2, 330);
         overlay.addChild(barLabel);
 
-        // current/max для бара: текущая масса / min_mass_threshold.
-        // Если масса выше порога — бар заполнен на clamp(currentMass/threshold, 0..1)?
-        // Нет, наоборот: запас массы над порогом. Используем (mass - threshold) / startMass — проще:
-        // показываем currentMass относительно threshold как «health». Для MVP: current=clamp(mass, 0, thr), max=thr.
+        // Прогресс-бар показывает ЗАПАС массы над порогом — сколько ещё можно проиграть
+        // до вылета из арены. max = сколько массы было над порогом в начале этого боя,
+        // current = сколько осталось над порогом после боя. При massAfter ≤ threshold бар = 0.
+        // Monotonically decreasing по ходу серии (если сессия проходит через один defeat за один вызов).
+        const massReserveMax = Math.max(1, massBefore - minMassThreshold);
+        const massReserveCurrent = Math.min(massReserveMax, Math.max(0, massAfter - minMassThreshold));
         const progress = new ProgressBar({
             width: W - 80,
-            max: minMassThreshold,
-            current: Math.max(0, Math.min(massAfter, minMassThreshold)),
+            max: massReserveMax,
+            current: massReserveCurrent,
         });
         progress.position.set(40, 350);
         overlay.addChild(progress);
@@ -1081,6 +1083,12 @@ export class BattleScene extends BaseScene {
                                 },
                                 onGoArena: () => {
                                     this.gameState.endExpedition();
+                                    // Инициализация арена-сессии перед входом в лобби из PveResult (второй путь входа),
+                                    // иначе BattleScene уходит в fallback single-battle. Параллельно с HubScene-логикой.
+                                    if (!this.gameState.arenaSession) {
+                                        const session = startSession(this.gameState.hero, config.pvp.session);
+                                        this.gameState.setArenaSession(session);
+                                    }
                                     void this.sceneManager.goto('pvpLobby', { transition: TransitionType.FADE });
                                 },
                             },
@@ -1228,12 +1236,19 @@ export class BattleScene extends BaseScene {
                         });
                     }
                 } else {
-                    // Поражение: defeat-overlay с улучшенной визуализацией (T8)
-                    this.showPvpDefeatOverlay(
-                        massLoss, massBefore, consumedRelicName,
-                        endCheck.ended ? updatedSession : null, endCheck.reason,
-                        config.pvp.session.min_mass_threshold,
-                    );
+                    // Поражение.
+                    if (endCheck.ended) {
+                        // Сессия завершена поражением → полная сводка серии (битв, масса, рейтинг, причина).
+                        // null очков: последний бой — поражение, очки начисляются только за victory.
+                        this.showSessionSummaryOverlay(updatedSession, endCheck.reason, null);
+                    } else {
+                        // Серия продолжается → defeat-overlay с деталями последнего боя и возвратом в lobby.
+                        this.showPvpDefeatOverlay(
+                            massLoss, massBefore, consumedRelicName,
+                            null, null,
+                            config.pvp.session.min_mass_threshold,
+                        );
+                    }
                 }
                 return;
             }
