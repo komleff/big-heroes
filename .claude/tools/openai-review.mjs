@@ -14,12 +14,12 @@ const ALLOWLIST = [
   {
     model: 'gpt-5.4',
     endpoint: 'chat.completions',
-    request_shape: { reasoning_effort: 'high' },
+    requestShape: { reasoning_effort: 'high' },
   },
   {
     model: 'gpt-5.3-codex',
     endpoint: 'responses',
-    request_shape: { reasoning: { effort: 'high' } },
+    requestShape: { reasoning: { effort: 'high' } },
   },
 ];
 
@@ -115,13 +115,14 @@ function classifyApiError(err) {
 }
 
 // Безопасная проверка наличия ключа (без логирования значения).
+// Возвращаемое значение намеренно отсутствует: SDK читает OPENAI_API_KEY из env сам,
+// прокидывать ключ отдельно через аргументы не требуется и повышает риск случайного логирования.
 function requireApiKey() {
   const key = process.env.OPENAI_API_KEY;
   if (!key || key.trim() === '') {
     process.stderr.write('Ошибка: $OPENAI_API_KEY не задан в окружении.\n');
     process.exit(EXIT_RUNTIME_ERROR);
   }
-  return key;
 }
 
 // Ленивая загрузка SDK — чтобы --help работал без установленного node_modules.
@@ -409,7 +410,7 @@ async function runReview(modelId, baseRef) {
           { role: 'user', content: userPrompt },
         ],
         max_completion_tokens: MAX_OUTPUT_TOKENS,
-        ...entry.request_shape,
+        ...entry.requestShape,
       });
       text = extractChatText(response);
     } else if (entry.endpoint === 'responses') {
@@ -421,7 +422,7 @@ async function runReview(modelId, baseRef) {
         instructions: systemPrompt,
         input: userPrompt,
         max_output_tokens: MAX_OUTPUT_TOKENS,
-        ...entry.request_shape,
+        ...entry.requestShape,
       });
       text = extractResponsesText(response);
     } else {
