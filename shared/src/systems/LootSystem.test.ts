@@ -252,7 +252,7 @@ describe('findFreeBeltSlotIndex', () => {
 
     test('оба слота пусты — возвращает 0 (первый свободный)', () => {
         // Arrange
-        const belt: IBeltSlot[] = [null, null];
+        const belt: [IBeltSlot, IBeltSlot] = [null, null];
 
         // Act
         const idx = findFreeBeltSlotIndex(belt);
@@ -263,7 +263,7 @@ describe('findFreeBeltSlotIndex', () => {
 
     test('слот 0 занят, слот 1 пуст — возвращает 1', () => {
         // Arrange
-        const belt: IBeltSlot[] = [sampleConsumable, null];
+        const belt: [IBeltSlot, IBeltSlot] = [sampleConsumable, null];
 
         // Act
         const idx = findFreeBeltSlotIndex(belt);
@@ -274,7 +274,7 @@ describe('findFreeBeltSlotIndex', () => {
 
     test('оба слота заняты — возвращает -1', () => {
         // Arrange
-        const belt: IBeltSlot[] = [sampleConsumable, sampleConsumable];
+        const belt: [IBeltSlot, IBeltSlot] = [sampleConsumable, sampleConsumable];
 
         // Act
         const idx = findFreeBeltSlotIndex(belt);
@@ -285,23 +285,12 @@ describe('findFreeBeltSlotIndex', () => {
 
     test('слот 0 пуст, слот 1 занят — возвращает 0', () => {
         // Arrange
-        const belt: IBeltSlot[] = [null, sampleConsumable];
+        const belt: [IBeltSlot, IBeltSlot] = [null, sampleConsumable];
 
         // Act
         const idx = findFreeBeltSlotIndex(belt);
 
         // Assert
         expect(idx).toBe(0);
-    });
-
-    test('пустой массив — возвращает -1 (нет слотов)', () => {
-        // Arrange
-        const belt: IBeltSlot[] = [];
-
-        // Act
-        const idx = findFreeBeltSlotIndex(belt);
-
-        // Assert
-        expect(idx).toBe(-1);
     });
 });

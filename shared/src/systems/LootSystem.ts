@@ -176,9 +176,8 @@ export function calcShopRepairCost(
  * чтобы предмет автоматически помещался на пояс при наличии свободной
  * ячейки (по аналогии с autoEquip для снаряжения). Fallback — рюкзак.
  */
-export function findFreeBeltSlotIndex(belt: ReadonlyArray<IBeltSlot>): number {
-    for (let i = 0; i < belt.length; i++) {
-        if (belt[i] === null) return i;
-    }
+export function findFreeBeltSlotIndex(belt: Readonly<[IBeltSlot, IBeltSlot]>): 0 | 1 | -1 {
+    if (belt[0] === null) return 0;
+    if (belt[1] === null) return 1;
     return -1;
 }

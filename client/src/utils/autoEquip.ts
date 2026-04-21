@@ -22,7 +22,6 @@ export function autoPlaceConsumableOnBelt(
     const freeIdx = findFreeBeltSlotIndex(gameState.belt);
     if (freeIdx === -1) return false; // Свободных слотов нет — fallback в рюкзак
 
-    // setBelt принимает 0 | 1; findFreeBeltSlotIndex возвращает индекс в пределах belt
     const consumable: IConsumable = {
         id: cfg.id,
         name: cfg.name,
@@ -31,7 +30,7 @@ export function autoPlaceConsumableOnBelt(
         effect: cfg.effect,
         value: cfg.value,
     };
-    gameState.setBelt(freeIdx as 0 | 1, consumable);
+    gameState.setBelt(freeIdx, consumable);
     return true;
 }
 
