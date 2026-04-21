@@ -35,7 +35,7 @@
 
 **Архитектура.**
 - Файл: `.claude/tools/openai-review.mjs` (~150 LoC).
-- Зависимости: `.claude/tools/package.json` с `"openai": "^4.70.0"`. Одноразовый `npm install` при первой настройке.
+- Зависимости: `.claude/tools/package.json` с `"openai": "4.70.0"` без `^` (pinned, см. Риск 1); `package-lock.json` коммитится в репозиторий для воспроизводимости между машинами. Одноразовый `npm install` при первой настройке.
 - Вызов: PM-агент через Bash subprocess `node .claude/tools/openai-review.mjs --model gpt-5.4 --base master`. API key — из `$OPENAI_API_KEY`.
 - Поддерживаемые модели: `gpt-5.4` (Ревьюер A, high reasoning), `gpt-5.3-codex` (Ревьюер B, фокус на коде). Оба прохода — adversarial diversity как в черновом режиме A.
 - Выход: raw markdown на stdout. PM мапит на 4 аспекта при консолидации (как сейчас в external-review).
@@ -143,7 +143,7 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 **Назначение.** В [.claude/skills/external-review/SKILL.md:246](../../.claude/skills/external-review/SKILL.md) первая строка уже содержит `Режим: __MODE__`. Распространить формат на комментарии из `sprint-pr-cycle` и `finalize-pr`.
 
 **Требования.**
-Каждый комментарий PM в PR начинается с первой строки `Mode: <label>` где label ∈ {A, C, D}. Без hook enforcement — соглашение в шаблоне.
+Каждый комментарий PM в PR начинается с первой строки `Режим: <label>` где label ∈ {A, B-manual, C, D}. Формат `Режим:` (не `Mode:`) — такой же, как уже в шаблоне `external-review/SKILL.md:246`; единый ключ нужен для будущих парсеров. Label `B-manual` включён для совместимости с Правкой 7. Без hook enforcement — соглашение в шаблоне.
 
 **Файлы.**
 - [.claude/skills/sprint-pr-cycle/SKILL.md](../../.claude/skills/sprint-pr-cycle/SKILL.md) — шаблоны комментариев.
@@ -156,7 +156,7 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 **Назначение.** Сохранить fallback-документацию для ручного транспорта через ChatGPT web на случай полного outage OpenAI API. Mode A теперь приоритет, но insurance policy нужна.
 
 **Формат.**
-Один файл запроса на pass в `.review-requests/sprint-N/pass-K.md` с шапкой, diff, инструкцией по 4 аспектам. Ответ оператора — в `.review-responses/sprint-N/pass-K.md`. PM публикует raw + парсинг в 2 комментариях с меткой `Mode: B-manual`.
+Один файл запроса на pass в `.review-requests/sprint-N/pass-K.md` с шапкой, diff, инструкцией по 4 аспектам. Ответ оператора — в `.review-responses/sprint-N/pass-K.md`. PM публикует raw + парсинг в 2 комментариях с меткой `Режим: B-manual` (единый формат с Правкой 6).
 
 **Антипаттерн (явно запрещён).** Разбиение запроса на 4 отдельных файла по аспектам.
 
@@ -195,8 +195,9 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
    # Шаг 1: на Windows dev-host
    cd .claude/tools && npm install && cd -
    node .claude/tools/openai-review.mjs --ping   # ожидаем exit 0
-   node .claude/tools/openai-review.mjs --model gpt-5.4 --base master > /tmp/review.md
-   # Ожидаем: reviewer output на stdout, без CreateProcessWithLogonW, без sandbox-параметров.
+   node .claude/tools/openai-review.mjs --model gpt-5.4 --base master > .claude/tools/review.md
+   # Ожидаем: reviewer output сохранён в .claude/tools/review.md (кроссплатформенный путь),
+   # без CreateProcessWithLogonW, без sandbox-параметров.
 
    # Шаг 2: те же команды на рабочем ноутбуке (macOS) — идентичное поведение.
 
