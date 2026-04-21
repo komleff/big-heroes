@@ -384,9 +384,10 @@ export class PvpLobbyScene extends BaseScene {
             text: 'В ХАБ',
             variant: 'primary',
             onClick: () => {
-                // Очистка сессии — PvpLobbyScene является единственной точкой
-                // входа после ручного завершения / ended=true на входе.
-                this.gameState.clearArenaSession();
+                // Сессия завершается (manual / ended=true / maxBattles) — атомарный end:
+                // clearArenaSession + consumeArenaRelic. Без этого ручной end без боя
+                // оставлял реликвию → эксплойт бесконечной реликвии.
+                this.gameState.endArenaSession();
                 void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
             },
         });

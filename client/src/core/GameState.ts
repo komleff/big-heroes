@@ -328,4 +328,16 @@ export class GameState {
     clearArenaSession(): void {
         this._arenaSession = null;
     }
+
+    /**
+     * Атомарное завершение арена-сессии: очистка сессии + потребление реликвии.
+     * Инвариант: «сессия закончилась ⇒ реликвия потрачена», независимо от причины
+     * (ручной выход, max battles, потеря массы, критический износ, fallback).
+     * Без этого метода каждый callsite clearArenaSession рискует забыть
+     * consumeArenaRelic → эксплойт бесконечной реликвии через start→end без боя.
+     */
+    endArenaSession(): void {
+        this._arenaSession = null;
+        this._arenaRelic = null;
+    }
 }

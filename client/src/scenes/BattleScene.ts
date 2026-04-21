@@ -714,8 +714,8 @@ export class BattleScene extends BaseScene {
             text: 'В ХАБ',
             variant: 'primary',
             onClick: () => {
-                // Очищаем сессию при выходе в Hub
-                this.gameState.clearArenaSession();
+                // Сессия завершается: чистим session + consume реликвии атомарно.
+                this.gameState.endArenaSession();
                 void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
             },
         });
@@ -872,7 +872,8 @@ export class BattleScene extends BaseScene {
                 text: 'В ХАБ',
                 variant: 'primary',
                 onClick: () => {
-                    this.gameState.clearArenaSession();
+                    // Сессия завершена (ended=true в вызове выше) — атомарный end.
+                    this.gameState.endArenaSession();
                     void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
                 },
             });
@@ -898,7 +899,9 @@ export class BattleScene extends BaseScene {
                     text: 'В ХАБ',
                     variant: 'danger',
                     onClick: () => {
-                        this.gameState.clearArenaSession();
+                        // Manual-exit из defeat-overlay в продолжающейся серии —
+                        // игрок досрочно заканчивает серию. Инвариант «сессия end → реликвия потрачена».
+                        this.gameState.endArenaSession();
                         void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
                     },
                 });
@@ -1217,12 +1220,9 @@ export class BattleScene extends BaseScene {
                     updatedSession, config.pvp.session,
                 );
 
-                // Реликвия потребляется ТОЛЬКО при реальном завершении серии — бонус
-                // должен действовать на все бои арена-сессии, а не только первый.
+                // Реликвия потребляется атомарно через endArenaSession в обработчиках
+                // кнопок В ХАБ (summary / defeat-ended). Здесь только вычисляем имя для overlay.
                 const consumedRelicName = endCheck.ended ? arenaRelicName : null;
-                if (endCheck.ended) {
-                    this.gameState.consumeArenaRelic();
-                }
 
                 if (result.outcome === 'victory') {
                     // Очки арены за победу
