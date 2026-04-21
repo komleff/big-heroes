@@ -12,6 +12,7 @@ import type {
     IRelic,
     IPveRoute,
     IPveExpeditionState,
+    IArenaSession,
 } from 'shared';
 import { createExpeditionState, MAX_RELICS } from 'shared';
 import { EventBus, GameEvents } from './EventBus';
@@ -45,6 +46,9 @@ export class GameState {
     private _arenaRelic: IRelic | null = null; // Реликвия для арены (extraction после босса)
     private _collectedItemIds: string[] = []; // Предметы, собранные в экспедициях (id)
     private _expeditionState: IPveExpeditionState | null = null;
+    // Активная PvP-сессия арены (серия боёв). null вне арены.
+    // Опциональное в IGameState — отсутствие поля валидно для старых save-файлов.
+    private _arenaSession: IArenaSession | null = null;
     private eventBus: EventBus;
 
     constructor(config: IBalanceConfig, eventBus: EventBus) {
@@ -178,6 +182,10 @@ export class GameState {
         return this._expeditionState;
     }
 
+    get arenaSession(): Readonly<IArenaSession> | null {
+        return this._arenaSession;
+    }
+
     // --- Сеттеры с уведомлениями ---
 
     /** Установить массу героя (клэмп 0..massCap) */
@@ -307,5 +315,17 @@ export class GameState {
         this._belt = newBelt;
 
         return consumable;
+    }
+
+    // ─── Сессия PvP-арены ────────────────────────────────────────────
+
+    /** Задать активную PvP-сессию (null — нет активной сессии) */
+    setArenaSession(session: IArenaSession | null): void {
+        this._arenaSession = session;
+    }
+
+    /** Полностью очистить сессию арены (выход в Hub / завершение) */
+    clearArenaSession(): void {
+        this._arenaSession = null;
     }
 }
