@@ -1176,8 +1176,8 @@ export class BattleScene extends BaseScene {
             }
             // retreat/bypass/polymorph → 0 Elo change (GDD: бой не засчитан / 0 рейтинга)
 
-            // Сохраняем имя реликвии до потребления
-            const consumedRelicName = this.gameState.arenaRelic?.name ?? null;
+            // Сохраняем имя реликвии ДО потребления (показываем в overlay только когда фактически consumed).
+            const arenaRelicName = this.gameState.arenaRelic?.name ?? null;
 
             // Снимки масса/рейтинг ДО применения потерь — для defeat-оверлея «было → стало»
             const massBefore = this.gameState.hero.mass;
@@ -1194,11 +1194,9 @@ export class BattleScene extends BaseScene {
                 this.gameState.wearItem(result.durabilityTarget);
             }
 
-            // Потребить arenaRelic только при завершении PvP сессии (victory/defeat)
-            // Retreat/bypass — сессия продолжается, relic сохраняется
-            if (result.outcome === 'victory' || result.outcome === 'defeat') {
-                this.gameState.consumeArenaRelic();
-            }
+            // arenaRelic потребляется только когда серия реально завершается:
+            // для активной сессии — при endCheck.ended, для fallback — на каждом terminal-исходе.
+            // Consume перенесён внутрь веток ниже.
 
             this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
 
@@ -1218,6 +1216,13 @@ export class BattleScene extends BaseScene {
                     this.gameState.hero, this.gameState.equipment as IEquipmentSlots,
                     updatedSession, config.pvp.session,
                 );
+
+                // Реликвия потребляется ТОЛЬКО при реальном завершении серии — бонус
+                // должен действовать на все бои арена-сессии, а не только первый.
+                const consumedRelicName = endCheck.ended ? arenaRelicName : null;
+                if (endCheck.ended) {
+                    this.gameState.consumeArenaRelic();
+                }
 
                 if (result.outcome === 'victory') {
                     // Очки арены за победу
@@ -1239,6 +1244,7 @@ export class BattleScene extends BaseScene {
                         this.showSessionSummaryOverlay(updatedSession, endCheck.reason, null);
                     } else {
                         // Серия продолжается → defeat-overlay с деталями последнего боя и возвратом в lobby.
+                        // consumedRelicName=null: реликвия ещё активна, «потеряна» не показываем.
                         this.showPvpDefeatOverlay(
                             massLoss, massBefore, consumedRelicName,
                             null, null,
@@ -1251,9 +1257,13 @@ export class BattleScene extends BaseScene {
 
             // ─── Fallback: сессии нет (старый flow) ────────────────────
             // Совместимость со смоук-тестами и прямым вызовом PvP вне хаба.
+            // Для одиночного PvP-боя реликвия потребляется на terminal-исходе (victory/defeat).
+            if (isTerminal) {
+                this.gameState.consumeArenaRelic();
+            }
             if (result.outcome === 'defeat') {
                 this.showPvpDefeatOverlay(
-                    massLoss, massBefore, consumedRelicName, null, null,
+                    massLoss, massBefore, arenaRelicName, null, null,
                     config.pvp.session.min_mass_threshold,
                 );
             } else {
