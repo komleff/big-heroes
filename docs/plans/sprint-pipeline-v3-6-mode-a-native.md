@@ -196,32 +196,88 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 - Правки 6, 7 — по остатку времени, без блокировки merge.
 - Beads `big-heroes-1l6` (BE-11) закрыт как obsolete.
 
-## Верификация
+## Verification Contract
 
-1. **Правка 1 — переносимость.**
+### Acceptance criteria
+
+По завершении спринта должны одновременно выполняться:
+
+- AC1. `.claude/tools/openai-review.mjs` существует, запускается через `node` на Windows и macOS без CreateProcessWithLogonW и без `sandbox_mode=danger-full-access`.
+- AC2. `/external-review <PR_NUMBER>` для Mode A использует Node.js native script как основной путь; Codex CLI остаётся fallback с явной пометкой в отчёте.
+- AC3. Hook publish-after-each-pass блокирует переход к следующему шагу пайплайна, если PM не опубликовал отчёт предыдущего pass с commit binding на текущий HEAD.
+- AC4. `/finalize-pr` на Sprint Final при `mode ∈ {B, C, D, missing, malformed}` блокирует merge без operator ack.
+- AC5. В ходе живого спринта `.memory_bank/status.md` обновляется ≥10 раз, последнее обновление отражает актуальную фазу.
+- AC6. Pre-flight ping API-ключа завершается за <2 секунды при 401/429/network error.
+- AC7. Beads `big-heroes-1l6` (BE-11) закрыт как obsolete; в плане v3.6 нет формализованного sandbox workaround.
+
+### Expected behaviors
+
+- B1. `node openai-review.mjs --ping` с валидным `$OPENAI_API_KEY` → exit 0 + stdout `OK` или эквивалент.
+- B2. `node openai-review.mjs --model <id> --base <branch>` → stdout содержит структурированный review в 4 аспектах + вердикт APPROVED/CHANGES_REQUESTED.
+- B3. `--base` берётся динамически из `gh pr view --json baseRefName --jq '.baseRefName'` (не хардкод `master`).
+- B4. При Mode A-fallback на Codex CLI отчёт явно помечен, PM не выдаёт его за native-режим.
+- B5. `/finalize-pr --accept-degraded=<reason>` пропускает degraded mode с явной строкой в итоговом комментарии.
+
+### Edge cases
+
+- E1. `$OPENAI_API_KEY` unset → exit с понятной ошибкой, не crash.
+- E2. Network timeout при API call → exit с сообщением, не silent hang.
+- E3. Rate limit 429 → ранний exit на `--ping`, не продолжение main call.
+- E4. Diff пустой (master==HEAD) → exit с сообщением «nothing to review», не отправка пустого prompt в API.
+- E5. `baseRefName` PR != `master` (репозиторий с `main` или feature-base) → работает без изменений.
+- E6. Mode A script crash посреди pass → PM детектирует и документирует в отчёте, не молчаливый фолбэк в Mode C.
+- E7. META JSON c неизвестным `mode` value → fail-secure: требует ack, не silent pass.
+
+### Error cases
+
+- Err1. `npm install` в `.claude/tools/` упал (нет сети) → setup-instruction в README описывает offline workflow.
+- Err2. Node.js версия < 18 (отсутствует `parseArgs`) → exit с сообщением о требовании версии.
+- Err3. OpenAI SDK breaking change в major → lockfile защищает, pinned version без caret.
+- Err4. Hook publish-after-each-pass ложно блокирует легитимный переход → override через operator ack-token, не silent bypass.
+
+### Invariants
+
+- I1. Mode A никогда не использует `npx codex review` как основной путь после v3.6 (только как fallback с меткой).
+- I2. `/finalize-pr` никогда не пропускает Sprint Final без валидного `mode == "A"` в META без явного ack.
+- I3. Ни один скилл не содержит хардкода `master`/`main` для base-ветки — только через `baseRefName` PR-метаданных.
+- I4. Codex CLI sandbox-параметры (`sandbox_mode=danger-full-access`) не появляются ни в одном скилле или инструкции.
+- I5. PM публикует комментарий в PR перед переходом к следующему шагу — hook enforce'ит.
+
+### Test list
+
+Обязательные тесты/прогоны, покрывающие AC+B+E+Err+I:
+
+1. **T1. Правка 1 переносимость (покрывает AC1, AC2, B1, B2, B3, E5, Err1, Err2, I4).**
    ```bash
    # Шаг 1: на Windows dev-host
    cd .claude/tools && npm install && cd -
    BASE_REF="$(gh pr view --json baseRefName --jq '.baseRefName')"
    node .claude/tools/openai-review.mjs --ping   # ожидаем exit 0
    node .claude/tools/openai-review.mjs --model gpt-5.4 --base "$BASE_REF" > .claude/tools/review.md
-   # Ожидаем: reviewer output сохранён в .claude/tools/review.md (кроссплатформенный путь),
-   # без CreateProcessWithLogonW, без sandbox-параметров.
+   # Ожидаем: reviewer output сохранён в .claude/tools/review.md, без CreateProcessWithLogonW, без sandbox-параметров.
 
    # Шаг 2: те же команды на рабочем ноутбуке (macOS) — идентичное поведение.
-
    # Шаг 3: перенос на чистую машину — только копирование .claude/tools/ + npm install.
    ```
 
-2. **Правка 2 (hook publish-after-each-pass).** Создать mock PR, попытаться запустить pass без публикации предыдущего отчёта — ожидаем hook block. После публикации — проходит.
+2. **T2. Правка 2 hook publish-after-each-pass (покрывает AC3, Err4, I5).** Создать mock PR, попытаться запустить pass без публикации предыдущего отчёта → hook block. После публикации — проходит. С operator ack-token — проходит с warning, не silent bypass.
 
-3. **Правка 3 (Mode A strict gate).** Опубликовать mock-комментарий с `"mode": "C"` через `gh pr comment`. Запустить `/finalize-pr` на Sprint Final — ожидаем hard block. С `--accept-degraded=test` — проходит с warning.
+3. **T3. Правка 3 Mode A strict gate (покрывает AC4, E7, I2).** Пять тест-кейсов:
+   - T3.1: комментарий с `"mode": "C"` без ack → `/finalize-pr` на Sprint Final отказ.
+   - T3.2: `"mode": "B"` / label `B-manual` без ack → отказ на Sprint Final.
+   - T3.3: `"mode": "C"` или `"mode": "B"` с `--accept-degraded=<reason>` → проходит с пометкой.
+   - T3.4: `"mode"` отсутствует/malformed → отказ (fail-secure).
+   - T3.5: `"mode": "A"` → проходит без вопросов.
 
-4. **Правка 4 (heartbeat).** Запустить `/sprint-pr-cycle` на тестовой ветке, наблюдать серию обновлений `.memory_bank/status.md` с monotonic timestamp.
+4. **T4. Правка 4 heartbeat (покрывает AC5).** Запустить `/sprint-pr-cycle` на тестовой ветке, наблюдать серию обновлений `.memory_bank/status.md` с monotonic timestamp. Минимум 10 обновлений за спринт.
 
-5. **Правка 5 (pre-flight).** Временно экспортировать невалидный `OPENAI_API_KEY`, запустить `/external-review` — ожидаем ранний exit на шаге 1.4 за <2 сек.
+5. **T5. Правка 5 pre-flight (покрывает AC6, B1, E1, E2, E3, Err3).** Временно экспортировать невалидный `OPENAI_API_KEY`, запустить `/external-review` → ранний exit на шаге 1.4 за <2 сек. Repeat для rate limit (mock 429).
 
-6. **Dogfood на двух машинах.** Полный Sprint Final цикл прогоняется на Windows home и на рабочем ноутбуке. Оба прогона завершаются без ручных workaround'ов.
+6. **T6. Dogfood на двух машинах (покрывает AC1, AC2, AC7, B4, E5, E6, I1, I3, I4).** Полный Sprint Final цикл прогоняется на Windows home и на рабочем ноутбуке. Оба прогона завершаются без ручных workaround'ов. Проверить `grep -r "sandbox_mode" .claude/` и `grep -r "npx @openai/codex" .claude/skills/` — только в legacy fallback контексте.
+
+7. **T7. Pipeline-audit инварианты (покрывает I1, I3, I4).** Запустить `/pipeline-audit`. Новые инварианты из Правок 1-3 должны быть OK (0 drift).
+
+8. **T8. Beads закрытие (покрывает AC7).** `bd show big-heroes-1l6` → status=closed, reason=«obsolete: Mode A migrated from Codex CLI to Node.js native».
 
 ## Риски
 
