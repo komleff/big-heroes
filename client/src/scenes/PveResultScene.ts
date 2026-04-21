@@ -124,7 +124,9 @@ export class PveResultScene extends BaseScene {
         if (data.status === 'victory' && data.extractionPool && data.extractionPool.length > 0 && !this.extractionDone) {
             this.buildExtractionSection(data.extractionPool, nextY);
         } else {
-            // Сообщение о выбранной реликвии для арены
+            // Сообщение о выбранной реликвии для арены.
+            // Цвет — accent_yellow с тенью: контраст по WCAG AA ≥ 4.5:1 на голубом
+            // градиенте PvE (старый accent_green сливался — big-heroes-dy3).
             if (this.savedRelicName) {
                 const relicMsg = new Text({
                     text: `Вы выбрали реликвию «${this.savedRelicName}» для арены`,
@@ -132,7 +134,8 @@ export class PveResultScene extends BaseScene {
                         fontSize: 14,
                         fontFamily: THEME.font.family,
                         fontWeight: THEME.font.weights.bold,
-                        fill: THEME.colors.accent_green,
+                        fill: THEME.colors.accent_yellow,
+                        dropShadow: { distance: 2, alpha: 0.5 },
                         wordWrap: true,
                         wordWrapWidth: W - 64,
                         align: 'center',
