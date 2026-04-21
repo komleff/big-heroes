@@ -31,13 +31,13 @@
 
 ### Правка 1 (P1, новая). Node.js native OpenAI review script
 
-**Назначение.** Устранить Codex CLI subprocess как путь вызова внешних ревьюеров. Вместо `npx @openai/codex review` — локальный Node.js script, вызывающий OpenAI Chat Completions API напрямую через `openai` npm package.
+**Назначение.** Устранить Codex CLI subprocess как путь вызова внешних ревьюеров. Вместо `npx @openai/codex review` — локальный Node.js script, вызывающий **OpenAI Chat Completions API** через `openai` npm package. Обе модели review — исключительно chat-capable (см. Err5 allowlist): `gpt-5.4` (Reviewer A) + `gpt-5.4-mini` (Reviewer B). `*-codex` / `*-pro` модели **не используются** — requires different endpoint, добавляет complexity без выгоды (adversarial diversity достигается через размерность chat-capable моделей одной семьи).
 
 **Архитектура.**
 - Файл: `.claude/tools/openai-review.mjs` (~150 LoC).
 - Зависимости: `.claude/tools/package.json` с `"openai": "4.70.0"` без `^` (pinned, см. Риск 1); `.claude/tools/package-lock.json` коммитится в репозиторий для воспроизводимости между машинами. **Важно:** lockfile — локальный для `.claude/tools/`, не корневой `package-lock.json` проекта (root lockfile управляет shared/client workspaces). Первая установка: `cd .claude/tools && npm install`. Повторяемая переустановка на чистой машине: `cd .claude/tools && npm ci` (строго по lockfile, без разрешения версий).
 - Вызов: PM-агент через Bash subprocess `node .claude/tools/openai-review.mjs --model gpt-5.4 --base "$(gh pr view <PR_NUMBER> --json baseRefName --jq '.baseRefName')"`. Base-ветка берётся из PR-метаданных, не хардкодится как `master`/`main` — consistent с паттерном `external-review/SKILL.md` (`BASE_BRANCH=$(gh pr view ...)`). API key — из `$OPENAI_API_KEY`.
-- Поддерживаемые модели: `gpt-5.4` (Ревьюер A, high reasoning), `gpt-5.3-codex` (Ревьюер B, фокус на коде). Оба прохода — adversarial diversity как в черновом режиме A.
+- Поддерживаемые модели (chat-capable allowlist по Err5): `gpt-5.4` (Reviewer A, full reasoning) + `gpt-5.4-mini` (Reviewer B, smaller model того же семейства — adversarial diversity через размерность). Обе verified chat-capable (API probe 2026-04-22). Script отказывается вызывать модели вне allowlist с явным сообщением.
 - Выход: raw markdown на stdout. PM мапит на 4 аспекта при консолидации (как сейчас в external-review).
 
 **Подкоманды скрипта.**
