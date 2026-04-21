@@ -286,9 +286,10 @@ async function runReview(modelId, baseRef) {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        // Согласованный лимит с responses endpoint (4000 tokens) — защита от длинных
-        // ответов и нестабильности при превышении серверных лимитов.
-        max_completion_tokens: 4000,
+        // Согласованный лимит с responses endpoint (16000 tokens).
+        // Для reasoning_effort:"high" бюджет включает reasoning + visible output,
+        // поэтому 4000 мало — reasoning съедает весь лимит и content остаётся пустым.
+        max_completion_tokens: 16000,
         ...entry.request_shape,
       });
       text = extractChatText(response);
@@ -297,7 +298,7 @@ async function runReview(modelId, baseRef) {
       const response = await client.responses.create({
         model: entry.model,
         input: `${systemPrompt}\n\n---\n\n${userPrompt}`,
-        max_output_tokens: 4000,
+        max_output_tokens: 16000,
         ...entry.request_shape,
       });
       text = extractResponsesText(response);
