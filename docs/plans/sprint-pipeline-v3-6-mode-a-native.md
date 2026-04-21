@@ -133,7 +133,7 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 **Назначение.** Ловить невалидный/revoke'нутый ключ до первого большого review-запроса.
 
 **Требования.**
-В [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md) шаг 1.4 добавить вызов `node .claude/tools/openai-review.mjs --ping`. При exit code != 0 — ранний exit с инструкцией по ротации ключа (ссылка на `.agents/CODEX_AUTH.md §5`).
+В [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md) шаг 1.4 добавить вызов `node .claude/tools/openai-review.mjs --ping`. При exit code != 0 — ранний exit с инструкцией по ротации ключа ([.agents/CODEX_AUTH.md §5 «Ротация ключа»](../../.agents/CODEX_AUTH.md#5-ротация-ключа)).
 
 Внутри `openai-review.mjs` команда `--ping` делает `client.models.list()` (дешёвый запрос, ~20ms), возвращает 0 при 200 OK, 1 при 401/429/network error + сообщение.
 
