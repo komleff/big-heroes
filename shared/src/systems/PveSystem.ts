@@ -80,7 +80,9 @@ export function generateRoute(
     const finalNodes = nodes as IPveNode[];
     applyConstraints(finalNodes, config, anchorPositions, combatEnemies, eliteEnemies, events, rng);
 
-    // Настраиваем развилки ПОСЛЕ ограничений — forkPaths отражают финальные типы узлов
+    // Настраиваем развилки ПОСЛЕ ограничений — forkPaths отражают финальные типы узлов.
+    // Делегируем в generateForkPaths: единственный источник правды для дедупликации
+    // non-combat типов и вспомогательных полей (enemyId / eventId / hidden).
     for (const forkPos of forkPositions) {
         const forkNodeIndex = forkPos - 1;
         // Пропускаем если предыдущий узел — якорь
@@ -90,34 +92,7 @@ export function generateRoute(
         const targetNode = finalNodes[forkPos];
 
         const pathCount = randInt(rng, config.paths_per_fork_min, config.paths_per_fork_max);
-
-        // Основной путь — тип целевого узла (уже после ограничений)
-        const mainPath: IPveForkPath = {
-            nodeType: targetNode.type,
-            hidden: false,
-            enemyId: targetNode.enemyId,
-            eventId: targetNode.eventId,
-        };
-
-        const paths: IPveForkPath[] = [mainPath];
-
-        // Альтернативные пути
-        for (let p = 1; p < pathCount; p++) {
-            const altType = weightedPick(rng, nodeTypes, nodeWeights);
-            let altEnemyId: string | undefined;
-            let altEventId: string | undefined;
-
-            if (altType === 'combat' && combatEnemies.length > 0) {
-                altEnemyId = randPick(rng, combatEnemies).id;
-            } else if (altType === 'elite' && eliteEnemies.length > 0) {
-                altEnemyId = randPick(rng, eliteEnemies).id;
-            } else if (altType === 'event' && events.length > 0) {
-                altEventId = randPick(rng, events).id;
-            }
-
-            const hidden = rng() < config.hidden_path_chance;
-            paths.push({ nodeType: altType, hidden, enemyId: altEnemyId, eventId: altEventId });
-        }
+        const paths = generateForkPaths(targetNode, config, enemies, events, pathCount, rng);
 
         forkNode.isFork = true;
         forkNode.forkPaths = paths;
