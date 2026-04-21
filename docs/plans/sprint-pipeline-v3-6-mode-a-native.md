@@ -228,7 +228,7 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 - E1. `$OPENAI_API_KEY` unset → exit с понятной ошибкой, не crash.
 - E2. Network timeout при API call → exit с сообщением, не silent hang.
 - E3. Rate limit 429 → ранний exit на `--ping`, не продолжение main call.
-- E4. Diff пустой (`baseRefName==HEAD`, т.е. нет изменений относительно base-ветки PR) → exit с сообщением «nothing to review», не отправка пустого prompt в API.
+- E4. Diff пустой (`git diff --quiet "$(gh pr view --json baseRefName --jq '.baseRefName')...HEAD"` возвращает 0, т.е. нет изменений относительно base-ветки PR) → exit с сообщением «nothing to review», не отправка пустого prompt в API.
 - E5. `baseRefName` PR != `master` (репозиторий с `main` или feature-base) → работает без изменений.
 - E6. Mode A script crash посреди pass → PM детектирует и документирует в отчёте, не молчаливый фолбэк в Mode C.
 - E7. META JSON c неизвестным `mode` value → fail-secure: требует ack, не silent pass.
