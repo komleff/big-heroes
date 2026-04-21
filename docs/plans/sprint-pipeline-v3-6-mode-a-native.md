@@ -239,7 +239,15 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 - Err2. Node.js версия < 18 (отсутствует `parseArgs`) → exit с сообщением о требовании версии.
 - Err3. OpenAI SDK breaking change в major → lockfile защищает, pinned version без caret.
 - Err4. Hook publish-after-each-pass ложно блокирует легитимный переход → override через operator ack-token, не silent bypass.
-- Err5. **Endpoint mismatch для codex-моделей** (найдено живым Mode A dogfood на `81aca54`): `gpt-5.3-codex` — completion-only модель, отвечает 400 «This is not a chat model» на `POST /v1/chat/completions`. Script Правки 1 должен: (a) различать chat-capable (gpt-5.4, gpt-5.4-mini, gpt-5.2-chat-latest, gpt-5.1-chat-latest) и completion-only (`*-codex`) модели, (b) использовать `/v1/completions` для codex-моделей ИЛИ (c) заменить Ревьюера B на chat-capable альтернативу (gpt-5.1-codex, gpt-5.2-codex — проверить их endpoint-совместимость до имплементации). Предварительная рекомендация Developer'у: использовать `gpt-5.4` (Reviewer A) + `gpt-5.4-mini` или `gpt-5.2-pro` (Reviewer B) — все чат-совместимые, adversarial diversity сохранена через разные модели в одной семье.
+- Err5. **Endpoint mismatch: `*-codex` и `*-pro` модели completion-only** (найдено live Mode A dogfood на `81aca54`, verified API probe на `c399f48`). Список проверен реальными вызовами `POST /v1/chat/completions` с `max_completion_tokens: 1000` по состоянию API 2026-04-22:
+
+    **Chat-capable (verified):** `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.1-chat-latest`, `gpt-5.3-chat-latest`.
+
+    **Completion-only (verified, возвращают 400 «This is not a chat model»):** `gpt-5.3-codex`, `gpt-5.1-codex`, `gpt-5.2-codex`, `gpt-5.2-pro`.
+
+    **Acceptance criterion Правки 1:** script `.claude/tools/openai-review.mjs` поддерживает **только chat-capable allowlist** (CHAT_MODELS = приведённый verified список). При попытке вызвать модель вне allowlist → exit с сообщением «model X is completion-only, use chat-capable model from: gpt-5.4 | gpt-5.4-mini | gpt-5.4-nano | gpt-5.1-chat-latest | gpt-5.3-chat-latest». Никаких runtime-endpoint-dispatch гипотез — жёсткий whitelist.
+
+    **Adversarial diversity Правки 1:** Ревьюер A = `gpt-5.4` (full reasoning), Ревьюер B = `gpt-5.4-mini` (smaller, different training cutoff — даёт diversity при той же chat-совместимости). Замена для Codex-ревьюера — не совместимая `*-codex`/`*-pro`, а chat-capable модель иной размерности.
 
 ### Invariants
 
