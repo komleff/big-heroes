@@ -281,6 +281,20 @@ describe('PvpSystem', () => {
             expect(result.ended).toBe(true);
             expect(result.reason).toBe('mass');
         });
+
+        it('boundary: mass === min_mass_threshold — сессия НЕ завершается (условие строгое <)', () => {
+            // Arrange — масса ровно на пороге 30 (не меньше)
+            // GDD: условие завершения — строго hero.mass < threshold, т.е. равно порогу → ещё играем
+            const hero = makeHero(sessionConfig.min_mass_threshold, 1000);
+            const session = makeActiveSession({ battlesPlayed: 2 });
+
+            // Act
+            const result = shouldEndSession(hero, fullEquipment, session, sessionConfig);
+
+            // Assert
+            expect(result.ended).toBe(false);
+            expect(result.reason).toBeNull();
+        });
     });
 
     describe('applyBattleToSession', () => {
@@ -311,6 +325,19 @@ describe('PvpSystem', () => {
             expect(next.battlesPlayed).toBe(1);
             expect(next.totalMassLost).toBe(10);
             expect(next.totalRatingDelta).toBe(-15);
+        });
+
+        it('massDelta > 0 — totalMassLost не изменяется (масса не теряется при позитивной дельте)', () => {
+            // Arrange — контракт: massDelta > 0 не должен накапливать потерю
+            // (в текущем GDD victory даёт massDelta=0, но защищаем инвариант явно)
+            const session = makeActiveSession({ totalMassLost: 5 });
+
+            // Act — положительная дельта (гипотетический mass reward)
+            const next = applyBattleToSession(session, 3, 10);
+
+            // Assert — totalMassLost не изменился
+            expect(next.totalMassLost).toBe(5);
+            expect(next.battlesPlayed).toBe(1);
         });
 
         it('аккумулирует несколько боёв подряд', () => {

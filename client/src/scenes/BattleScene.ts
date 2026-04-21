@@ -1031,12 +1031,10 @@ export class BattleScene extends BaseScene {
                         if (loot.drops.length > 0) {
                             const items = loot.drops.map(d => d.itemId);
                             // e0o: сначала пробуем на пояс, fallback в рюкзак
-                            const beltPlacedIds: string[] = [];
                             const backpackIds: string[] = [];
                             for (const id of items) {
                                 const placed = autoPlaceConsumableOnBelt(this.gameState, id, config.consumables);
-                                if (placed) beltPlacedIds.push(id);
-                                else backpackIds.push(id);
+                                if (!placed) backpackIds.push(id);
                             }
                             newState = {
                                 ...newState,
@@ -1109,12 +1107,10 @@ export class BattleScene extends BaseScene {
                                 const bossLoot = generateLoot('boss', config.pve.loot, config.equipment.catalog, config.consumables, newState.pityCounter, bossRng);
                                 const bossLootItems = bossLoot.drops.slice(0, config.pve.loot.boss_loot_count).map(d => d.itemId);
                                 // e0o: сначала пробуем на пояс, fallback в рюкзак
-                                const bossBeltPlacedIds: string[] = [];
                                 const bossBackpackIds: string[] = [];
                                 for (const id of bossLootItems) {
                                     const placed = autoPlaceConsumableOnBelt(this.gameState, id, config.consumables);
-                                    if (placed) bossBeltPlacedIds.push(id);
-                                    else bossBackpackIds.push(id);
+                                    if (!placed) bossBackpackIds.push(id);
                                 }
                                 // Обновить itemsFound и pityCounter с boss loot (только то, что в рюкзаке)
                                 const updatedState = {

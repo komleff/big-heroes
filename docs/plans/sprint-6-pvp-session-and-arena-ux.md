@@ -1,6 +1,6 @@
 # Sprint 6 — PvP Arena Session + bug fixes + UX polish
 
-**Статус:** черновик плана, ожидает утверждения оператором
+**Статус:** утверждён и выполнен; PR #18 на финальном ревью
 **Ветка:** `sprint-6-pvp-session-and-arena-ux`
 **Review tier:** Standard (утверждено оператором) · Sprint Final обязателен
 **Оценка:** 3.5 дня разработки + 1 день PR/review-цикл
