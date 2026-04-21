@@ -239,11 +239,11 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 - Err2. Node.js версия < 18 (отсутствует `parseArgs`) → exit с сообщением о требовании версии.
 - Err3. OpenAI SDK breaking change в major → lockfile защищает, pinned version без caret.
 - Err4. Hook publish-after-each-pass ложно блокирует легитимный переход → override через operator ack-token, не silent bypass.
-- Err5. **Endpoint dispatch по типу модели** (найдено live Mode A dogfood на `81aca54`, verified API probe на `c399f48`). Список проверен реальными вызовами `POST /v1/chat/completions` с `max_completion_tokens: 1000` по состоянию API 2026-04-22:
+- Err5. **Endpoint dispatch по типу модели** (найдено живым dogfood-прогоном Mode A на коммите `81aca54`, проверено реальным probe API в рамках подготовки плана; источник — логи запусков в `.review-responses/`). Списки ниже получены вызовами `POST /v1/chat/completions` с `max_completion_tokens: 1000`:
 
     **Chat-capable (endpoint `/v1/chat/completions`):** `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.1-chat-latest`, `gpt-5.3-chat-latest`.
 
-    **Требуют иной конечной точки (возвращают 400 «This is not a chat model» на Chat Completions):** `gpt-5.3-codex`, `gpt-5.1-codex`, `gpt-5.2-codex`, `gpt-5.2-pro`. Проверенный вариант для `gpt-5.3-codex` — `/v1/responses` (HTTP 200, поддерживает `reasoning.effort: "high"`; подтверждено live probe 2026-04-22).
+    **Требуют иной конечной точки (возвращают 400 «This is not a chat model» на Chat Completions):** `gpt-5.3-codex`, `gpt-5.1-codex`, `gpt-5.2-codex`, `gpt-5.2-pro`. Проверенный вариант для `gpt-5.3-codex` — `/v1/responses` (HTTP 200, поддерживает `reasoning.effort: "high"`; подтверждено реальным dogfood-запуском Mode A в этом спринте — см. PR #17 в комментарии с полной метадатой ревью от двух моделей).
 
     **Канонический runtime для Правки 1 (ровно две полноразмерные модели):**
     - **Reviewer A** = `gpt-5.4`, endpoint `/v1/chat/completions`, параметры `{reasoning_effort: "high"}` — обязательно на Sprint Final.
