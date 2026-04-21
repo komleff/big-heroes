@@ -51,7 +51,7 @@
 1. На Windows dev-host запуск `/external-review` для любого PR проходит без CreateProcessWithLogonW, без `sandbox_mode=danger-full-access`, без `npx codex`.
 2. На macOS — тот же флоу, без изменений в поведении.
 3. Node.js script переносится копированием `.claude/tools/` + `npm install` на другой компьютер с Claude Code. Никаких дополнительных установок.
-4. Два прохода (gpt-5.4 + gpt-5.3-codex) публикуются в одном PR-комментарии, META JSON `"mode": "A"` валиден.
+4. Два прохода (`gpt-5.4` + `gpt-5.4-mini`, см. Err5 allowlist) публикуются в одном PR-комментарии, META JSON `"mode": "A"` валиден.
 
 **Файлы.**
 - `.claude/tools/openai-review.mjs` — новый, ~150 LoC.
