@@ -83,18 +83,18 @@ PM пытается запустить следующий pass без публи
 
 ### Правка 3 (P1, новая). Mode A strict gate в /finalize-pr
 
-**Назначение.** Закрыть регрессию молчаливой деградации Mode A → Mode C. Для Sprint Final tier требовать явного `"mode": "A"` в META JSON.
+**Назначение.** Закрыть регрессию молчаливой деградации Mode A → Mode C. Для Sprint Final tier при merge в базовую ветку PR / на landing HEAD требовать явного `"mode": "A"` в META JSON.
 
 **Требования.**
 В [.claude/skills/finalize-pr/SKILL.md](../../.claude/skills/finalize-pr/SKILL.md) шаг 4 (external review check) добавить:
 - Парсить `"mode"` из HTML META JSON в PM-комментарии (формат определён в шаблоне [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md), секция «Шаг 5: Консолидация и публикация»).
-- Sprint Final tier на master-merge:
+- Sprint Final tier при merge в базовую ветку PR / на landing HEAD:
   - `mode == "A"` — проход без вопросов.
   - `mode == "B"` (включая label `B-manual`) — degraded manual fallback, не эквивалент Mode A. Допускается только с operator ack через `--accept-degraded=<reason>` или файл `.finalize-pr-ack`.
   - `mode ∈ {"C", "D"}` — то же требование ack.
   - `mode` отсутствует, не распарсился или имеет неизвестное значение — трактовать как degraded attestation и требовать ack (fail-secure, не silent bypass).
 - Critical tier (не Sprint Final) — warning, но не block. Mode B/C/D в обычных pass не блокируются.
-- `/finalize-pr --pre-landing` наследует поведение — landing-commit не валидирует pipeline с dishonest-mode.
+- `/finalize-pr --pre-landing` наследует то же поведение для landing HEAD — landing-commit не должен пропускать pipeline с dishonest-mode.
 
 **Критерий приёмки.**
 - Test 1: `"mode": "C"` без ack → `/finalize-pr` на Sprint Final возвращает отказ.
