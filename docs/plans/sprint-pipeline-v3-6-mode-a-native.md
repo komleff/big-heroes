@@ -133,9 +133,12 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 **Назначение.** Ловить невалидный/revoke'нутый ключ до первого большого review-запроса.
 
 **Требования.**
-В [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md) шаг 1.4 добавить вызов `node .claude/tools/openai-review.mjs --ping`. При exit code != 0 — ранний exit с инструкцией по ротации ключа ([.agents/CODEX_AUTH.md §5 «Ротация ключа»](../../.agents/CODEX_AUTH.md#5-ротация-ключа)).
+В [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md) шаг 1.4 добавить вызов `node .claude/tools/openai-review.mjs --ping`. При exit code != 0 — ранний exit с инструкцией, зависящей от типа ошибки:
+- `401 / 403` → невалидный/revoke'нутый ключ, инструкция по ротации ([.agents/CODEX_AUTH.md §5 «Ротация ключа»](../../.agents/CODEX_AUTH.md#5-ротация-ключа)).
+- `429` → rate limit / quota exceeded. Инструкция: подождать, уменьшить частоту, проверить лимиты OpenAI Project.
+- network error / timeout → инструкция: проверить соединение и прокси.
 
-Внутри `openai-review.mjs` команда `--ping` делает `client.models.list()` (дешёвый запрос, ~20ms), возвращает 0 при 200 OK, 1 при 401/429/network error + сообщение.
+Внутри `openai-review.mjs` команда `--ping` делает `client.models.list()` (дешёвый запрос, ~20ms), возвращает 0 при 200 OK, 1 при ошибке. Diagnostic message на stderr разделяет: `401`/`403` vs `429` vs network — чтобы PM/оператор получили корректную actionable инструкцию.
 
 **Критерий приёмки.**
 Запуск `/external-review` с revoke'нутым ключом падает на шаге 1.4 с понятной ошибкой за <2 секунды, не ожидает 30+ секунд до шага 3.
@@ -223,7 +226,7 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 - E1. `$OPENAI_API_KEY` unset → exit с понятной ошибкой, не crash.
 - E2. Network timeout при API call → exit с сообщением, не silent hang.
 - E3. Rate limit 429 → ранний exit на `--ping`, не продолжение main call.
-- E4. Diff пустой (master==HEAD) → exit с сообщением «nothing to review», не отправка пустого prompt в API.
+- E4. Diff пустой (`baseRefName==HEAD`, т.е. нет изменений относительно base-ветки PR) → exit с сообщением «nothing to review», не отправка пустого prompt в API.
 - E5. `baseRefName` PR != `master` (репозиторий с `main` или feature-base) → работает без изменений.
 - E6. Mode A script crash посреди pass → PM детектирует и документирует в отчёте, не молчаливый фолбэк в Mode C.
 - E7. META JSON c неизвестным `mode` value → fail-secure: требует ack, не silent pass.
