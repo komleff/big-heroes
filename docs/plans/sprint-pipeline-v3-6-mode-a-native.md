@@ -35,7 +35,7 @@
 
 **Архитектура.**
 - Файл: `.claude/tools/openai-review.mjs` (~150 LoC).
-- Зависимости: `.claude/tools/package.json` с `"openai": "4.70.0"` без `^` (pinned, см. Риск 1); `package-lock.json` коммитится в репозиторий для воспроизводимости между машинами. Одноразовый `npm install` при первой настройке.
+- Зависимости: `.claude/tools/package.json` с `"openai": "4.70.0"` без `^` (pinned, см. Риск 1); `.claude/tools/package-lock.json` коммитится в репозиторий для воспроизводимости между машинами. **Важно:** lockfile — локальный для `.claude/tools/`, не корневой `package-lock.json` проекта (root lockfile управляет shared/client workspaces). Первая установка: `cd .claude/tools && npm install`. Повторяемая переустановка на чистой машине: `cd .claude/tools && npm ci` (строго по lockfile, без разрешения версий).
 - Вызов: PM-агент через Bash subprocess `node .claude/tools/openai-review.mjs --model gpt-5.4 --base "$(gh pr view <PR_NUMBER> --json baseRefName --jq '.baseRefName')"`. Base-ветка берётся из PR-метаданных, не хардкодится как `master`/`main` — consistent с паттерном `external-review/SKILL.md` (`BASE_BRANCH=$(gh pr view ...)`). API key — из `$OPENAI_API_KEY`.
 - Поддерживаемые модели: `gpt-5.4` (Ревьюер A, high reasoning), `gpt-5.3-codex` (Ревьюер B, фокус на коде). Оба прохода — adversarial diversity как в черновом режиме A.
 - Выход: raw markdown на stdout. PM мапит на 4 аспекта при консолидации (как сейчас в external-review).
@@ -69,7 +69,9 @@
 **Назначение.** Блокировать переход PM-агента к следующему шагу пайплайна, если в PR отсутствует комментарий с итогом завершённого review-pass, привязанный к текущему commit HEAD.
 
 **Интеграция.**
-Хук `PreToolUse` в [.claude/settings.json](../../.claude/settings.json) перед запуском субагентов нового review-pass, developer-fix, external-review, finalize-pr. Скрипт `.claude/hooks/check-pass-published.py` — идемпотентный, без состояния. Проверка через `gh pr view --json comments` наличия PM-комментария с меткой завершения pass N и commit binding (regex `Commit:\s*\`?<hash>` ИЛИ JSON `"commit": "<hash>"`).
+Хук `PreToolUse` в [.claude/settings.json](../../.claude/settings.json) вешается **не на общий `Bash(*)`**, а на **первый гарантированный `Bash(...)` entrypoint** каждого шага, который начинает новый pass/этап: `developer-fix`, `external-review`, `finalize-pr` и старт следующего `review-pass`. Если у skill нет одного стабильного первого `Bash(...)` matcher — проверка переносится в начало entry-скрипта skill как обязательный первый шаг. Цель: hook срабатывает ровно один раз на входе в этап, не дублируется на каждый последующий shell-вызов внутри skill.
+
+Скрипт `.claude/hooks/check-pass-published.py` — идемпотентный, без состояния. Текущий commit hook получает через `git rev-parse HEAD`, текущий PR — через `gh pr view --json number,comments` из текущей ветки (без явных параметров). Проверка ищет PM-комментарий с меткой завершения pass N и commit binding (regex `Commit:\s*\`?<hash>` ИЛИ JSON `"commit": "<hash>"`). Если `gh pr view` не находит связанный PR — hook завершает этап отказом с явным сообщением, не silent pass.
 
 **Критерий приёмки.**
 PM пытается запустить следующий pass без публикации отчёта — отказ с пояснением. После публикации — проходит. Override через явный operator ack-token, не молчаливый обход.
