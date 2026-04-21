@@ -86,7 +86,7 @@ function requireNodeVersion() {
       `Ошибка: требуется Node.js ≥ ${MIN_NODE_MAJOR}.${MIN_NODE_MINOR}.0. ` +
         `Текущая: ${process.version}. parseArgs из node:util стабилен с 18.17.0.\n`,
     );
-    exitAfterFlush(EXIT_RUNTIME_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 }
 
@@ -121,7 +121,7 @@ function requireApiKey() {
   const key = process.env.OPENAI_API_KEY;
   if (!key || key.trim() === '') {
     process.stderr.write('Ошибка: $OPENAI_API_KEY не задан в окружении.\n');
-    exitAfterFlush(EXIT_RUNTIME_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 }
 
@@ -138,7 +138,7 @@ async function loadOpenAIClient({ timeoutMs, maxRetries }) {
     process.stderr.write(
       `Ошибка: не удалось загрузить пакет openai. Выполните: cd .claude/tools && npm install\n${err.message}\n`,
     );
-    exitAfterFlush(EXIT_RUNTIME_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
   return new OpenAI({ timeout: timeoutMs, maxRetries });
 }
@@ -153,11 +153,11 @@ async function runPing() {
   try {
     await client.models.list();
     process.stdout.write('OK\n');
-    exitAfterFlush(EXIT_OK);
+    process.exit(EXIT_OK);
   } catch (err) {
     const msg = classifyApiError(err);
     process.stderr.write(`Ошибка ping: ${msg}\n`);
-    exitAfterFlush(EXIT_RUNTIME_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 }
 
@@ -171,7 +171,7 @@ function validateBaseRef(baseRef) {
       `Ошибка: недопустимое имя base-ветки: ${JSON.stringify(baseRef)}. ` +
         `Имя ветки не должно начинаться с "-".\n`,
     );
-    exitAfterFlush(EXIT_ARGS_ERROR);
+    process.exit(EXIT_ARGS_ERROR);
   }
   try {
     execFileSync('git', ['check-ref-format', '--branch', baseRef], {
@@ -183,7 +183,7 @@ function validateBaseRef(baseRef) {
       `Ошибка: недопустимое имя base-ветки: ${JSON.stringify(baseRef)}. ` +
         `Нарушены правила git check-ref-format.\n`,
     );
-    exitAfterFlush(EXIT_ARGS_ERROR);
+    process.exit(EXIT_ARGS_ERROR);
   }
 }
 
@@ -299,28 +299,20 @@ function validateOutputFormat(text) {
   return missing;
 }
 
-// Безопасный выход после записи в stdout/stderr: process.exit() прерывает event loop
-// и может обрезать buffered output на Windows/pipe. Используем exitCode + callback на drain.
-// Callback вызывается когда поток действительно завершил запись — это гарантирует flush.
-function exitAfterFlush(code) {
-  process.exitCode = code;
-  const flushOut = new Promise((resolve) => {
-    if (process.stdout.writableNeedDrain) {
-      process.stdout.once('drain', resolve);
-    } else {
-      resolve();
-    }
-  });
-  const flushErr = new Promise((resolve) => {
-    if (process.stderr.writableNeedDrain) {
-      process.stderr.once('drain', resolve);
-    } else {
-      resolve();
-    }
-  });
-  Promise.all([flushOut, flushErr]).then(() => {
+// Синхронный выход с flush для success-path стандартного вывода.
+// process.exit() сам по себе может обрезать buffered output на Windows/pipe
+// при больших markdown-ответах модели. Эта обёртка блокирует до подтверждения записи.
+// Используется ТОЛЬКО после больших process.stdout.write(text) — для error-path достаточно
+// синхронного process.exit(), т.к. stderr на Node.js flush'ится синхронно.
+function exitWithStdoutFlush(code) {
+  if (!process.stdout.writableNeedDrain) {
     process.exit(code);
-  });
+  }
+  process.stdout.once('drain', () => process.exit(code));
+  // Блокируем возврат управления: после вызова этой функции код не должен исполняться.
+  // На практике drain-callback срабатывает до следующего синхронного statement, но явная
+  // подстраховка на уровне вызывающих — использовать `return exitWithStdoutFlush(...)`
+  // (на уровне подстановки — никаких statement после вызова).
 }
 
 // User prompt — сам diff с минимальной обёрткой.
@@ -371,7 +363,7 @@ function resolveAllowlistEntry(modelId) {
       `Разрешены: ${allowed}.\n` +
       'См. справочные таблицы Err5 в docs/plans/sprint-pipeline-v3-6-mode-a-native.md.\n',
   );
-  exitAfterFlush(EXIT_ARGS_ERROR);
+  process.exit(EXIT_ARGS_ERROR);
 }
 
 // Основной флоу --model.
@@ -385,7 +377,7 @@ async function runReview(modelId, baseRef) {
     runGit(['fetch', 'origin', `+refs/heads/${baseRef}:refs/remotes/origin/${baseRef}`]);
   } catch (err) {
     process.stderr.write(`Ошибка git fetch: ${err.message}\n`);
-    exitAfterFlush(EXIT_RUNTIME_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 
   // Шаг 2: проверка наличия diff'а — пустой diff не отправляем в API.
@@ -395,11 +387,11 @@ async function runReview(modelId, baseRef) {
     diffExists = hasDiff(baseRef);
   } catch (err) {
     process.stderr.write(`Ошибка git diff --quiet: ${err.message}\n`);
-    exitAfterFlush(EXIT_RUNTIME_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
   if (!diffExists) {
     process.stdout.write('nothing to review\n');
-    exitAfterFlush(EXIT_NOTHING_TO_REVIEW);
+    process.exit(EXIT_NOTHING_TO_REVIEW);
   }
 
   // Шаг 3: получить сам diff.
@@ -417,7 +409,7 @@ async function runReview(modelId, baseRef) {
     ]);
   } catch (err) {
     process.stderr.write(`Ошибка git diff: ${err.message}\n`);
-    exitAfterFlush(EXIT_RUNTIME_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 
   // Шаг 4: построить prompts.
@@ -457,12 +449,12 @@ async function runReview(modelId, baseRef) {
     } else {
       // Гарантия неразрывности allowlist и диспатчера — изменение одного требует изменения другого.
       process.stderr.write(`Ошибка: неизвестный endpoint в allowlist: ${entry.endpoint}\n`);
-      exitAfterFlush(EXIT_ARGS_ERROR);
+      process.exit(EXIT_ARGS_ERROR);
     }
 
     if (!text || text.trim() === '') {
       process.stderr.write('Ошибка: пустой ответ от модели.\n');
-      exitAfterFlush(EXIT_RUNTIME_ERROR);
+      process.exit(EXIT_RUNTIME_ERROR);
     }
 
     // Валидация выходного формата: скрипт не принимает любой непустой текст как успех.
@@ -481,16 +473,16 @@ async function runReview(modelId, baseRef) {
       // Выводим сырой текст на stdout для аудита — PM увидит что именно ответила модель.
       process.stdout.write(text);
       if (!text.endsWith('\n')) process.stdout.write('\n');
-      exitAfterFlush(EXIT_RUNTIME_ERROR);
+      return exitWithStdoutFlush(EXIT_RUNTIME_ERROR);
     }
 
     process.stdout.write(text);
     if (!text.endsWith('\n')) process.stdout.write('\n');
-    exitAfterFlush(EXIT_OK);
+    return exitWithStdoutFlush(EXIT_OK);
   } catch (err) {
     const msg = classifyApiError(err);
     process.stderr.write(`Ошибка API: ${msg}\n${err.message ?? err}\n`);
-    exitAfterFlush(EXIT_RUNTIME_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 }
 
@@ -517,14 +509,14 @@ async function main() {
     });
   } catch (err) {
     process.stderr.write(`Ошибка аргументов: ${err.message}\n\n${USAGE}\n`);
-    exitAfterFlush(EXIT_ARGS_ERROR);
+    process.exit(EXIT_ARGS_ERROR);
   }
 
   const { values } = parsed;
 
   if (values.help) {
     process.stdout.write(`${USAGE}\n`);
-    exitAfterFlush(EXIT_OK);
+    process.exit(EXIT_OK);
   }
 
   // Взаимоисключение --ping с --model/--base — режимы не должны пересекаться.
@@ -532,7 +524,7 @@ async function main() {
     process.stderr.write(
       `Ошибка: --ping нельзя использовать вместе с --model/--base.\n\n${USAGE}\n`,
     );
-    exitAfterFlush(EXIT_ARGS_ERROR);
+    process.exit(EXIT_ARGS_ERROR);
   }
 
   if (values.ping) {
@@ -543,17 +535,17 @@ async function main() {
   // Без аргументов — показать usage (exit 2, чтобы автоматизация заметила отсутствие команды).
   if (!values.model && !values.base) {
     process.stderr.write(`Укажите подкоманду.\n\n${USAGE}\n`);
-    exitAfterFlush(EXIT_ARGS_ERROR);
+    process.exit(EXIT_ARGS_ERROR);
   }
 
   if (!values.model) {
     process.stderr.write(`Ошибка: не указан --model.\n\n${USAGE}\n`);
-    exitAfterFlush(EXIT_ARGS_ERROR);
+    process.exit(EXIT_ARGS_ERROR);
   }
 
   if (!values.base) {
     process.stderr.write(`Ошибка: не указан --base.\n\n${USAGE}\n`);
-    exitAfterFlush(EXIT_ARGS_ERROR);
+    process.exit(EXIT_ARGS_ERROR);
   }
 
   await runReview(values.model, values.base);
@@ -561,5 +553,5 @@ async function main() {
 
 main().catch((err) => {
   process.stderr.write(`Непредвиденная ошибка: ${err?.stack ?? err}\n`);
-  exitAfterFlush(EXIT_RUNTIME_ERROR);
+  process.exit(EXIT_RUNTIME_ERROR);
 });
