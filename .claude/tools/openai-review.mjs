@@ -28,6 +28,24 @@ const EXIT_RUNTIME_ERROR = 1;
 const EXIT_ARGS_ERROR = 2;
 const EXIT_NOTHING_TO_REVIEW = 3;
 
+// Согласованный лимит токенов для обоих endpoint'ов.
+// Для reasoning_effort:"high" бюджет включает reasoning + visible output;
+// малое значение (например 4000) съедается reasoning, content остаётся пустым.
+const MAX_OUTPUT_TOKENS = 16000;
+
+// Лимит буфера git-вывода: diff крупных PR превосходит дефолт Node (1MB).
+const GIT_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
+
+// Таймауты сетевых вызовов OpenAI (миллисекунды).
+// --ping должен падать быстро (Правка 5 плана, acceptance <2 сек);
+// основной review может работать дольше из-за reasoning high.
+const PING_TIMEOUT_MS = 10_000;
+const REVIEW_TIMEOUT_MS = 180_000;
+
+// Минимальная версия Node.js (Err2 плана) — parseArgs из node:util стабилен с 18.17.0.
+const MIN_NODE_MAJOR = 18;
+const MIN_NODE_MINOR = 17;
+
 // Текст справки (без обращения к сети, выводится по --help).
 const USAGE = `Usage: node openai-review.mjs [--help | --ping | --model <id> --base <baseRefName>]
 
@@ -36,21 +54,43 @@ const USAGE = `Usage: node openai-review.mjs [--help | --ping | --model <id> --b
   --ping                     Проверить валидность $OPENAI_API_KEY через client.models.list().
   --model <id> --base <ref>  Запустить ревью текущего HEAD против origin/<ref>.
 
+Взаимоисключения:
+  --ping и (--model | --base) нельзя использовать одновременно — exit 2.
+
 Runtime allowlist (ровно две полноразмерные модели):
   gpt-5.4         endpoint=/v1/chat/completions  reasoning_effort=high
   gpt-5.3-codex   endpoint=/v1/responses         reasoning.effort=high
 
 Exit codes:
   0  — OK.
-  1  — runtime-ошибка: локальная (нет $OPENAI_API_KEY, git fetch/diff упал, overflow)
-       ИЛИ API/сетевая (401/403/429/network). Детали — на stderr.
-  2  — ошибка валидации аргументов (или модель вне allowlist).
+  1  — runtime-ошибка: локальная (нет $OPENAI_API_KEY, git fetch/diff упал, overflow,
+       пустой ответ модели, устаревшая версия Node) ИЛИ API/сетевая (400/401/403/429/5xx/network).
+       Детали — на stderr.
+  2  — ошибка валидации аргументов (или модель вне allowlist, или взаимоисключающие флаги).
   3  — нет diff'а относительно base (nothing to review).
 
-Требуется $OPENAI_API_KEY в окружении (кроме --help).
+Требуется Node.js ≥ ${MIN_NODE_MAJOR}.${MIN_NODE_MINOR}.0 и $OPENAI_API_KEY в окружении (кроме --help).
 Подробнее: .claude/tools/README.md и docs/plans/sprint-pipeline-v3-6-mode-a-native.md.`;
 
+// Проверка версии Node.js — явное падение с понятным сообщением (Err2 плана),
+// чтобы не полагаться только на engines в package.json.
+function requireNodeVersion() {
+  const m = process.version.match(/^v(\d+)\.(\d+)\.(\d+)/);
+  if (!m) return; // не смогли распознать — не блокируем.
+  const [, majStr, minStr] = m;
+  const maj = Number(majStr);
+  const min = Number(minStr);
+  if (maj < MIN_NODE_MAJOR || (maj === MIN_NODE_MAJOR && min < MIN_NODE_MINOR)) {
+    process.stderr.write(
+      `Ошибка: требуется Node.js ≥ ${MIN_NODE_MAJOR}.${MIN_NODE_MINOR}.0. ` +
+        `Текущая: ${process.version}. parseArgs из node:util стабилен с 18.17.0.\n`,
+    );
+    process.exit(EXIT_RUNTIME_ERROR);
+  }
+}
+
 // Классификация ошибок API по HTTP-статусу для человеко-читаемого сообщения (Правка 5 плана).
+// Различает класс локальных сетевых проблем (без статуса) и API-ошибок (4xx/5xx).
 function classifyApiError(err) {
   const status = err?.status ?? err?.response?.status;
   if (status === 401 || status === 403) {
@@ -58,6 +98,16 @@ function classifyApiError(err) {
   }
   if (status === 429) {
     return 'Rate limit / quota. Подождите, уменьшите частоту запросов, проверьте лимиты в OpenAI Project.';
+  }
+  if (status === 400) {
+    return 'Некорректный запрос (400). Возможные причины: слишком большой prompt/контекст, ' +
+      'неподдерживаемая комбинация параметров модели. Проверьте размер diff и параметры модели.';
+  }
+  if (status && status >= 500 && status < 600) {
+    return `Серверная ошибка OpenAI (${status}). Попробуйте повторить позже или проверьте status.openai.com.`;
+  }
+  if (status && status >= 400 && status < 500) {
+    return `Клиентская ошибка API (${status}). Детали в полном сообщении ниже.`;
   }
   // Сетевые ошибки — без HTTP-статуса (ECONNRESET, ENOTFOUND, fetch timeout).
   return 'Проверьте соединение и прокси.';
@@ -74,49 +124,64 @@ function requireApiKey() {
 }
 
 // Ленивая загрузка SDK — чтобы --help работал без установленного node_modules.
-async function loadOpenAI() {
+// Передаём timeout в конструктор — явный контроль, не реляция на дефолт SDK.
+async function loadOpenAIClient(timeoutMs) {
+  let OpenAI;
   try {
     const mod = await import('openai');
-    return mod.default ?? mod.OpenAI;
+    OpenAI = mod.default ?? mod.OpenAI;
   } catch (err) {
     process.stderr.write(
       `Ошибка: не удалось загрузить пакет openai. Выполните: cd .claude/tools && npm install\n${err.message}\n`,
     );
     process.exit(EXIT_RUNTIME_ERROR);
   }
+  return new OpenAI({ timeout: timeoutMs });
 }
 
 // --ping: дешёвый запрос /v1/models для проверки валидности ключа.
 async function runPing() {
   requireApiKey();
-  const OpenAI = await loadOpenAI();
-  const client = new OpenAI();
+  const client = await loadOpenAIClient(PING_TIMEOUT_MS);
   try {
     await client.models.list();
     process.stdout.write('OK\n');
     process.exit(EXIT_OK);
   } catch (err) {
     const msg = classifyApiError(err);
-    process.stderr.write(`Ping failed: ${msg}\n`);
+    process.stderr.write(`Ошибка ping: ${msg}\n`);
     process.exit(EXIT_RUNTIME_ERROR);
   }
 }
 
-// Валидация имени ref — защита от polluted-ввода в аргументах git.
-// Допускаем буквы, цифры, `-`, `_`, `/`, `.` — стандартный набор для git branch names.
+// Валидация имени base-ветки через сам git (надёжнее regex).
+// Git-правила именования нетривиальны (запреты на `..`, trailing `/`, управляющие символы и т.п.),
+// `git check-ref-format --branch` использует те же правила, что и реальная проверка ref.
 function validateBaseRef(baseRef) {
-  if (!/^[A-Za-z0-9._/-]+$/.test(baseRef)) {
+  // Отдельно блокируем префикс `-`, чтобы имя не попало в git как опция.
+  if (baseRef.startsWith('-')) {
     process.stderr.write(
-      `Ошибка: недопустимое имя base-ветки: ${JSON.stringify(baseRef)}. Допустимы буквы/цифры/./-/_//.\n`,
+      `Ошибка: недопустимое имя base-ветки: ${JSON.stringify(baseRef)}. ` +
+        `Имя ветки не должно начинаться с "-".\n`,
+    );
+    process.exit(EXIT_ARGS_ERROR);
+  }
+  try {
+    execFileSync('git', ['check-ref-format', '--branch', baseRef], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch {
+    process.stderr.write(
+      `Ошибка: недопустимое имя base-ветки: ${JSON.stringify(baseRef)}. ` +
+        `Нарушены правила git check-ref-format.\n`,
     );
     process.exit(EXIT_ARGS_ERROR);
   }
 }
 
-// Поднимаем maxBuffer: diff крупных PR может существенно превосходить дефолт Node (1MB).
-const GIT_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
-
 // Обёртка вокруг git — execFileSync без shell (массив аргументов, не интерполяция в строку).
+// Все git-вызовы проходят через неё для единого обработчика overflow и единого maxBuffer.
 function runGit(args) {
   try {
     return execFileSync('git', args, {
@@ -136,11 +201,22 @@ function runGit(args) {
 }
 
 // Безопасный quiet-diff: игнорируем exit=1 (есть diff), пробрасываем остальное.
+// Принудительно отключаем внешний diff-драйвер и цвет — тот же набор защитных флагов, что и в основном git diff,
+// чтобы quiet-check не запускал посторонние процессы из пользовательского git config.
 function hasDiff(baseRef) {
   try {
-    execFileSync('git', ['diff', '--quiet', `origin/${baseRef}...HEAD`], {
-      stdio: ['ignore', 'ignore', 'pipe'],
-    });
+    execFileSync(
+      'git',
+      [
+        '-c',
+        'diff.external=',
+        'diff',
+        '--no-ext-diff',
+        '--quiet',
+        `origin/${baseRef}...HEAD`,
+      ],
+      { stdio: ['ignore', 'ignore', 'pipe'] },
+    );
     return false; // exit 0 — изменений нет.
   } catch (err) {
     if (err.status === 1) return true; // exit 1 — diff есть.
@@ -246,7 +322,15 @@ async function runReview(modelId, baseRef) {
   }
 
   // Шаг 2: проверка наличия diff'а — пустой diff не отправляем в API.
-  if (!hasDiff(baseRef)) {
+  // Явный try/catch рядом с вызовом — точная диагностика вместо общего stack trace из main().catch.
+  let diffExists;
+  try {
+    diffExists = hasDiff(baseRef);
+  } catch (err) {
+    process.stderr.write(`Ошибка git diff --quiet: ${err.message}\n`);
+    process.exit(EXIT_RUNTIME_ERROR);
+  }
+  if (!diffExists) {
     process.stdout.write('nothing to review\n');
     process.exit(EXIT_NOTHING_TO_REVIEW);
   }
@@ -274,8 +358,7 @@ async function runReview(modelId, baseRef) {
   const userPrompt = buildUserPrompt(diff, baseRef);
 
   // Шаг 5: диспатч по endpoint — строго по allowlist-metadata, без унификации ключей.
-  const OpenAI = await loadOpenAI();
-  const client = new OpenAI();
+  const client = await loadOpenAIClient(REVIEW_TIMEOUT_MS);
 
   try {
     let text;
@@ -286,10 +369,7 @@ async function runReview(modelId, baseRef) {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        // Согласованный лимит с responses endpoint (16000 tokens).
-        // Для reasoning_effort:"high" бюджет включает reasoning + visible output,
-        // поэтому 4000 мало — reasoning съедает весь лимит и content остаётся пустым.
-        max_completion_tokens: 16000,
+        max_completion_tokens: MAX_OUTPUT_TOKENS,
         ...entry.request_shape,
       });
       text = extractChatText(response);
@@ -298,7 +378,7 @@ async function runReview(modelId, baseRef) {
       const response = await client.responses.create({
         model: entry.model,
         input: `${systemPrompt}\n\n---\n\n${userPrompt}`,
-        max_output_tokens: 16000,
+        max_output_tokens: MAX_OUTPUT_TOKENS,
         ...entry.request_shape,
       });
       text = extractResponsesText(response);
@@ -325,6 +405,7 @@ async function runReview(modelId, baseRef) {
 
 // Точка входа — разбор аргументов.
 async function main() {
+  // --help не требует Node.js 18.17+; проверку версии делаем только для подкоманд с логикой.
   let parsed;
   try {
     parsed = parseArgs({
@@ -347,6 +428,17 @@ async function main() {
   if (values.help) {
     process.stdout.write(`${USAGE}\n`);
     process.exit(EXIT_OK);
+  }
+
+  // Все остальные подкоманды требуют минимальной версии Node.js (parseArgs, fetch и т.п.).
+  requireNodeVersion();
+
+  // Взаимоисключение --ping с --model/--base — режимы не должны пересекаться.
+  if (values.ping && (values.model || values.base)) {
+    process.stderr.write(
+      `Ошибка: --ping нельзя использовать вместе с --model/--base.\n\n${USAGE}\n`,
+    );
+    process.exit(EXIT_ARGS_ERROR);
   }
 
   if (values.ping) {
