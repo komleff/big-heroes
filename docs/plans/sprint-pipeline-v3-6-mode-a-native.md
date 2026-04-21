@@ -36,13 +36,13 @@
 **Архитектура.**
 - Файл: `.claude/tools/openai-review.mjs` (~150 LoC).
 - Зависимости: `.claude/tools/package.json` с `"openai": "4.70.0"` без `^` (pinned, см. Риск 1); `package-lock.json` коммитится в репозиторий для воспроизводимости между машинами. Одноразовый `npm install` при первой настройке.
-- Вызов: PM-агент через Bash subprocess `node .claude/tools/openai-review.mjs --model gpt-5.4 --base master`. API key — из `$OPENAI_API_KEY`.
+- Вызов: PM-агент через Bash subprocess `node .claude/tools/openai-review.mjs --model gpt-5.4 --base "$(gh pr view <PR_NUMBER> --json baseRefName --jq '.baseRefName')"`. Base-ветка берётся из PR-метаданных, не хардкодится как `master`/`main` — consistent с паттерном `external-review/SKILL.md` (`BASE_BRANCH=$(gh pr view ...)`). API key — из `$OPENAI_API_KEY`.
 - Поддерживаемые модели: `gpt-5.4` (Ревьюер A, high reasoning), `gpt-5.3-codex` (Ревьюер B, фокус на коде). Оба прохода — adversarial diversity как в черновом режиме A.
 - Выход: raw markdown на stdout. PM мапит на 4 аспекта при консолидации (как сейчас в external-review).
 
 **Подкоманды скрипта.**
 - `openai-review.mjs --ping` — проверка валидности API-ключа (GET `/v1/models`, exit code 0/1, см. Правку 5).
-- `openai-review.mjs --model <id> --base <branch>` — основной вызов review.
+- `openai-review.mjs --model <id> --base <branch>` — основной вызов review; `<branch>` — это `baseRefName` текущего PR, не захардкоженный `master`.
 
 **Интеграция в скилл.**
 В [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md) шаг 3.1 — заменить блок «Режимы A и B — через Codex CLI» на «Режим A — через native script». Codex CLI остаётся как Mode A-fallback, если script упал. Mode B (ChatGPT OAuth) — удалить (пользователь всегда может использовать API key). Mode C/D (Claude adversarial, manual emergency) — остаются.
@@ -202,8 +202,9 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
    ```bash
    # Шаг 1: на Windows dev-host
    cd .claude/tools && npm install && cd -
+   BASE_REF="$(gh pr view --json baseRefName --jq '.baseRefName')"
    node .claude/tools/openai-review.mjs --ping   # ожидаем exit 0
-   node .claude/tools/openai-review.mjs --model gpt-5.4 --base master > .claude/tools/review.md
+   node .claude/tools/openai-review.mjs --model gpt-5.4 --base "$BASE_REF" > .claude/tools/review.md
    # Ожидаем: reviewer output сохранён в .claude/tools/review.md (кроссплатформенный путь),
    # без CreateProcessWithLogonW, без sandbox-параметров.
 
