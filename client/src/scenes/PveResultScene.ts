@@ -110,14 +110,16 @@ export class PveResultScene extends BaseScene {
 
         let nextY = panelY + panelH + 16;
 
-        // --- Boss loot items (u1z): информационная секция ---
-        if (data.status === 'victory' && data.bossLootItems && data.bossLootItems.length > 0) {
-            nextY = this.buildBossLootSection(data.bossLootItems, nextY);
-        }
-
-        // --- Boss relic: информационная карточка ---
-        if (data.status === 'victory' && data.bossRelic) {
-            nextY = this.buildBossRelicInfo(data.bossRelic, nextY);
+        // --- Boss loot items (u1z) + boss relic info ---
+        // После выбора арена-реликвии эти секции скрываются, чтобы не дублировать
+        // информацию и не путать игрока с выбранной реликвией (big-heroes-7r8).
+        if (!this.extractionDone) {
+            if (data.status === 'victory' && data.bossLootItems && data.bossLootItems.length > 0) {
+                nextY = this.buildBossLootSection(data.bossLootItems, nextY);
+            }
+            if (data.status === 'victory' && data.bossRelic) {
+                nextY = this.buildBossRelicInfo(data.bossRelic, nextY);
+            }
         }
 
         // --- Extraction: выбор arena relic ---
