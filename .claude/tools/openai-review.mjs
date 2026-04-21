@@ -24,7 +24,7 @@ const ALLOWLIST = [
 
 // Коды выхода (описание — см. README, раздел «Диагностика»).
 const EXIT_OK = 0;
-const EXIT_API_ERROR = 1;
+const EXIT_RUNTIME_ERROR = 1;
 const EXIT_ARGS_ERROR = 2;
 const EXIT_NOTHING_TO_REVIEW = 3;
 
@@ -42,7 +42,8 @@ Runtime allowlist (ровно две полноразмерные модели):
 
 Exit codes:
   0  — OK.
-  1  — ошибка API / сети.
+  1  — runtime-ошибка: локальная (нет $OPENAI_API_KEY, git fetch/diff упал, overflow)
+       ИЛИ API/сетевая (401/403/429/network). Детали — на stderr.
   2  — ошибка валидации аргументов (или модель вне allowlist).
   3  — нет diff'а относительно base (nothing to review).
 
@@ -67,7 +68,7 @@ function requireApiKey() {
   const key = process.env.OPENAI_API_KEY;
   if (!key || key.trim() === '') {
     process.stderr.write('Ошибка: $OPENAI_API_KEY не задан в окружении.\n');
-    process.exit(EXIT_API_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
   return key;
 }
@@ -81,7 +82,7 @@ async function loadOpenAI() {
     process.stderr.write(
       `Ошибка: не удалось загрузить пакет openai. Выполните: cd .claude/tools && npm install\n${err.message}\n`,
     );
-    process.exit(EXIT_API_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 }
 
@@ -97,7 +98,7 @@ async function runPing() {
   } catch (err) {
     const msg = classifyApiError(err);
     process.stderr.write(`Ping failed: ${msg}\n`);
-    process.exit(EXIT_API_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 }
 
@@ -112,9 +113,26 @@ function validateBaseRef(baseRef) {
   }
 }
 
+// Поднимаем maxBuffer: diff крупных PR может существенно превосходить дефолт Node (1MB).
+const GIT_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
+
 // Обёртка вокруг git — execFileSync без shell (массив аргументов, не интерполяция в строку).
 function runGit(args) {
-  return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  try {
+    return execFileSync('git', args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: GIT_OUTPUT_MAX_BUFFER,
+    });
+  } catch (err) {
+    if (err?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' || err?.code === 'ENOBUFS') {
+      throw new Error(
+        `git ${args.join(' ')} вернул слишком большой вывод: превышен лимит ${GIT_OUTPUT_MAX_BUFFER} байт. ` +
+          'Увеличьте maxBuffer или уменьшите размер diff для ревью.',
+      );
+    }
+    throw err;
+  }
 }
 
 // Безопасный quiet-diff: игнорируем exit=1 (есть diff), пробрасываем остальное.
@@ -224,7 +242,7 @@ async function runReview(modelId, baseRef) {
     runGit(['fetch', 'origin', `+refs/heads/${baseRef}:refs/remotes/origin/${baseRef}`]);
   } catch (err) {
     process.stderr.write(`Ошибка git fetch: ${err.message}\n`);
-    process.exit(EXIT_API_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 
   // Шаг 2: проверка наличия diff'а — пустой diff не отправляем в API.
@@ -234,12 +252,21 @@ async function runReview(modelId, baseRef) {
   }
 
   // Шаг 3: получить сам diff.
+  // Принудительно выключаем цвет и внешние diff-драйверы — prompt не должен зависеть
+  // от пользовательского git config (color.ui=always, diff.external=...).
   let diff;
   try {
-    diff = runGit(['diff', `origin/${baseRef}...HEAD`]);
+    diff = runGit([
+      '-c',
+      'diff.external=',
+      'diff',
+      '--no-color',
+      '--no-ext-diff',
+      `origin/${baseRef}...HEAD`,
+    ]);
   } catch (err) {
     process.stderr.write(`Ошибка git diff: ${err.message}\n`);
-    process.exit(EXIT_API_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 
   // Шаг 4: построить prompts.
@@ -259,6 +286,9 @@ async function runReview(modelId, baseRef) {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
+        // Согласованный лимит с responses endpoint (4000 tokens) — защита от длинных
+        // ответов и нестабильности при превышении серверных лимитов.
+        max_completion_tokens: 4000,
         ...entry.request_shape,
       });
       text = extractChatText(response);
@@ -279,7 +309,7 @@ async function runReview(modelId, baseRef) {
 
     if (!text || text.trim() === '') {
       process.stderr.write('Ошибка: пустой ответ от модели.\n');
-      process.exit(EXIT_API_ERROR);
+      process.exit(EXIT_RUNTIME_ERROR);
     }
 
     process.stdout.write(text);
@@ -288,7 +318,7 @@ async function runReview(modelId, baseRef) {
   } catch (err) {
     const msg = classifyApiError(err);
     process.stderr.write(`Ошибка API: ${msg}\n${err.message ?? err}\n`);
-    process.exit(EXIT_API_ERROR);
+    process.exit(EXIT_RUNTIME_ERROR);
   }
 }
 
@@ -344,5 +374,5 @@ async function main() {
 
 main().catch((err) => {
   process.stderr.write(`Непредвиденная ошибка: ${err?.stack ?? err}\n`);
-  process.exit(EXIT_API_ERROR);
+  process.exit(EXIT_RUNTIME_ERROR);
 });
