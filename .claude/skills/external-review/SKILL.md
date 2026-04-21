@@ -410,7 +410,15 @@ BODY="${BODY//__ITERATION__/$ITERATION}"
 gh pr comment <PR_NUMBER> --body "$BODY"
 ```
 
-> ⚠️ Raw output публикуется **без редактуры**. Если он слишком длинный — собрать как artifact и приложить ссылкой, но **не** сокращать пересказом.
+> ⚠️ Raw output публикуется **без редактуры** содержимого, но **с HTML-escaping** перед вставкой в `<pre><code>`: заменить `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`. Без этого attacker-controlled diff может вернуть модели строку `</code></pre>` и сломать структуру комментария (закрывает Security ISSUE Reviewer A на 8e7dce6).
+>
+> Пример экранирования (bash):
+> ```bash
+> RAW_A_ESC=$(printf '%s' "$RAW_A" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+> # далее используй $RAW_A_ESC внутри <pre><code>...</code></pre> вместо $RAW_A
+> ```
+>
+> Если raw слишком длинный — собрать как artifact и приложить ссылкой, но **не** сокращать пересказом.
 
 ## Шаг 6: Pre-Chat Gate
 
