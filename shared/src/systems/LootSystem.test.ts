@@ -1,5 +1,7 @@
-import { generateLoot, generateShopInventory, calcShopRepairCost } from './LootSystem';
+import { generateLoot, generateShopInventory, calcShopRepairCost, findFreeBeltSlotIndex } from './LootSystem';
 import type { IPveLootConfig, IPveShopConfig, IStarterEquipmentConfigItem, IConsumableConfig } from '../types/BalanceConfig';
+import type { IBeltSlot } from '../types/GameState';
+import type { IConsumable } from '../types/Consumable';
 import { createRng } from '../utils/Random';
 
 // ─── Хелперы ──────────────────────────────────────────────────────────
@@ -232,5 +234,74 @@ describe('calcShopRepairCost', () => {
 
         // Assert — 100 * 1.75 = 175
         expect(cost).toBe(175);
+    });
+});
+
+// ─── findFreeBeltSlotIndex ────────────────────────────────────────────
+
+describe('findFreeBeltSlotIndex', () => {
+    /** Тестовый расходник (минимальные поля) */
+    const sampleConsumable: IConsumable = {
+        id: 'potion',
+        name: 'Зелье',
+        type: 'combat',
+        tier: 1,
+        effect: 'heal',
+        value: 10,
+    };
+
+    test('оба слота пусты — возвращает 0 (первый свободный)', () => {
+        // Arrange
+        const belt: IBeltSlot[] = [null, null];
+
+        // Act
+        const idx = findFreeBeltSlotIndex(belt);
+
+        // Assert
+        expect(idx).toBe(0);
+    });
+
+    test('слот 0 занят, слот 1 пуст — возвращает 1', () => {
+        // Arrange
+        const belt: IBeltSlot[] = [sampleConsumable, null];
+
+        // Act
+        const idx = findFreeBeltSlotIndex(belt);
+
+        // Assert
+        expect(idx).toBe(1);
+    });
+
+    test('оба слота заняты — возвращает -1', () => {
+        // Arrange
+        const belt: IBeltSlot[] = [sampleConsumable, sampleConsumable];
+
+        // Act
+        const idx = findFreeBeltSlotIndex(belt);
+
+        // Assert
+        expect(idx).toBe(-1);
+    });
+
+    test('слот 0 пуст, слот 1 занят — возвращает 0', () => {
+        // Arrange
+        const belt: IBeltSlot[] = [null, sampleConsumable];
+
+        // Act
+        const idx = findFreeBeltSlotIndex(belt);
+
+        // Assert
+        expect(idx).toBe(0);
+    });
+
+    test('пустой массив — возвращает -1 (нет слотов)', () => {
+        // Arrange
+        const belt: IBeltSlot[] = [];
+
+        // Act
+        const idx = findFreeBeltSlotIndex(belt);
+
+        // Assert
+        expect(idx).toBe(-1);
     });
 });

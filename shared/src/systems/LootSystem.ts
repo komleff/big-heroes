@@ -1,5 +1,6 @@
 import type { IStarterEquipmentConfigItem, IConsumableConfig, IPveLootConfig, IPveShopConfig } from '../types/BalanceConfig';
 import type { PveNodeType } from '../types/PveNode';
+import type { IBeltSlot } from '../types/GameState';
 import { randInt, randPick, shuffle } from '../utils/Random';
 
 // Элемент лута
@@ -164,4 +165,20 @@ export function calcShopRepairCost(
     shopConfig: IPveShopConfig,
 ): number {
     return Math.round(baseRepairCost * shopConfig.repair_price_multiplier);
+}
+
+/**
+ * Ищет первый свободный слот на поясе для авто-размещения расходника.
+ * Возвращает индекс свободного слота или -1, если все слоты заняты.
+ * Чистая функция — вход не мутируется.
+ *
+ * Используется при подборе consumable из сундука/магазина/события,
+ * чтобы предмет автоматически помещался на пояс при наличии свободной
+ * ячейки (по аналогии с autoEquip для снаряжения). Fallback — рюкзак.
+ */
+export function findFreeBeltSlotIndex(belt: ReadonlyArray<IBeltSlot>): number {
+    for (let i = 0; i < belt.length; i++) {
+        if (belt[i] === null) return i;
+    }
+    return -1;
 }

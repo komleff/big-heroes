@@ -17,7 +17,7 @@ export { calcHeroStats, calcDamage, calcTTK, calcBaseWinChance, clamp,
 export { resolveBattle } from './systems/BattleSystem';
 export { generateRelicPool, selectRelic, configToRelic, calcRelicMassMultiplier, calcRelicGoldMultiplier, calcRelicShopDiscount, hasRelicEffect, calcRelicCampRepairBonus, MAX_RELICS } from './systems/RelicSystem';
 export { generateRoute, createExpeditionState, advanceToNode, applyBattleResult, exitExpedition, generateForkPaths } from './systems/PveSystem';
-export { generateLoot, generateShopInventory, calcShopRepairCost } from './systems/LootSystem';
+export { generateLoot, generateShopInventory, calcShopRepairCost, findFreeBeltSlotIndex } from './systems/LootSystem';
 export type { ILootDrop, ILootResult, IShopItem } from './systems/LootSystem';
 export { resolveEventOutcome, getVariantProcChance } from './systems/EventSystem';
 export type { IEventEffectResult } from './systems/EventSystem';

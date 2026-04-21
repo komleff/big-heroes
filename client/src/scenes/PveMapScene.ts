@@ -8,7 +8,7 @@ import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { ResourceBar } from '../ui/ResourceBar';
 import { addRelicWithUI } from '../utils/relicHelper';
-import { autoEquipIfBetter } from '../utils/autoEquip';
+import { autoEquipIfBetter, autoPlaceConsumableOnBelt } from '../utils/autoEquip';
 import {
     advanceToNode, exitExpedition,
     generateRelicPool, configToRelic,
@@ -628,6 +628,14 @@ export class PveMapScene extends BaseScene {
 
         const onTake = (drop: { itemId: string }) => {
             const state = this.gameState.expeditionState as IPveExpeditionState;
+            // Если расходник и есть свободный belt-slot — на пояс (big-heroes-e0o);
+            // иначе — в itemsFound (рюкзак экспедиции) и попытка авто-экипировки.
+            const placedOnBelt = autoPlaceConsumableOnBelt(
+                this.gameState,
+                drop.itemId,
+                config.consumables,
+            );
+            if (placedOnBelt) return;
             this.gameState.updateExpeditionState({ ...state, itemsFound: [...state.itemsFound, drop.itemId] });
             // Авто-экипировать если слот пустой или предмет лучше
             autoEquipIfBetter(this.gameState, drop.itemId, config.equipment.catalog);
