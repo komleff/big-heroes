@@ -149,13 +149,20 @@ export class PveResultScene extends BaseScene {
                 nextY += 36;
             }
 
-            // Кнопка «Домой»
+            // Кнопки «Домой» / «Арена»: вертикальный layout с явным gap.
+            // primary-кнопка высотой 68, секондари — 56. Между ними — 16px
+            // (screenPadding). Раньше arenaBtn стартовала на nextY+72 → перекрытие
+            // 12px с hubBtn (big-heroes-00q).
+            const hubHeight = THEME.layout.buttonHeight.primary; // 68
+            const buttonGap = THEME.layout.spacing.screenPadding; // 16
+
+            const hubTopY = nextY + 16;
             const hubBtn = new Button({
                 text: 'ДОМОЙ',
                 variant: 'primary',
                 onClick: () => data.onContinue(),
             });
-            hubBtn.position.set(W / 2, nextY + 16);
+            hubBtn.position.set(W / 2, hubTopY);
             this.addChild(hubBtn);
 
             // Кнопка «Арена» (если выбрана реликвия для арены)
@@ -165,7 +172,7 @@ export class PveResultScene extends BaseScene {
                     variant: 'secondary',
                     onClick: () => data.onGoArena!(),
                 });
-                arenaBtn.position.set(W / 2, nextY + 72);
+                arenaBtn.position.set(W / 2, hubTopY + hubHeight + buttonGap);
                 this.addChild(arenaBtn);
             }
         }
