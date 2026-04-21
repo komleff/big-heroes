@@ -81,8 +81,17 @@ MODE_A_AVAILABLE=1
 
 # Установка openai SDK (если ещё нет node_modules). Падение npm install — это degraded, а не СТОП:
 # при проблемах сети/прокси логичнее перейти в Mode C/D, а не блокировать весь /external-review.
+#
+# ⚠️ Security: `--ignore-scripts` обязателен (Reviewer B на 6bb5879: supply-chain risk при PR из fork).
+# Мы сейчас внутри ветки PR после gh pr checkout — npm postinstall/preinstall из package.json PR-автора
+# может эксфильтровать $OPENAI_API_KEY. `--ignore-scripts` отключает lifecycle-скрипты;
+# для openai SDK postinstall не требуется (проверено), поэтому отключение безопасно.
+#
+# Известное ограничение: tool всё ещё запускается из checkout'нутой ветки PR, т.е. сам
+# openai-review.mjs может быть подменён. Полное разделение trust boundary (tool из trusted
+# base branch) запланировано в v3.7 — см. `big-heroes-<supply-chain-tool>` (будет создана).
 if [ ! -d .claude/tools/node_modules ]; then
-  if ! (cd .claude/tools && npm install); then
+  if ! (cd .claude/tools && npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts); then
     echo "ВНИМАНИЕ: npm install упал в .claude/tools/ — Mode A недоступен, переход в degraded-режим C/D."
     MODE_A_AVAILABLE=0
   fi
