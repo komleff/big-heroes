@@ -32,6 +32,17 @@ export interface IEquipmentSlots {
 // Слот пояса (2 слота)
 export type IBeltSlot = IConsumable | null;
 
+// Состояние активной сессии PvP-арены (серия боёв до истощения)
+// Поле arenaSession в IGameState — опциональное, чтобы не ломать ранее сохранённые save-файлы
+export interface IArenaSession {
+    active: boolean;           // true — пока сессия не завершена
+    battlesPlayed: number;     // всего проведено боёв в текущей сессии
+    startMass: number;         // snapshot массы героя на старте сессии
+    startRating: number;       // snapshot рейтинга на старте сессии
+    totalMassLost: number;     // суммарная потеря массы за сессию (положительное число)
+    totalRatingDelta: number;  // знаковая дельта рейтинга за сессию (сумма calcEloChange)
+}
+
 // Полное состояние игры
 export interface IGameState {
     hero: IHeroState;
@@ -41,4 +52,6 @@ export interface IGameState {
     backpack: Array<IEquipmentItem | IConsumable | null>;  // max 4
     stash: IEquipmentItem[];
     activeRelics: IRelic[];
+    // Опциональное — отсутствие поля валидно для save-файлов, созданных до Sprint 6
+    arenaSession?: IArenaSession;
 }
