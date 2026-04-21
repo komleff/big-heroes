@@ -7,6 +7,9 @@ dist/
 # Claude Code локальные настройки (могут содержать секреты — см. .agents/CODEX_AUTH.md)
 .claude/settings.local.json
 
+# Временные git worktrees для параллельных агентских задач
+.claude/worktrees/
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db
