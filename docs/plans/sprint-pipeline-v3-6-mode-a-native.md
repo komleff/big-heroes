@@ -60,7 +60,7 @@
 - [.claude/skills/external-review/SKILL.md](../../.claude/skills/external-review/SKILL.md) — шаги 1.4, 2, 3.1 переписаны.
 - [.agents/CODEX_AUTH.md](../../.agents/CODEX_AUTH.md) — пометка «Codex CLI deprecated в v3.6, legacy fallback; основной путь — `.claude/tools/openai-review.mjs`».
 - [.claude/hooks/codex-login.sh](../../.claude/hooks/codex-login.sh) — остаётся для Codex CLI fallback, но не блокирующий.
-- `.beads/` — закрыть [big-heroes-1l6](https://github.com/komleff/big-heroes/issues) (BE-11) с reason «obsolete: Mode A migrated from Codex CLI to Node.js native».
+- `.beads/` — закрыть `big-heroes-1l6` (BE-11) с reason «obsolete: Mode A migrated from Codex CLI to Node.js native». Beads issues не имеют GitHub URL — хранятся в Dolt, поиск через `bd show <id>`.
 
 ---
 
@@ -88,12 +88,20 @@ PM пытается запустить следующий pass без публи
 **Требования.**
 В [.claude/skills/finalize-pr/SKILL.md](../../.claude/skills/finalize-pr/SKILL.md) шаг 4 (external review check) добавить:
 - Парсить `"mode"` из HTML META JSON в PM-комментарии (формат в external-review:249).
-- Sprint Final tier на master-merge: `mode == "A"` — проход. `mode ∈ {"C", "D"}` — hard block с требованием operator ack через аргумент `--accept-degraded=<reason>` или файл `.finalize-pr-ack`.
-- Critical tier (не Sprint Final) — warning, но не block. Mode C в обычных pass не блокируется.
+- Sprint Final tier на master-merge:
+  - `mode == "A"` — проход без вопросов.
+  - `mode == "B"` (включая label `B-manual`) — degraded manual fallback, не эквивалент Mode A. Допускается только с operator ack через `--accept-degraded=<reason>` или файл `.finalize-pr-ack`.
+  - `mode ∈ {"C", "D"}` — то же требование ack.
+  - `mode` отсутствует, не распарсился или имеет неизвестное значение — трактовать как degraded attestation и требовать ack (fail-secure, не silent bypass).
+- Critical tier (не Sprint Final) — warning, но не block. Mode B/C/D в обычных pass не блокируются.
 - `/finalize-pr --pre-landing` наследует поведение — landing-commit не валидирует pipeline с dishonest-mode.
 
 **Критерий приёмки.**
-Test 1: комментарий с `"mode": "C"` без ack → `/finalize-pr` на Sprint Final возвращает отказ. Test 2: с ack — проходит с пометкой в итоговом выводе. Test 3: `"mode": "A"` — проходит без вопросов.
+- Test 1: `"mode": "C"` без ack → `/finalize-pr` на Sprint Final возвращает отказ.
+- Test 2: `"mode": "B"` / label `B-manual` без ack → отказ на Sprint Final.
+- Test 3: `"mode": "C"` или `"mode": "B"`/`B-manual` с ack → проходит с пометкой в итоговом выводе.
+- Test 4: `"mode"` отсутствует/malformed → отказ (fail-secure).
+- Test 5: `"mode": "A"` → проходит без вопросов.
 
 **Файлы.**
 - [.claude/skills/finalize-pr/SKILL.md](../../.claude/skills/finalize-pr/SKILL.md) — шаг 4.
@@ -216,7 +224,7 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 
 ## Риски
 
-1. **Правка 1 — OpenAI SDK breaking changes.** Vendored dependency `openai@^4.70.0` может получить breaking change между v3.6 и следующим спринтом. Митигация — pinned version, не caret; update через explicit Beads-задачу.
+1. **Правка 1 — OpenAI SDK breaking changes.** Зависимость `openai@4.70.0` (pinned, без caret) может потребовать явного обновления после v3.6. Это npm-зависимость, не vendoring — разрешение версий фиксируется через `package-lock.json`. Митигация: держать pinned version + lockfile, update только через explicit Beads-задачу (не автоматически npm update).
 
 2. **Правка 1 — Codex CLI и Node.js native дают разный формат вывода.** `codex review` выдаёт структурированный вывод в своём формате, `gpt-4`-style API — свободный markdown. Митигация — system prompt в script задаёт жёсткий формат ответа, PM консолидация адаптирована.
 
