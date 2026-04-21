@@ -64,11 +64,19 @@ if [ -n "$UNPUSHED" ]; then
 fi
 ```
 
-### 1.4 Pre-flight: установка зависимостей и валидация ключа
+### 1.4 Pre-flight: установка зависимостей, валидация ключа, фиксация HEAD_COMMIT
 
 > **Первый вход на чистой машине** — выполни `npm install` в `.claude/tools/` (одноразово). Повторяемая переустановка — `npm ci`.
 
 ```bash
+# Фиксация HEAD_COMMIT сразу — используется далее в именах артефактов (Шаг 3.1)
+# и в commit binding публикации (Шаг 5.3). Единое значение для всего прохода ревью.
+HEAD_COMMIT=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')
+if [[ -z "$HEAD_COMMIT" || "$HEAD_COMMIT" == "null" || ! "$HEAD_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  echo "СТОП: не удалось получить валидный HEAD commit для PR <PR_NUMBER>" >&2
+  exit 1
+fi
+
 # Установка openai SDK (если ещё нет node_modules):
 if [ ! -d .claude/tools/node_modules ]; then
   (cd .claude/tools && npm install) || {
@@ -76,7 +84,7 @@ if [ ! -d .claude/tools/node_modules ]; then
   }
 fi
 
-# Ранняя проверка валидности $OPENAI_API_KEY (<2 сек, Правка 5 плана):
+# Ранняя проверка валидности $OPENAI_API_KEY (<2 сек, AC6 плана):
 if ! node .claude/tools/openai-review.mjs --ping; then
   echo "ВНИМАНИЕ: Mode A недоступен (невалидный ключ / rate limit / network)."
   echo "Скрипт перейдёт в degraded-режим C. Детали ошибки — на stderr выше."
@@ -166,15 +174,30 @@ node .claude/tools/openai-review.mjs --model gpt-5.3-codex --base "$BASE_BRANCH"
   2> .review-responses/mode-a-reviewer-b-"$HEAD_COMMIT".err
 ```
 
-**Параллельный запуск** — оба скрипта можно вызвать одновременно (каждый пишет в свой файл):
+**Параллельный запуск** — оба скрипта можно вызвать одновременно; stdout и stderr разведены по файлам, чтобы не смешивать отчёт с диагностикой; падение одного проверяющего детектируется через exit-коды (не пропускаем ошибку молча):
 
 ```bash
 node .claude/tools/openai-review.mjs --model gpt-5.4 --base "$BASE_BRANCH" \
-  > .review-responses/mode-a-reviewer-a-"$HEAD_COMMIT".md 2>&1 &
+  > .review-responses/mode-a-reviewer-a-"$HEAD_COMMIT".md \
+  2> .review-responses/mode-a-reviewer-a-"$HEAD_COMMIT".err &
+PID_A=$!
 node .claude/tools/openai-review.mjs --model gpt-5.3-codex --base "$BASE_BRANCH" \
-  > .review-responses/mode-a-reviewer-b-"$HEAD_COMMIT".md 2>&1 &
-wait
+  > .review-responses/mode-a-reviewer-b-"$HEAD_COMMIT".md \
+  2> .review-responses/mode-a-reviewer-b-"$HEAD_COMMIT".err &
+PID_B=$!
+
+wait "$PID_A"; EXIT_A=$?
+wait "$PID_B"; EXIT_B=$?
+
+if [ "$EXIT_A" -ne 0 ] && [ "$EXIT_A" -ne 3 ]; then
+  echo "ВНИМАНИЕ: Reviewer A (gpt-5.4) упал с exit $EXIT_A. stderr: .review-responses/mode-a-reviewer-a-$HEAD_COMMIT.err"
+fi
+if [ "$EXIT_B" -ne 0 ] && [ "$EXIT_B" -ne 3 ]; then
+  echo "ВНИМАНИЕ: Reviewer B (gpt-5.3-codex) упал с exit $EXIT_B. stderr: .review-responses/mode-a-reviewer-b-$HEAD_COMMIT.err"
+fi
 ```
+
+Exit 3 (`nothing to review`) — не ошибка, штатный сигнал пустого diff'а.
 
 Скрипт сам обеспечивает:
 - Явный `git fetch origin +refs/heads/<base>:refs/remotes/origin/<base>` (устойчиво к пользовательским `remote.origin.fetch`).
@@ -250,15 +273,7 @@ gh api "repos/$REPO/pulls/<PR_NUMBER>/requested_reviewers" \
 
 > ⚠️ **Commit binding — без `**` и с META JSON.** `/finalize-pr` ищет маркер через regex `Commit:\s*\`?<hash>` ИЛИ JSON `"commit": "<hash>"`. Шаблон `**Commit:**` (bold markdown) **не** матчится (между `Commit:` и хэшем идёт `**`, не whitespace) — это drift, найденный внешним ревью (round 12). Используй простой `Commit: <hash>` и добавь HTML META с JSON — дублирование на случай, если кто-то изменит markdown-форматирование.
 
-Перед публикацией зафиксируй HEAD commit:
-
-```bash
-HEAD_COMMIT=$(timeout 10 gh pr view <PR_NUMBER> --json headRefOid --jq '.headRefOid')
-if [[ -z "$HEAD_COMMIT" || "$HEAD_COMMIT" == "null" || ! "$HEAD_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
-  echo "ERROR: не удалось получить валидный HEAD commit для PR <PR_NUMBER>" >&2
-  exit 1
-fi
-```
+`HEAD_COMMIT` уже зафиксирован в шаге 1.4 — повторно не вычисляем.
 
 Публикация отчёта (quoted heredoc + bash parameter expansion, чтобы body-содержимое не проходило shell-расширения):
 
@@ -376,8 +391,14 @@ if [ -z "${MODEL_A_NAME:-}" ]; then
   exit 1
 fi
 if [ -z "${MODEL_B_NAME:-}" ]; then
-  # В режиме D Reviewer B отсутствует — передай "—" или пустую строку.
-  MODEL_B_NAME="—"
+  # В режиме D Reviewer B отсутствует — допустимо "—".
+  # В режимах A / A-legacy / C Reviewer B обязателен — молчаливый дефолт маскирует ошибку конфигурации.
+  if [ "$MODE" = "D" ]; then
+    MODEL_B_NAME="—"
+  else
+    echo "MODEL_B_NAME не задан для режима $MODE, где Reviewer B обязателен. См. таблицу 5.1." >&2
+    exit 1
+  fi
 fi
 ITERATION="${ITERATION:-1}"
 

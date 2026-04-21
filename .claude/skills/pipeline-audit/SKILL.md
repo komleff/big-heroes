@@ -109,7 +109,7 @@ ls -1 .claude/settings.json
 
 Mode B (ChatGPT OAuth через Codex CLI) **deprecated в v3.6** — не должен упоминаться как активный режим. Если встречается в скиллах/документах — `DRIFT: Mode B устарел, удалить или пометить как deprecated`.
 
-### 3.6 Инварианты Правки 1 v3.6 (Mode A через Node.js native)
+### 3.7 Инварианты Правки 1 v3.6 (Mode A через Node.js native)
 
 Проверяй новые инварианты из `docs/plans/sprint-pipeline-v3-6-mode-a-native.md`:
 

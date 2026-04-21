@@ -3,7 +3,8 @@
 // Вызов: node openai-review.mjs --help | --ping | --model <id> --base <baseRefName>
 // Спецификация: docs/plans/sprint-pipeline-v3-6-mode-a-native.md (Правка 1 + Err5).
 
-import { parseArgs } from 'node:util';
+// Node.js API импорты. parseArgs грузится только после проверки версии (см. main()) —
+// на Node < 18.17 импорт parseArgs падает раньше контролируемого сообщения об ошибке (Err2 плана).
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
 
@@ -37,9 +38,9 @@ const MAX_OUTPUT_TOKENS = 16000;
 const GIT_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
 
 // Таймауты сетевых вызовов OpenAI (миллисекунды).
-// --ping должен падать быстро (Правка 5 плана, acceptance <2 сек);
+// --ping должен падать быстро (AC6 плана: <2 сек);
 // основной review может работать дольше из-за reasoning high.
-const PING_TIMEOUT_MS = 10_000;
+const PING_TIMEOUT_MS = 2_000;
 const REVIEW_TIMEOUT_MS = 180_000;
 
 // Минимальная версия Node.js (Err2 плана) — parseArgs из node:util стабилен с 18.17.0.
@@ -374,10 +375,13 @@ async function runReview(modelId, baseRef) {
       });
       text = extractChatText(response);
     } else if (entry.endpoint === 'responses') {
-      // Responses API принимает единый input; склеиваем system + user разделителем.
+      // Responses API: `instructions` держит trusted system prompt отдельно от untrusted diff в `input`.
+      // Это закрывает prompt-injection (CRITICAL от Reviewer A на 9bcfe5d): склейка system+user
+      // в одну строку ослабляет изоляцию инструкций и делает инъекции из diff проще.
       const response = await client.responses.create({
         model: entry.model,
-        input: `${systemPrompt}\n\n---\n\n${userPrompt}`,
+        instructions: systemPrompt,
+        input: userPrompt,
         max_output_tokens: MAX_OUTPUT_TOKENS,
         ...entry.request_shape,
       });
@@ -405,7 +409,13 @@ async function runReview(modelId, baseRef) {
 
 // Точка входа — разбор аргументов.
 async function main() {
-  // --help не требует Node.js 18.17+; проверку версии делаем только для подкоманд с логикой.
+  // Сначала проверка версии Node — ДО динамического импорта parseArgs,
+  // чтобы старый Node получил контролируемое сообщение (Err2 плана), а не ReferenceError на загрузке модуля.
+  requireNodeVersion();
+
+  // Динамический импорт parseArgs: на Node < 18.17 статический import падает раньше requireNodeVersion.
+  const { parseArgs } = await import('node:util');
+
   let parsed;
   try {
     parsed = parseArgs({
@@ -429,9 +439,6 @@ async function main() {
     process.stdout.write(`${USAGE}\n`);
     process.exit(EXIT_OK);
   }
-
-  // Все остальные подкоманды требуют минимальной версии Node.js (parseArgs, fetch и т.п.).
-  requireNodeVersion();
 
   // Взаимоисключение --ping с --model/--base — режимы не должны пересекаться.
   if (values.ping && (values.model || values.base)) {
