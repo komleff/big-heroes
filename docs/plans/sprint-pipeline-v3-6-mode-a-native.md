@@ -228,8 +228,8 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 - E1. `$OPENAI_API_KEY` unset → exit с понятной ошибкой, не crash.
 - E2. Network timeout при API call → exit с сообщением, не silent hang.
 - E3. Rate limit 429 → ранний exit на `--ping`, не продолжение main call.
-- E4. Diff пустой (нет изменений относительно base-ветки PR) → exit с сообщением «nothing to review», не отправка пустого prompt в API. Критерий в коде: `BASE_REF=$(gh pr view --json baseRefName --jq '.baseRefName'); git diff --quiet "origin/$BASE_REF...HEAD"` (exit 0 = нет изменений). **Важно:** используем `origin/$BASE_REF`, не просто `$BASE_REF` — локальный ref с именем ветки может не существовать (для PR из fork / feature-base). Fetch `origin/<baseRefName>` должен быть актуальным (`git fetch origin` перед проверкой).
-- E5. `baseRefName` PR != `master` (репозиторий с `main` или feature-base) → работает без изменений.
+- E4. Diff пустой (нет изменений относительно base-ветки PR) → exit с сообщением «nothing to review», не отправка пустого prompt в API. **Контракт `--base`:** в `openai-review.mjs` передаётся именно имя ветки (значение `baseRefName` из `gh pr view`, например `main`), а не готовый git-ref. Скрипт сам перед сравнением делает `git fetch origin <baseRefName>` и сравнивает `HEAD` с `origin/<baseRefName>`. Критерий в коде: `BASE_REF=$(gh pr view --json baseRefName --jq '.baseRefName'); git fetch origin "$BASE_REF"; git diff --quiet "origin/$BASE_REF...HEAD"` (exit 0 = нет изменений). **Почему так:** локальный ref `$BASE_REF` может не существовать или быть неактуальным (PR из fork/feature-base), поэтому сравнение всегда идёт через `origin/<baseRefName>`, который сам скрипт и обновляет.
+- E5. `baseRefName` PR != `master` (репозиторий с `main` или feature-base) → работает без изменений: контракт не зависит от имени ветки, вызывающий код всегда передаёт в `--base` значение `baseRefName`, а `openai-review.mjs` сам резолвит его в `origin/<baseRefName>`.
 - E6. Mode A script crash посреди pass → PM детектирует и документирует в отчёте, не молчаливый фолбэк в Mode C.
 - E7. META JSON c неизвестным `mode` value → fail-secure: требует ack, не silent pass.
 
@@ -246,10 +246,12 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
     **Требуют иной конечной точки (возвращают 400 «This is not a chat model» на Chat Completions):** `gpt-5.3-codex`, `gpt-5.1-codex`, `gpt-5.2-codex`, `gpt-5.2-pro`. Проверенный вариант для `gpt-5.3-codex` — `/v1/responses` (HTTP 200, поддерживает `reasoning.effort: "high"`; подтверждено реальным dogfood-запуском Mode A в этом спринте — см. PR #17 в комментарии с полной метадатой ревью от двух моделей).
 
     **Канонический runtime для Правки 1 (ровно две полноразмерные модели):**
-    - **Reviewer A** = `gpt-5.4`, endpoint `/v1/chat/completions`, параметры `{reasoning_effort: "high"}` — обязательно на Sprint Final.
-    - **Reviewer B** = `gpt-5.3-codex`, endpoint `/v1/responses`, параметры `{reasoning: {effort: "high"}}`.
+    - **Reviewer A** = `gpt-5.4`, endpoint `/v1/chat/completions`, SDK-метод `client.chat.completions.create(...)`, endpoint-specific shape `{ reasoning_effort: "high" }` — обязательно на Sprint Final.
+    - **Reviewer B** = `gpt-5.3-codex`, endpoint `/v1/responses`, SDK-метод `client.responses.create(...)`, endpoint-specific shape `{ reasoning: { effort: "high" } }`.
 
-    Справочные таблицы выше (5 chat-совместимых + 4 с иной точкой) — материал для будущего расширения пайплайна (v3.7+), не runtime. Скрипт `.claude/tools/openai-review.mjs` содержит allowlist-metadata **только для этих двух runtime-моделей**: `{ model, endpoint, extra_params }`. Попытка вызвать модель вне runtime-allowlist → ранний выход с конкретным сообщением и ссылкой на справочную таблицу. Расширение runtime-allowlist — отдельная задача, требующая явной правки плана и согласования с оператором.
+    **Важно:** это **не два взаимозаменяемых формата одного поля**, а два разных request shape для двух разных конечных точек. В `.claude/tools/openai-review.mjs` нельзя пытаться унифицировать их в один общий payload-ключ: shape выбирается строго по `endpoint`.
+
+    Справочные таблицы выше (5 chat-совместимых + 4 с иной точкой) — материал для будущего расширения пайплайна (v3.7+), не runtime. Скрипт `.claude/tools/openai-review.mjs` содержит allowlist-metadata **только для этих двух runtime-моделей** в виде `{ model, endpoint, request_shape }`, где `request_shape` хранится в endpoint-specific виде (`{ reasoning_effort: "high" }` только для Chat Completions; `{ reasoning: { effort: "high" } }` только для Responses). Попытка вызвать модель вне runtime-allowlist → ранний выход с конкретным сообщением и ссылкой на справочную таблицу. Расширение runtime-allowlist — отдельная задача, требующая явной правки плана и согласования с оператором.
 
     **Adversarial diversity Правки 1 — только полноразмерные модели:** Reviewer A (reasoning-специализация) и Reviewer B (code-специализация) — разные архитектуры, обе полной мощности. **Запрещено** заменять codex-проверяющего на mini-версию chat-модели (gpt-5.4-mini и т.п.) — это регрессия adversarial diversity (mini-модель находит меньше замечаний, слабее критикует, пропускает code-specific находки). Mini-версии допустимы только как **дополнительный** третий проход, не как замена Reviewer B.
 
