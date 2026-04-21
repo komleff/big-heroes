@@ -228,7 +228,7 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 - E1. `$OPENAI_API_KEY` unset → exit с понятной ошибкой, не crash.
 - E2. Network timeout при API call → exit с сообщением, не silent hang.
 - E3. Rate limit 429 → ранний exit на `--ping`, не продолжение main call.
-- E4. Diff пустой (`git diff --quiet "$(gh pr view --json baseRefName --jq '.baseRefName')...HEAD"` возвращает 0, т.е. нет изменений относительно base-ветки PR) → exit с сообщением «nothing to review», не отправка пустого prompt в API.
+- E4. Diff пустой (нет изменений относительно base-ветки PR) → exit с сообщением «nothing to review», не отправка пустого prompt в API. Критерий в коде: `BASE_REF=$(gh pr view --json baseRefName --jq '.baseRefName'); git diff --quiet "origin/$BASE_REF...HEAD"` (exit 0 = нет изменений). **Важно:** используем `origin/$BASE_REF`, не просто `$BASE_REF` — локальный ref с именем ветки может не существовать (для PR из fork / feature-base). Fetch `origin/<baseRefName>` должен быть актуальным (`git fetch origin` перед проверкой).
 - E5. `baseRefName` PR != `master` (репозиторий с `main` или feature-base) → работает без изменений.
 - E6. Mode A script crash посреди pass → PM детектирует и документирует в отчёте, не молчаливый фолбэк в Mode C.
 - E7. META JSON c неизвестным `mode` value → fail-secure: требует ack, не silent pass.
@@ -239,6 +239,7 @@ PM-агент обновляет [.memory_bank/status.md](../../.memory_bank/sta
 - Err2. Node.js версия < 18 (отсутствует `parseArgs`) → exit с сообщением о требовании версии.
 - Err3. OpenAI SDK breaking change в major → lockfile защищает, pinned version без caret.
 - Err4. Hook publish-after-each-pass ложно блокирует легитимный переход → override через operator ack-token, не silent bypass.
+- Err5. **Endpoint mismatch для codex-моделей** (найдено живым Mode A dogfood на `81aca54`): `gpt-5.3-codex` — completion-only модель, отвечает 400 «This is not a chat model» на `POST /v1/chat/completions`. Script Правки 1 должен: (a) различать chat-capable (gpt-5.4, gpt-5.4-mini, gpt-5.2-chat-latest, gpt-5.1-chat-latest) и completion-only (`*-codex`) модели, (b) использовать `/v1/completions` для codex-моделей ИЛИ (c) заменить Ревьюера B на chat-capable альтернативу (gpt-5.1-codex, gpt-5.2-codex — проверить их endpoint-совместимость до имплементации). Предварительная рекомендация Developer'у: использовать `gpt-5.4` (Reviewer A) + `gpt-5.4-mini` или `gpt-5.2-pro` (Reviewer B) — все чат-совместимые, adversarial diversity сохранена через разные модели в одной семье.
 
 ### Invariants
 
