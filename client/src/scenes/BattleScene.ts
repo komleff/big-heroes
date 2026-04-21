@@ -8,7 +8,7 @@ import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
 import { addRelicWithUI } from '../utils/relicHelper';
-import { autoEquipIfBetter } from '../utils/autoEquip';
+import { autoEquipIfBetter, autoPlaceConsumableOnBelt } from '../utils/autoEquip';
 import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic, IArenaSession, IEquipmentSlots } from 'shared';
 import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange, calcPvpMassLoss, applyBattleToSession, shouldEndSession, calcArenaPoints } from 'shared';
 import { ProgressBar } from '../ui/ProgressBar';
@@ -1028,14 +1028,22 @@ export class BattleScene extends BaseScene {
                         );
                         if (loot.drops.length > 0) {
                             const items = loot.drops.map(d => d.itemId);
+                            // e0o: сначала пробуем на пояс, fallback в рюкзак
+                            const beltPlacedIds: string[] = [];
+                            const backpackIds: string[] = [];
+                            for (const id of items) {
+                                const placed = autoPlaceConsumableOnBelt(this.gameState, id, config.consumables);
+                                if (placed) beltPlacedIds.push(id);
+                                else backpackIds.push(id);
+                            }
                             newState = {
                                 ...newState,
-                                itemsFound: [...newState.itemsFound, ...items],
+                                itemsFound: [...newState.itemsFound, ...backpackIds],
                                 pityCounter: loot.newPityCounter,
                             };
                             this.gameState.updateExpeditionState(newState);
-                            // Авто-экипировать лут
-                            for (const id of items) {
+                            // Авто-экипировать лут, оставшийся в рюкзаке
+                            for (const id of backpackIds) {
                                 autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
                             }
                         }
@@ -1092,15 +1100,23 @@ export class BattleScene extends BaseScene {
                                 // Boss loot: 2 random items (GDD: boss_loot_count)
                                 const bossLoot = generateLoot('boss', config.pve.loot, config.equipment.catalog, config.consumables, newState.pityCounter, bossRng);
                                 const bossLootItems = bossLoot.drops.slice(0, config.pve.loot.boss_loot_count).map(d => d.itemId);
-                                // Обновить itemsFound и pityCounter с boss loot
+                                // e0o: сначала пробуем на пояс, fallback в рюкзак
+                                const bossBeltPlacedIds: string[] = [];
+                                const bossBackpackIds: string[] = [];
+                                for (const id of bossLootItems) {
+                                    const placed = autoPlaceConsumableOnBelt(this.gameState, id, config.consumables);
+                                    if (placed) bossBeltPlacedIds.push(id);
+                                    else bossBackpackIds.push(id);
+                                }
+                                // Обновить itemsFound и pityCounter с boss loot (только то, что в рюкзаке)
                                 const updatedState = {
                                     ...newState,
-                                    itemsFound: [...newState.itemsFound, ...bossLootItems],
+                                    itemsFound: [...newState.itemsFound, ...bossBackpackIds],
                                     pityCounter: bossLoot.newPityCounter,
                                 };
                                 this.gameState.updateExpeditionState(updatedState);
-                                // Авто-экипировать boss loot
-                                for (const id of bossLootItems) {
+                                // Авто-экипировать boss loot (расходники на поясе уже размещены)
+                                for (const id of bossBackpackIds) {
                                     autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
                                 }
 
