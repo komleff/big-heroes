@@ -1,5 +1,10 @@
 # Настройка Codex CLI (OpenAI API key) для Claude Code
 
+> ⚠️ **Sprint Pipeline v3.6: Codex CLI — legacy fallback.**
+> Основной путь Mode A — Node.js native скрипт [`.claude/tools/openai-review.mjs`](../.claude/tools/openai-review.mjs) (Правка 1 плана v3.6). Он обращается к OpenAI API напрямую через SDK (без subprocess), устраняет BE-11 (`CreateProcessWithLogonW failed: 1326` на Windows) как класс проблем и не требует `sandbox_mode=danger-full-access` (инвариант I4 плана).
+>
+> Документ сохранён для среды, где Node.js native недоступен (старая версия Node, сломан `openai` npm пакет). Ключ `OPENAI_API_KEY` используется обоими путями — инструкции по ротации в §5 применимы и к Mode A через `openai-review.mjs`.
+
 Документ описывает, как настроить Codex CLI так, чтобы **любая сессия Claude Code** в проекте Big Heroes автоматически получала доступ к моделям OpenAI (GPT-5.4 / GPT-5.3-Codex) для внешнего ревью PR через скилл [`/external-review`](../.claude/skills/external-review/SKILL.md).
 
 Документ — часть пайплайна агентов (см. соседние файлы в `.agents/`). Читай целиком — в конце раздел «Что делать при компрометации ключа».

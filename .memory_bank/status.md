@@ -1,29 +1,31 @@
 # Статус проекта Big Heroes
 
 **Обновлён:** 2026-04-22
-**Фаза:** **Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) ✅ COMPLETE 2026-04-22** (post-QA fix-cycle на `59cc375`, ожидает operator merge). Предыдущие: Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
-**Base master HEAD:** `d3dab6b` · Sprint 6 план архивирован в `docs/archive/sprint-6-pvp-session-and-arena-ux.md`.
+**Фаза:** **Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) ✅ COMPLETE 2026-04-22** (финализирующий /finalize-pr на `e7a3146`, режим external review C degraded APPROVED). Параллельно: **Sprint Pipeline v3.6 Mode A Native — PR [#17](https://github.com/komleff/big-heroes/pull/17) COMPLETE 2026-04-22** (pre-merge finalize на `0a35b9a`). Предыдущие: Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
 
-## Sprint 6 post-QA fix-cycle (2026-04-22, финальный HEAD `59cc375`)
+---
 
-После ручного QA оператором 2026-04-22 обнаружено 7 findings. Fix-cycle 2 rounds + re-review закрыли 4 findings fix-now, 1 defer в Beads (в scope), 2 reject:
-
-- **dolt-48h** (P1): `bot_rating_spread` 50 → 300 в `balance.json` → `calcArenaPoints` даёт 1/2/3 очка за bots разной силы (раньше всегда +2 из-за узкого spread).
-- **dolt-ebh** (P1): `autoPlaceConsumableOnBelt` type-guard → non-combat расходники идут в рюкзак, не на пояс (на поясе они бесполезны — в бою guard, на fork-узле нет UI). +6 unit-тестов в `client/src/utils/autoEquip.test.ts`.
-- **dolt-1em** (P2): skip legacy banner «ПОБЕДА/ПОРАЖЕНИЕ» для PvP terminal в активной сессии — устраняет дубль пустого экрана перед информативным overlay. Guard `arenaSession?.active === true` сохраняет banner для fallback single-PvP. Destroy overlay перед onContinue — fix Graphics leak.
-- **F-1 starterBelt** (MAJOR external): `["torch_t1", "str_pot_t1"]` → `["arm_pot_t1", "str_pot_t1"]` — torch_t1 (scout) нарушал dolt-ebh инвариант на init path.
-- **Deferred в Beads:** `dolt-zxc` (UI расходников на fork-узле — Sprint 7), `dolt-tgo` (generateBots Math.max clamp при low rating), `dolt-0gd` (retreat 1/3 regenerate — intermittent), `dolt-2p8` (progress-bar до min_mass_threshold), `dolt-8p1` (PvE relic contrast).
-- Review cycle: Internal APPROVED (iter 10) → External Mode C CHANGES_REQUESTED (MAJOR F-1 + 3 MINOR + 3 NIT) → fix-round 2 → Internal APPROVED (iter 11) + External Mode C delta-verify APPROVED на HEAD `59cc375`.
-- Verification: `npm run build` OK, 196 shared tests + 6 new autoEquip = 202 PASS.
-
-## Sprint 6 PvP Arena Session итог (COMPLETE 2026-04-22, post-QA HEAD `59cc375`)
+## Sprint 6 PvP Arena Session итог (COMPLETE 2026-04-22, финальный HEAD `e7a3146`)
 
 - Tracking: `big-heroes-tgr` closed (core feature: серия PvP-боёв); `big-heroes-e0o`, `big-heroes-bfv`, `big-heroes-tqh` closed (P1 bugs); `big-heroes-91e`, `big-heroes-bb0`, `big-heroes-dy3`, `big-heroes-7r8`, `big-heroes-00q` closed (Arena UX cluster); `big-heroes-2eh` sprint tracker closed.
 - Реализовано: `startSession`, `shouldEndSession`, `applyBattleToSession`, `calcArenaPoints` в `shared/src/systems/PvpSystem.ts`; `IArenaSession` в `GameState.ts`; `PvpLobbyScene` с полным UX арены; `findFreeBeltSlotIndex` + авторазмещение расходников; `generateForkPaths` рефакторинг.
-- 196/196 тестов; VC-1..VC-4, VC-6, VC-9 покрыты. Verification Contract выполнен.
-- External review: Mode C (degraded, Claude adversarial 2 прохода). Codex CLI недоступен на Windows (BE-11). GPT-4.1 исключён оператором как нерелевантный.
-- Deferred Beads (12 items): `big-heroes-biu` (арх.doc drift), `big-heroes-6d3r` (formatEndReason), `big-heroes-bh1o` (IArenaSession.active), `big-heroes-fy7i` (Readonly params), `big-heroes-kgt2` (as-casts), `big-heroes-252b` (calcArenaPoints инвертированные пороги), `big-heroes-vf6u` (generateBots edge case), `big-heroes-nkfu` (shouldEndSession config edge cases), `big-heroes-4uzr` (applyBattleToSession active=false), `big-heroes-wzul` (nextY magic), `big-heroes-kfb4` (showPvpDefeatOverlay), `big-heroes-9ari` (lastWinPoints falsy).
+- 213 тестов (196 shared + 17 client). VC-1..VC-4, VC-6, VC-9 покрыты. Verification Contract выполнен.
+- Review cycle: Internal APPROVED (iter 10) → External Mode C CHANGES_REQUESTED (MAJOR F-1 + 3 MINOR + 3 NIT, commit 9e6496f) → fix-round 2 (commits 42c85b3, e715d2e) → Internal APPROVED (iter 11, commit e715d2e) + External Mode C delta-verify APPROVED на `59cc375` → post-landing fixes (commit e7a3146) → Internal adversarial (findings S-1..3, Q-1..4) + External C (degraded adversarial, Codex BE-11 block) → APPROVED.
+- External review: Mode C (degraded, Claude adversarial 2 прохода). Codex CLI недоступен на Windows (BE-11: CreateProcessWithLogonW 1326). GPT-5.4 критичное ревью оператором на `e7a3146` — APPROVED.
+- Deferred Beads (12 items): `big-heroes-biu`, `big-heroes-6d3r`, `big-heroes-bh1o`, `big-heroes-fy7i`, `big-heroes-kgt2`, `big-heroes-252b`, `big-heroes-vf6u`, `big-heroes-nkfu`, `big-heroes-4uzr`, `big-heroes-wzul`, `big-heroes-kfb4`, `big-heroes-9ari`.
+- ⚠️ Merge-blocker: ветка конфликтует с master в `.memory_bank/status.md` (параллельная разработка PR#17/18). Требуется resolve конфликта перед merge.
 - VC-5, VC-7, VC-8 требуют ручного QA оператора (визуальный, arena flow, non-combat guard).
+
+---
+
+## Sprint v3.6 Mode A Native (Правка 1) итог (COMPLETE 2026-04-22, первый финализирующий /finalize-pr --pre-landing на `0a35b9a`)
+
+- Tracking: `big-heroes-95c` (sprint), `big-heroes-59z` (Правка 1) — закроются после merge.
+- Цель: заменить подпроцесс Codex CLI на native Node.js-скрипт (обход BE-11). Две модели параллельно для adversarial diversity.
+- Dogfood (второй sprint под v3.4 pre-merge landing flow + первый под Mode A native): Mode A прогнан на `4dafb08` и `0a35b9a`.
+- Review cycle: 18 Copilot + 21 internal + 6 external Mode A → 0 fix-now, 5 defer, 0 reject. Регрессий 0.
+- Deferred Beads: `big-heroes-iyuo` P1, `big-heroes-xe4e` P2, `big-heroes-gijq` P3, `big-heroes-eful` P2, git fetch race P3.
+- ⚠️ Beads DB warning: локальная DB потеряна при переключении веток (не блокер финализации).
 
 ---
 
