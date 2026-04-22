@@ -493,6 +493,17 @@ export class BattleScene extends BaseScene {
             'alpha', 0, 0.6, 500, ticker,
         );
 
+        // dolt-1em: для PvP terminal (victory/defeat) пропускаем legacy banner с
+        // кнопкой «Продолжить». onContinue откроет информативный overlay
+        // (showPvpDefeatOverlay / showPvpVictoryOverlay / showSessionSummaryOverlay)
+        // на том же затемнении — без промежуточного пустого экрана «ПОРАЖЕНИЕ».
+        const isPvpTerminal = this.battleData.isPvp
+            && (result.outcome === 'victory' || result.outcome === 'defeat');
+        if (isPvpTerminal) {
+            this.onContinue();
+            return;
+        }
+
         // --- Баннер результата ---
         const bannerContainer = new Container();
         bannerContainer.position.set(W / 2, H / 2 - 60);
