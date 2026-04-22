@@ -277,9 +277,20 @@ export class GameState {
         this._activeRelics = []; // Очистить реликвии предыдущего похода
     }
 
-    /** Обновить состояние экспедиции */
+    /**
+     * Обновить состояние экспедиции.
+     *
+     * Инвариант: `beltAdditions` управляется отдельными API —
+     * `appendBeltAddition` (auto-place), `useConsumable` (очистка при
+     * использовании), `endExpedition` (rollback при defeat). Поле НЕ
+     * изменяется через этот метод, иначе callsite-ы со stale snapshot-ом
+     * (capture _expeditionState → autoPlace → updateExpeditionState(stale))
+     * затирают свежие appendBeltAddition (adversarial F-1 round 2).
+     * Preserve всегда берётся из текущего `_expeditionState.beltAdditions`.
+     */
     updateExpeditionState(state: IPveExpeditionState): void {
-        this._expeditionState = state;
+        const preservedBeltAdditions = this._expeditionState?.beltAdditions ?? state.beltAdditions;
+        this._expeditionState = { ...state, beltAdditions: preservedBeltAdditions };
     }
 
     /** Завершить экспедицию — перенести результаты в постоянное состояние */

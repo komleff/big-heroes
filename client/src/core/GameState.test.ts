@@ -105,6 +105,33 @@ describe('GameState.endExpedition — loot-loss rollback для beltAdditions', 
         gs.appendBeltAddition(0);
         expect((gs.expeditionState as IPveExpeditionState).beltAdditions).toEqual([0]);
     });
+
+    test('adversarial F-1 round 2: stale-snapshot updateExpeditionState не затирает beltAdditions', () => {
+        // Воспроизводит реальный паттерн BattleScene/PveMapScene:
+        //   1. callsite captures state (snapshot), beltAdditions=[]
+        //   2. autoPlace → appendBeltAddition → _expeditionState.beltAdditions=[0]
+        //   3. callsite: newState={...staleSnapshot, goldGained, itemsFound}
+        //   4. updateExpeditionState(newState) — beltAdditions должен сохраниться.
+        const gs = makeGameState();
+        gs.startExpedition(makeRoute());
+        const snapshot = gs.expeditionState as IPveExpeditionState; // beltAdditions=[]
+
+        gs.setBelt(0, mkConsumable('str_pot_t1'));
+        gs.appendBeltAddition(0); // live _expeditionState.beltAdditions=[0]
+
+        // Stale update — callsite спредит snapshot (у которого beltAdditions=[])
+        gs.updateExpeditionState({ ...snapshot, goldGained: 10, itemsFound: ['some_item'] });
+
+        // Инвариант: beltAdditions сохранено несмотря на stale spread
+        expect((gs.expeditionState as IPveExpeditionState).beltAdditions).toEqual([0]);
+        expect((gs.expeditionState as IPveExpeditionState).goldGained).toBe(10);
+        expect((gs.expeditionState as IPveExpeditionState).itemsFound).toEqual(['some_item']);
+
+        // И defeat корректно откатит
+        gs.updateExpeditionState({ ...(gs.expeditionState as IPveExpeditionState), status: 'defeat' as const });
+        gs.endExpedition();
+        expect(gs.belt[0]).toBeNull();
+    });
 });
 
 type IPveExpeditionState = import('shared').IPveExpeditionState;
