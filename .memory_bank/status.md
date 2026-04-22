@@ -1,10 +1,22 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-21
-**Фаза:** **Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) ✅ COMPLETE 2026-04-21** (pre-merge landing commit на `c43eeaa`, ожидает operator merge). Предыдущие: Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
+**Обновлён:** 2026-04-22
+**Фаза:** **Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) ✅ COMPLETE 2026-04-22** (post-QA fix-cycle на `59cc375`, ожидает operator merge). Предыдущие: Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
 **Base master HEAD:** `d3dab6b` · Sprint 6 план архивирован в `docs/archive/sprint-6-pvp-session-and-arena-ux.md`.
 
-## Sprint 6 PvP Arena Session итог (COMPLETE 2026-04-21, landing commit `c43eeaa`)
+## Sprint 6 post-QA fix-cycle (2026-04-22, финальный HEAD `59cc375`)
+
+После ручного QA оператором 2026-04-22 обнаружено 7 findings. Fix-cycle 2 rounds + re-review закрыли 4 findings fix-now, 1 defer в Beads (в scope), 2 reject:
+
+- **dolt-48h** (P1): `bot_rating_spread` 50 → 300 в `balance.json` → `calcArenaPoints` даёт 1/2/3 очка за bots разной силы (раньше всегда +2 из-за узкого spread).
+- **dolt-ebh** (P1): `autoPlaceConsumableOnBelt` type-guard → non-combat расходники идут в рюкзак, не на пояс (на поясе они бесполезны — в бою guard, на fork-узле нет UI). +6 unit-тестов в `client/src/utils/autoEquip.test.ts`.
+- **dolt-1em** (P2): skip legacy banner «ПОБЕДА/ПОРАЖЕНИЕ» для PvP terminal в активной сессии — устраняет дубль пустого экрана перед информативным overlay. Guard `arenaSession?.active === true` сохраняет banner для fallback single-PvP. Destroy overlay перед onContinue — fix Graphics leak.
+- **F-1 starterBelt** (MAJOR external): `["torch_t1", "str_pot_t1"]` → `["arm_pot_t1", "str_pot_t1"]` — torch_t1 (scout) нарушал dolt-ebh инвариант на init path.
+- **Deferred в Beads:** `dolt-zxc` (UI расходников на fork-узле — Sprint 7), `dolt-tgo` (generateBots Math.max clamp при low rating), `dolt-0gd` (retreat 1/3 regenerate — intermittent), `dolt-2p8` (progress-bar до min_mass_threshold), `dolt-8p1` (PvE relic contrast).
+- Review cycle: Internal APPROVED (iter 10) → External Mode C CHANGES_REQUESTED (MAJOR F-1 + 3 MINOR + 3 NIT) → fix-round 2 → Internal APPROVED (iter 11) + External Mode C delta-verify APPROVED на HEAD `59cc375`.
+- Verification: `npm run build` OK, 196 shared tests + 6 new autoEquip = 202 PASS.
+
+## Sprint 6 PvP Arena Session итог (COMPLETE 2026-04-22, post-QA HEAD `59cc375`)
 
 - Tracking: `big-heroes-tgr` closed (core feature: серия PvP-боёв); `big-heroes-e0o`, `big-heroes-bfv`, `big-heroes-tqh` closed (P1 bugs); `big-heroes-91e`, `big-heroes-bb0`, `big-heroes-dy3`, `big-heroes-7r8`, `big-heroes-00q` closed (Arena UX cluster); `big-heroes-2eh` sprint tracker closed.
 - Реализовано: `startSession`, `shouldEndSession`, `applyBattleToSession`, `calcArenaPoints` в `shared/src/systems/PvpSystem.ts`; `IArenaSession` в `GameState.ts`; `PvpLobbyScene` с полным UX арены; `findFreeBeltSlotIndex` + авторазмещение расходников; `generateForkPaths` рефакторинг.
