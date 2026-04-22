@@ -184,7 +184,7 @@ Opus → Человек-оператор *(для production: Opus → GPT-5.3-C
 |---------|-------|-------------|
 | **Light** | Только `.md`, конфиги без логики (НЕ hooks!) | Claude Reviewer (один проход, **2 аспекта: Архитектура + Гигиена кода**) |
 | **Standard** | Фичи, рефакторинг | Claude Reviewer (один проход, все 4 аспекта) |
-| **Critical** | `shared/`, `config/balance.json`, игровая логика, формулы, **нормативные артефакты пайплайна** (`.claude/settings.json` hooks, `.claude/hooks/*`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`) | Claude Reviewer (два прохода, все 4 аспекта) + Tester gate перед ревью |
+| **Critical** | `shared/`, `config/balance.json`, игровая логика, формулы, **нормативные артефакты пайплайна** (`.claude/settings.json` hooks, `.claude/hooks/*`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.agents/*.md` — governance-документы AGENT_ROLES/PM_ROLE/AGENTIC_PIPELINE и т.п.) | Claude Reviewer (два прохода, все 4 аспекта) + Tester gate перед ревью |
 | **Sprint Final** | Конец спринта, перед merge в master | Добавляется к выбранному tier как отдельный gate. **Внешнее ревью через `/external-review` обязательно.** С Sprint Pipeline v3.6 `/external-review` использует Node.js native script (`.claude/tools/openai-review.mjs`), не Codex CLI subprocess. Codex CLI — только legacy fallback. |
 
 ### Промпт активации
