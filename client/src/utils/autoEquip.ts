@@ -4,22 +4,18 @@ import type { IEquipmentItem, EquipmentSlotId, IConsumable, IConsumableConfig } 
 import type { IStarterEquipmentConfigItem, IPveExpeditionState } from 'shared';
 
 /**
- * Помещает итем на пояс и регистрирует его в expeditionState.beltAdditions,
- * чтобы endExpedition на defeat откатил этот predмет (loot-loss инвариант).
- * Если экспедиция не активна (fallback single-PvP / вне PvE) — регистрация пропускается.
+ * Помещает расходник на пояс и регистрирует слот в expeditionState.beltAdditions,
+ * чтобы endExpedition на defeat очистил этот слот (loot-loss инвариант).
+ * Если экспедиция не активна (fallback single-PvP / starterBelt init) — регистрация no-op.
+ * Используем gameState.appendBeltAddition вместо updateExpeditionState, чтобы
+ * обойти stale overwrite от callsite-ов вызывающих updateExpeditionState
+ * со старым snapshot-ом (adversarial F-1).
  */
 function placeOnBeltWithExpeditionTracking(
     gameState: GameState, slotIdx: 0 | 1, consumable: IConsumable,
 ): void {
     gameState.setBelt(slotIdx, consumable);
-    const expedition = gameState.expeditionState;
-    if (expedition) {
-        const state = expedition as IPveExpeditionState;
-        gameState.updateExpeditionState({
-            ...state,
-            beltAdditions: [...state.beltAdditions, consumable.id],
-        });
-    }
+    gameState.appendBeltAddition(slotIdx);
 }
 
 /**

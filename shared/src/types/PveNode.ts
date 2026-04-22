@@ -42,9 +42,12 @@ export interface IPveExpeditionState {
     itemsFound: string[];
     pityCounter: number;
     combatsInRow: number;
-    // itemIds расходников, авто-размещённых на пояс во время экспедиции.
-    // При defeat endExpedition откатывает их из belt — loot-loss инвариант
-    // (GDD: при провале похода лишний лут теряется). Без этого поля combat-
-    // расходник с пояса переживал defeat, обходя правило (GPT-5.4 CRITICAL).
-    beltAdditions: string[];
+    // Слоты пояса, заполненные авто-размещением во время экспедиции.
+    // При defeat endExpedition очищает их — loot-loss инвариант (GDD: при
+    // провале похода лишний лут теряется). Без этого поля combat-расходник
+    // с пояса переживал defeat, обходя правило (GPT-5.4 CRITICAL).
+    // Трекается slot-based, не id-based: при совпадении id старого и нового
+    // расходника rollback удалит именно добавленный (adversarial F-2).
+    // useConsumable должен вычищать слот из этого массива при использовании.
+    beltAdditions: Array<0 | 1>;
 }

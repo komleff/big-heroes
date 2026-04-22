@@ -296,19 +296,14 @@ export class GameState {
         } else if (exp.status === 'defeat') {
             // GDD loot-loss invariant: combat-расходники с пояса, авто-добавленные
             // во время похода, теряются при defeat (GPT-5.4 external CRITICAL).
-            // Откатываем первое вхождение каждого beltAdditions id. Использованные
-            // расходники уже не в belt — safely skip. Старые расходники до
-            // экспедиции сохраняются (они не в beltAdditions).
-            const remainingAdditions = [...exp.beltAdditions];
-            for (let idx: 0 | 1 = 0; idx <= 1; idx = (idx + 1) as 0 | 1) {
-                const slot = this._belt[idx];
-                if (!slot) continue;
-                const additionIdx = remainingAdditions.indexOf(slot.id);
-                if (additionIdx !== -1) {
-                    this.setBelt(idx, null);
-                    remainingAdditions.splice(additionIdx, 1);
+            // Slot-based tracking: удаляем именно добавленные слоты, даже если id
+            // совпадает со старым расходником до экспедиции (adversarial F-2).
+            // useConsumable очищает slot из beltAdditions, поэтому использованный
+            // расходник не пытаемся remove (safely skip).
+            for (const slotIdx of exp.beltAdditions) {
+                if (this._belt[slotIdx]) {
+                    this.setBelt(slotIdx, null);
                 }
-                if (idx === 1) break;
             }
         }
         this._activeRelics = []; // Реликвии не переносятся между экспедициями
@@ -322,6 +317,20 @@ export class GameState {
         this._belt = newBelt;
     }
 
+    /**
+     * Регистрирует, что слот пояса был заполнен авто-размещением во время
+     * экспедиции. endExpedition при defeat очистит эти слоты (loot-loss).
+     * Прямая запись в _expeditionState обходит гонку с callsite-ами,
+     * которые вызывают updateExpeditionState со stale snapshot-ом после
+     * autoPlace (adversarial F-1). Без активной экспедиции — no-op.
+     */
+    appendBeltAddition(slotIdx: 0 | 1): void {
+        if (!this._expeditionState) return;
+        const current = this._expeditionState.beltAdditions;
+        if (current.includes(slotIdx)) return;
+        this._expeditionState = { ...this._expeditionState, beltAdditions: [...current, slotIdx] };
+    }
+
     /** Использовать расходник из слота пояса (обнуляет слот) */
     useConsumable(index: 0 | 1): IConsumable | null {
         const consumable = this._belt[index];
@@ -330,6 +339,16 @@ export class GameState {
         const newBelt: [IBeltSlot, IBeltSlot] = [...this._belt];
         newBelt[index] = null;
         this._belt = newBelt;
+
+        // Очищаем slot из beltAdditions — расходник потреблён, rollback при defeat не нужен.
+        // Без этого adversarial F-2: при совпадении id старого и нового rollback
+        // мог удалить pre-expedition расходник вместо использованного нового.
+        if (this._expeditionState) {
+            const filtered = this._expeditionState.beltAdditions.filter(i => i !== index);
+            if (filtered.length !== this._expeditionState.beltAdditions.length) {
+                this._expeditionState = { ...this._expeditionState, beltAdditions: filtered };
+            }
+        }
 
         return consumable;
     }

@@ -18,6 +18,12 @@ function makeGameState(
         updateExpeditionState(next: IPveExpeditionState): void {
             state.expeditionState = next;
         },
+        appendBeltAddition(slotIdx: 0 | 1): void {
+            if (!state.expeditionState) return;
+            const current = state.expeditionState.beltAdditions;
+            if (current.includes(slotIdx)) return;
+            state.expeditionState = { ...state.expeditionState, beltAdditions: [...current, slotIdx] };
+        },
     };
     return state as unknown as GameState;
 }
@@ -118,12 +124,12 @@ describe('autoPlaceConsumableOnBelt', () => {
         expect(gs.belt[0]).toBeNull();
     });
 
-    test('loot-loss tracking: при активной экспедиции place регистрируется в beltAdditions', () => {
+    test('loot-loss tracking: при активной экспедиции place регистрирует slot в beltAdditions', () => {
         const exp = makeExpeditionState({ beltAdditions: [] });
         const gs = makeGameState([null, null], exp);
         const placed = autoPlaceConsumableOnBelt(gs, 'str_pot_t1', [combatCfg]);
         expect(placed).toBe(true);
-        expect(gs.expeditionState?.beltAdditions).toEqual(['str_pot_t1']);
+        expect(gs.expeditionState?.beltAdditions).toEqual([0]);
     });
 
     test('loot-loss tracking: без активной экспедиции beltAdditions не трогается (fallback single-PvP)', () => {
@@ -133,12 +139,12 @@ describe('autoPlaceConsumableOnBelt', () => {
         expect(gs.expeditionState).toBeNull();
     });
 
-    test('loot-loss tracking: два auto-place за экспедицию — обе id попадают в beltAdditions', () => {
+    test('loot-loss tracking: два auto-place за экспедицию — оба slot-idx в beltAdditions', () => {
         const armCfg: IConsumableConfig = { id: 'arm_pot_t1', name: 'Броня', type: 'combat', tier: 1, effect: 'armor_bonus', value: 8, basePrice: 30 };
         const exp = makeExpeditionState({ beltAdditions: [] });
         const gs = makeGameState([null, null], exp);
         autoPlaceConsumableOnBelt(gs, 'str_pot_t1', [combatCfg, armCfg]);
         autoPlaceConsumableOnBelt(gs, 'arm_pot_t1', [combatCfg, armCfg]);
-        expect(gs.expeditionState?.beltAdditions).toEqual(['str_pot_t1', 'arm_pot_t1']);
+        expect(gs.expeditionState?.beltAdditions).toEqual([0, 1]);
     });
 });
