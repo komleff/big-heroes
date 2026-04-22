@@ -493,13 +493,20 @@ export class BattleScene extends BaseScene {
             'alpha', 0, 0.6, 500, ticker,
         );
 
-        // dolt-1em: для PvP terminal (victory/defeat) пропускаем legacy banner с
-        // кнопкой «Продолжить». onContinue откроет информативный overlay
-        // (showPvpDefeatOverlay / showPvpVictoryOverlay / showSessionSummaryOverlay)
-        // на том же затемнении — без промежуточного пустого экрана «ПОРАЖЕНИЕ».
-        const isPvpTerminal = this.battleData.isPvp
-            && (result.outcome === 'victory' || result.outcome === 'defeat');
-        if (isPvpTerminal) {
+        // dolt-1em: для PvP terminal (victory/defeat) в АКТИВНОЙ сессии пропускаем
+        // legacy banner с кнопкой «Продолжить». onContinue откроет информативный
+        // overlay (showPvpDefeatOverlay / showPvpVictoryOverlay / showSessionSummaryOverlay)
+        // на том же затемнении. Fallback single-PvP (без сессии) оставляет banner
+        // с rewards — иначе победа уходила бы silent в Hub без фидбека (external
+        // review Mode C F-3).
+        // Guard также убирает added overlay перед onContinue, чтобы не копилось
+        // два затемнения (alpha 0.6 + 0.85 createDimOverlay) — F-4.
+        const isPvpTerminalInSession = this.battleData.isPvp
+            && (result.outcome === 'victory' || result.outcome === 'defeat')
+            && this.gameState.arenaSession?.active === true;
+        if (isPvpTerminalInSession) {
+            this.removeChild(overlay);
+            overlay.destroy();
             this.onContinue();
             return;
         }
