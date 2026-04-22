@@ -1,7 +1,7 @@
 # Статус проекта Big Heroes
 
 **Обновлён:** 2026-04-22
-**Фаза:** **Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) ✅ COMPLETE 2026-04-22** (финализирующий /finalize-pr на `e7a3146`, режим external review C degraded APPROVED). Параллельно: **Sprint Pipeline v3.6 Mode A Native — PR [#17](https://github.com/komleff/big-heroes/pull/17) COMPLETE 2026-04-22** (pre-merge finalize на `0a35b9a`). Предыдущие: Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
+**Фаза:** **Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) ✅ LANDING PHASE** (hard gate APPROVED на `a5c9e3b`, ready for merge after landing artifacts). Параллельно: **Sprint Pipeline v3.6 Mode A Native — PR [#17](https://github.com/komleff/big-heroes/pull/17) COMPLETE 2026-04-22** (pre-merge finalize на `0a35b9a`). Предыдущие: Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
 
 ---
 
