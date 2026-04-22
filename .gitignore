@@ -23,3 +23,7 @@ dist/
 __pycache__/
 **/__pycache__/
 *.pyc
+
+# External review artifacts (Mode A dogfood output) — не коммитим в ветку,
+# raw-вывод моделей публикуется в PR-комментариях, локально только для отладки.
+.review-responses/

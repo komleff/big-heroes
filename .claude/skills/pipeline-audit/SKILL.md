@@ -98,11 +98,28 @@ ls -1 .claude/settings.json
 
 Везде должны быть: Light, Standard, Critical, Sprint Final.
 
-### 3.5 Режимы external-review
+### 3.5 Режимы external-review (v3.6+)
 
-Должны быть 4 режима деградации: A (API key), B (ChatGPT login), C (Codex недоступен, Claude adversarial degraded), D (manual emergency через Copilot Agent).
+Должны быть 3 активных режима:
+- **A** — Node.js native через [`.claude/tools/openai-review.mjs`](../../tools/openai-review.mjs), две полноразмерные модели параллельно (gpt-5.4 через `/v1/chat/completions` + gpt-5.3-codex через `/v1/responses`, обе с `reasoning effort: "high"`).
+- **C** — Claude adversarial degraded (два прохода субагента при недоступности Mode A).
+- **D** — manual emergency (оператор прогоняет вручную через внешний инструмент).
 
-### 3.6 Имена веток
+Плюс legacy-ветка: **A-legacy** — Codex CLI subprocess (`npx @openai/codex review`) как fallback Mode A, когда Node.js native недоступен. Используется явно по запросу оператора.
+
+Mode B (ChatGPT OAuth через Codex CLI) **deprecated в v3.6** — не должен упоминаться как активный режим. Если встречается в скиллах/документах — `DRIFT: Mode B устарел, удалить или пометить как deprecated`.
+
+### 3.6 Инварианты Правки 1 v3.6 (Mode A через Node.js native)
+
+Проверяй новые инварианты из `docs/plans/sprint-pipeline-v3-6-mode-a-native.md`:
+
+- **I1.** Mode A не использует `npx codex review` как основной путь после v3.6 — только как legacy fallback с явной меткой в отчёте.
+- **I3.** Ни один скилл не содержит хардкода `master`/`main` для base-ветки — только через `baseRefName` PR-метаданных.
+- **I4.** Параметр `sandbox_mode=danger-full-access` не появляется ни в одном скилле или инструкции — это отключение sandbox-изоляции, запрещено планом.
+
+Если хотя бы один инвариант нарушен — `DRIFT: инвариант I<N> Правки 1 нарушен в <файл>`.
+
+### 3.7 Имена веток
 
 В документах не должно быть упоминаний удалённых, переименованных или несуществующих веток. Особое внимание — упоминания `master` vs `main`.
 
