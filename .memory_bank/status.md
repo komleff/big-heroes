@@ -1,7 +1,29 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-22
-**Фаза:** **Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) ✅ LANDING PHASE** (hard gate APPROVED на `a5c9e3b`, ready for merge after landing artifacts). Параллельно: **Sprint Pipeline v3.6 Mode A Native — PR [#17](https://github.com/komleff/big-heroes/pull/17) COMPLETE 2026-04-22** (pre-merge finalize на `0a35b9a`). Предыдущие: Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
+**Обновлён:** 2026-04-23
+**Фаза:** **Post-Sprint 6 docs-PR [#19](https://github.com/komleff/big-heroes/pull/19) ✅ LANDING PHASE** (GDD v1.2→v1.3 sync + AGENT_ROLES v2.0→v2.1, pre-merge finalize на `4b1ef65`, ready for merge after landing commit). Предыдущие: Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) MERGED 2026-04-22. Sprint Pipeline v3.6 Mode A Native — PR [#17](https://github.com/komleff/big-heroes/pull/17) MERGED 2026-04-22. Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
+
+---
+
+## Post-Sprint 6 docs PR #19 (LANDING PHASE, первый финализирующий /finalize-pr --pre-landing на `4b1ef65`; landing commit на `12dcb14`, ожидает operator merge)
+
+- Tier: Sprint Final + inner Critical (после AGENT_ROLES v2.1 `.agents/*.md` относится к Critical).
+- Цель: синхронизация документации с реализацией Sprint 6 (GDD v1.2→v1.3) + документирование Sprint Pipeline v3.4/v3.6 в AGENT_ROLES (v2.0→v2.1) + подготовка GitHub Release v0.2.0.
+- Артефакты:
+  - `docs/gdd/04_pvp.md` — `bot_count` 5→3 (переименование `opponent_count`→`bot_count` к канону конфига), `bot_mass_multipliers [0.8, 1.0, 1.2]`, `bot_rating_spread 300`, условия завершения (`critical_durability_percent 0.25` + `max_battles 10`), прогресс сундука через `calcArenaPoints` (Elo-дельта, пороги 10/25).
+  - `docs/gdd/06_inventory.md` — авторазмещение лута на пояс (`findFreeBeltSlotIndex`), `starterBelt [arm_pot_t1, str_pot_t1]` (предметы в слотах пояса с инициализации `GameState`, UI с уровня 2 по R7).
+  - `docs/gdd/00_index.md` — changelog v1.3.
+  - `.agents/AGENT_ROLES.md` — v2.1: §0 pre-merge landing (v3.4), §3 Critical tier расширен на `.agents/*.md`, Sprint Final tier → Node.js native v3.6 (`.claude/tools/openai-review.mjs`).
+  - `docs/archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md` — superseded Planner-план.
+  - `docs/archive/sprint-post-6-pm-review-cheerful-fairy.md` — PM-ревью + operational checklist, перемещён из `docs/plans/` в landing commit (вместе со zesty-lemon).
+- Review cycle (pre-landing, HEAD `4b1ef65`): 7 итераций Mode A external (GPT-5.4 + GPT-5.3-Codex) → iter 7 оба APPROVED. Internal review iter 1 (standard) + iter 2 (adversarial) APPROVED на том же HEAD.
+- Review cycle (post-landing, HEAD `12dcb14` → `492f8aa`): 4 итерации Mode A external (iter 8–11) → iter 11 APPROVED/APPROVED. Internal delta review iter 1 (standard) APPROVED + iter 2 (adversarial) APPROVED с 2 LOW defer (stale метрики в этой же секции — исправлено в iter 11+).
+- Итого по PR: **11 external + 4 internal = 15 review passes**, 8+ Copilot re-review requests.
+- Triage (итог по всему циклу):
+  - **Pre-landing**: 0 fix-now open, 3 defer to Beads (`big-heroes-dalp` расширен + `big-heroes-b7so` новый), 1 reject with rationale (terminology в archived cheerful-fairy).
+  - **Post-landing fix-rounds (iter 8–10)**: 8 fix-now applied (drift archive cross-ref, status.md post-landing sync, SKILL.md tier-matrix добавление `.agents/*.md`, SKILL.md Sprint Final sync с v3.6, status.md b7so closure note и т. п.).
+- Beads: `big-heroes-b7so` CLOSED в iter 9 (fix-now, `sprint-pr-cycle/SKILL.md:146` + Sprint Final синхронизированы с v3.6 Node.js native в iter 10). Открытым остаётся `big-heroes-dalp` (P3, унификация 04_pvp таблицы «Онлайн-бой» под calcArenaPoints + семантика аргумента).
+- Следующий шаг: после merge оператором — PM создаёт tag `v0.2.0` + GitHub Release (release notes из archived zesty-lemon).
 
 ---
 
