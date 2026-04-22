@@ -152,11 +152,13 @@ async function runPing() {
   try {
     await client.models.list();
     process.stdout.write('OK\n');
-    process.exit(EXIT_OK);
+    // Deferred exit: после network-call на Windows Node 24 + undici 7 сразу process.exit()
+    // триггерит libuv assert и выдаёт код 127. exitDeferred откладывает на один tick.
+    return exitDeferred(EXIT_OK);
   } catch (err) {
     const msg = classifyApiError(err);
     process.stderr.write(`Ошибка ping: ${msg}\n`);
-    process.exit(EXIT_RUNTIME_ERROR);
+    return exitDeferred(EXIT_RUNTIME_ERROR);
   }
 }
 
@@ -278,7 +280,10 @@ function buildSystemPrompt() {
 const VERDICT_REGEX = /^##\s+Вердикт:\s+(APPROVED|CHANGES_REQUESTED|ESCALATION)\b/m;
 const REQUIRED_SECTIONS = ['Архитектура', 'Безопасность', 'Качество', 'Гигиена кода'];
 // Секция «Итого» — свободный текст после 4 аспектов, с кратким резюме для оператора.
-const SUMMARY_SECTION_REGEX = /^###\s+Итого\b/m;
+// `\b` в JavaScript регексе использует ASCII-класс word-chars: `[A-Za-z0-9_]`. Кириллица
+// вне этого класса, поэтому `Итого\b` не матчится (оба соседа — не-word, нет границы).
+// Фикс: явно требуем конец строки или whitespace после «Итого».
+const SUMMARY_SECTION_REGEX = /^###\s+Итого(?:\s|$)/m;
 
 function validateOutputFormat(text) {
   const missing = [];
@@ -303,11 +308,25 @@ function validateOutputFormat(text) {
 // при больших markdown-ответах модели. Эта обёртка блокирует до подтверждения записи.
 // Используется ТОЛЬКО после больших process.stdout.write(text) — для error-path достаточно
 // синхронного process.exit(), т.к. stderr на Node.js flush'ится синхронно.
+//
+// Дополнительно: на Windows Node 24 + undici 7 прямой process.exit() после network-call
+// стабильно триггерит `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)` в libuv
+// и выдаёт код выхода 127 несмотря на корректную запись stdout. Это ломает автоматику
+// (CI считает success-path failure). Workaround: выставляем process.exitCode и даём event
+// loop завершиться естественно — keep-alive сокеты undici разанрефятся сами (~2 сек),
+// libuv корректно их закроет без assert. Для гарантии ставим резервный hard-exit через 5с
+// на случай зависших async-handles (unref, чтобы таймер сам не держал процесс открытым).
+function exitDeferred(code) {
+  process.exitCode = code;
+  setTimeout(() => process.exit(code), 5000).unref();
+}
+
 function exitWithStdoutFlush(code) {
   if (!process.stdout.writableNeedDrain) {
-    process.exit(code);
+    exitDeferred(code);
+    return;
   }
-  process.stdout.once('drain', () => process.exit(code));
+  process.stdout.once('drain', () => exitDeferred(code));
   // Блокируем возврат управления: после вызова этой функции код не должен исполняться.
   // На практике drain-callback срабатывает до следующего синхронного statement, но явная
   // подстраховка на уровне вызывающих — использовать `return exitWithStdoutFlush(...)`
@@ -483,7 +502,8 @@ async function runReview(modelId, baseRef) {
   } catch (err) {
     const msg = classifyApiError(err);
     process.stderr.write(`Ошибка API: ${msg}\n${err.message ?? err}\n`);
-    process.exit(EXIT_RUNTIME_ERROR);
+    // Deferred exit после network-call: см. комментарий у exitDeferred (libuv assert на Windows).
+    return exitDeferred(EXIT_RUNTIME_ERROR);
   }
 }
 
