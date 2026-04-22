@@ -2,7 +2,7 @@
 
 **Роль:** PM (Claude Opus 4.7)
 **Дата:** 2026-04-22
-**Базовый план:** [docs/plans/pm-agents-agent-roles-md-zesty-lemon.md](pm-agents-agent-roles-md-zesty-lemon.md)
+**Базовый план:** [docs/archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md](../archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md)
 
 ---
 
@@ -47,7 +47,7 @@
 
 **C2 (NIT):** В плане дата AGENT_ROLES v2.1 указана как `2026-04-20`. Поскольку изменения публикуются 2026-04-22 и pipeline audit датирован 2026-04-22 — использовать `**Дата:** 2026-04-22`.
 
-**C3 (LOW):** Файл плана [`docs/plans/pm-agents-agent-roles-md-zesty-lemon.md`](pm-agents-agent-roles-md-zesty-lemon.md) и этот файл (`cheerful-fairy.md`) untracked. По правилу `universal.md` ("не удалять AI-артефакты без запроса") — включаем оба в коммит PR. Архивация в `docs/archive/` — по завершении задачи, согласно PM-обязанностям.
+**C3 (LOW):** Файл плана [`docs/archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md`](../archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md) (ранее в `docs/plans/`) и этот файл (`cheerful-fairy.md`) untracked. По правилу `universal.md` ("не удалять AI-артефакты без запроса") — включаем оба в коммит PR. Superseded-план перемещён в `docs/archive/` досрочно (iter 3 external review: чтобы не хранить дубль в активной зоне).
 
 **C4 (INFO):** Изменение 1 в 04_pvp.md для строки `bot_rating_range` — переформулировать как `"рейтинг_игрока ± bot_rating_spread (spread=300)"` вместо «три бота с шагом 300», поскольку код генерации может варьировать реализацию распределения, а `spread` — это параметр конфига, который однозначен. Множители массы `[0.8, 1.0, 1.2]` оставляем как в плане (это факт `bot_mass_multipliers`).
 
@@ -95,7 +95,7 @@ Release notes готовятся **до merge** (черновик в плане 
 | [docs/gdd/04_pvp.md](../gdd/04_pvp.md) | Edit (3 таблицы) |
 | [docs/gdd/06_inventory.md](../gdd/06_inventory.md) | Edit (раздел «Пояс») |
 | [.agents/AGENT_ROLES.md](../../.agents/AGENT_ROLES.md) | Edit (3 правки) |
-| [docs/plans/pm-agents-agent-roles-md-zesty-lemon.md](pm-agents-agent-roles-md-zesty-lemon.md) | Add (untracked → в коммит) |
+| [docs/archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md](../archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md) | Add → в коммит; затем перемещён в `docs/archive/` (iter 3) |
 | [docs/plans/pm-agents-agent-roles-md-cheerful-fairy.md](pm-agents-agent-roles-md-cheerful-fairy.md) | Add (этот файл → в коммит) |
 
 ---
