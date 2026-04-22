@@ -3,7 +3,7 @@
 // Проверяет exit codes и вывод (stdout/stderr) на наборе кейсов T1..T5.
 // Запуск: node .claude/tools/smoke-test.mjs
 
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import process from 'node:process';
@@ -11,15 +11,30 @@ import process from 'node:process';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(__dirname, 'openai-review.mjs');
 
+// Вычисляем корень git-репозитория для cwd — smoke-тест должен работать независимо от
+// того, из какой директории его запустили (например, из IDE вне корня репо).
+// Fallback на __dirname при любой ошибке — минимально разумное место для вызова git.
+let REPO_ROOT;
+try {
+  REPO_ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+    encoding: 'utf8',
+    cwd: __dirname,
+  }).trim();
+} catch {
+  REPO_ROOT = __dirname;
+}
+
 // Запускаем скрипт в child-процессе, чтобы изолировать process.exit и поймать реальный exit code.
 // OPENAI_API_KEY явно затираем — smoke-тест должен быть гарантированно off-line и работать даже
 // если разработчик держит реальный ключ в окружении.
+// cwd = корень репозитория, чтобы git-вызовы внутри openai-review.mjs работали предсказуемо.
 function run(args) {
   const env = { ...process.env };
   delete env.OPENAI_API_KEY;
   const result = spawnSync(process.execPath, [SCRIPT, ...args], {
     encoding: 'utf8',
     env,
+    cwd: REPO_ROOT,
     // Без shell — аргументы передаются массивом, без риска интерполяции.
     shell: false,
   });
