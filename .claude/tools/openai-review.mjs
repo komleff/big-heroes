@@ -144,12 +144,11 @@ async function loadOpenAIClient({ timeoutMs, maxRetries }) {
 }
 
 // --ping: дешёвый запрос /v1/models для проверки валидности ключа.
-// maxRetries: 1 — один ретрай компенсирует холодный TLS handshake (первый запрос
-// без warm TCP-коннекта может упереться в timeout), но не растягивает бюджет бесконечно.
-// При 401/403 SDK не ретраит (auth errors), поэтому невалидный ключ всё равно падает быстро.
+// maxRetries: 0 — AC6 требует wall-clock <2 сек, ретраи растягивают бюджет.
+// False positive при холодном TLS handshake допустим: оператор повторит запрос.
 async function runPing() {
   requireApiKey();
-  const client = await loadOpenAIClient({ timeoutMs: PING_TIMEOUT_MS, maxRetries: 1 });
+  const client = await loadOpenAIClient({ timeoutMs: PING_TIMEOUT_MS, maxRetries: 0 });
   try {
     await client.models.list();
     process.stdout.write('OK\n');
@@ -315,9 +314,11 @@ function exitWithStdoutFlush(code) {
   // (на уровне подстановки — никаких statement после вызова).
 }
 
-// User prompt — сам diff с минимальной обёрткой.
+// User prompt — сам diff с текстовыми маркерами вместо markdown code fence.
+// Fence ```diff ... ``` ломается если в diff встречается ``` (например, в изменённом README)
+// — это ослабляет защиту от prompt-injection. BEGIN_DIFF/END_DIFF безопаснее.
 function buildUserPrompt(diff, baseRef) {
-  return `Diff текущего HEAD относительно origin/${baseRef}:\n\n\`\`\`diff\n${diff}\n\`\`\``;
+  return `Diff текущего HEAD относительно origin/${baseRef}:\n\nBEGIN_DIFF\n${diff}\nEND_DIFF`;
 }
 
 // Извлечение текста из ответа Chat Completions.

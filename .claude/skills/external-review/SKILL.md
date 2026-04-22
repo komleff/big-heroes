@@ -91,8 +91,10 @@ MODE_A_AVAILABLE=1
 # openai-review.mjs может быть подменён. Полное разделение trust boundary (tool из trusted
 # base branch) запланировано в v3.7 — см. `big-heroes-<supply-chain-tool>` (будет создана).
 if [ ! -d .claude/tools/node_modules ]; then
-  if ! (cd .claude/tools && npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts); then
-    echo "ВНИМАНИЕ: npm install упал в .claude/tools/ — Mode A недоступен, переход в degraded-режим C/D."
+  # npm ci (не install): строго по lockfile, не пачкает рабочее дерево, воспроизводимо.
+  # --ignore-scripts отключает lifecycle hooks из PR-автора (mitigation supply-chain).
+  if ! (cd .claude/tools && npm ci --ignore-scripts); then
+    echo "ВНИМАНИЕ: npm ci упал в .claude/tools/ — Mode A недоступен, переход в degraded-режим C/D."
     MODE_A_AVAILABLE=0
   fi
 fi
@@ -296,7 +298,7 @@ BODY=$(cat <<'EOF'
 
 Commit: `__HEAD_COMMIT__`
 
-<!-- {"reviewer_a": "__MODEL_A_NAME__", "reviewer_b": "__MODEL_B_NAME__", "commit": "__HEAD_COMMIT__", "kind": "external", "mode": "__MODE__", "iteration": __ITERATION__} -->
+<!-- {"reviewer": "__MODEL_A_NAME__ + __MODEL_B_NAME__", "reviewer_a": "__MODEL_A_NAME__", "reviewer_b": "__MODEL_B_NAME__", "commit": "__HEAD_COMMIT__", "kind": "external", "mode": "__MODE__", "iteration": __ITERATION__} -->
 
 <!--
 Для режима A не добавляй warning-метки — оставь этот блок как есть (в комментарии).
@@ -452,7 +454,7 @@ gh pr comment <PR_NUMBER> --body "$BODY"
 | `openai-review.mjs` exit 1 (локальная или API-ошибка) | Retry × 1; если повторно падает — переход в Mode C или D. Классификация ошибки — в stderr скрипта |
 | `openai-review.mjs` exit 2 (валидация) | Исправить аргументы/модель. См. `--help` |
 | `openai-review.mjs` exit 3 (nothing to review) | Нормальный сигнал — `HEAD == origin/<base>`. Ревью не запускается |
-| Пустой вывод от модели | Retry × 1 с увеличенным `max_output_tokens`, потом частичный отчёт |
+| Пустой вывод от модели | Retry × 1; если снова пусто — переход в Mode C/D или публикация частичного отчёта |
 | Оба проверяющих упали | Эскалация оператору, публикация частичного отчёта с меткой |
 | Один проверяющий упал | Публикация отчёта с пометкой об упавшем проверяющем |
 | Rate limit на всех повторах | Пометить как unavailable, переход в C/D |
