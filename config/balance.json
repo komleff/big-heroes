@@ -192,7 +192,7 @@
     "mass_loss_on_defeat": 0.1,
     "bot_count": 3,
     "bot_mass_multipliers": [0.8, 1.0, 1.2],
-    "bot_rating_spread": 50,
+    "bot_rating_spread": 300,
     "bot_names": ["Теневой рыцарь", "Буря клинков", "Каменный страж"],
     "session": {
       "min_mass_threshold": 30,
