@@ -1,7 +1,25 @@
 # Статус проекта Big Heroes
 
-**Обновлён:** 2026-04-22
-**Фаза:** **Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) ✅ LANDING PHASE** (hard gate APPROVED на `a5c9e3b`, ready for merge after landing artifacts). Параллельно: **Sprint Pipeline v3.6 Mode A Native — PR [#17](https://github.com/komleff/big-heroes/pull/17) COMPLETE 2026-04-22** (pre-merge finalize на `0a35b9a`). Предыдущие: Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
+**Обновлён:** 2026-04-23
+**Фаза:** **Post-Sprint 6 docs-PR [#19](https://github.com/komleff/big-heroes/pull/19) ✅ LANDING PHASE** (GDD v1.2→v1.3 sync + AGENT_ROLES v2.0→v2.1, pre-merge finalize на `4b1ef65`, ready for merge after landing commit). Предыдущие: Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) MERGED 2026-04-22. Sprint Pipeline v3.6 Mode A Native — PR [#17](https://github.com/komleff/big-heroes/pull/17) MERGED 2026-04-22. Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
+
+---
+
+## Post-Sprint 6 docs PR #19 итог (COMPLETE 2026-04-23, первый финализирующий /finalize-pr --pre-landing на `4b1ef65`)
+
+- Tier: Sprint Final + inner Critical (после AGENT_ROLES v2.1 `.agents/*.md` относится к Critical).
+- Цель: синхронизация документации с реализацией Sprint 6 (GDD v1.2→v1.3) + документирование Sprint Pipeline v3.4/v3.6 в AGENT_ROLES (v2.0→v2.1) + подготовка GitHub Release v0.2.0.
+- Артефакты:
+  - `docs/gdd/04_pvp.md` — `bot_count` 5→3 (переименование `opponent_count`→`bot_count` к канону конфига), `bot_mass_multipliers [0.8, 1.0, 1.2]`, `bot_rating_spread 300`, условия завершения (`critical_durability_percent 0.25` + `max_battles 10`), прогресс сундука через `calcArenaPoints` (Elo-дельта, пороги 10/25).
+  - `docs/gdd/06_inventory.md` — авторазмещение лута на пояс (`findFreeBeltSlotIndex`), `starterBelt [arm_pot_t1, str_pot_t1]` (предметы в слотах пояса с инициализации `GameState`, UI с уровня 2 по R7).
+  - `docs/gdd/00_index.md` — changelog v1.3.
+  - `.agents/AGENT_ROLES.md` — v2.1: §0 pre-merge landing (v3.4), §3 Critical tier расширен на `.agents/*.md`, Sprint Final tier → Node.js native v3.6 (`.claude/tools/openai-review.mjs`).
+  - `docs/archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md` — superseded Planner-план.
+  - `docs/plans/pm-agents-agent-roles-md-cheerful-fairy.md` → архивация в landing commit.
+- Review cycle: 7 итераций Mode A external (GPT-5.4 + GPT-5.3-Codex) → iter 7 оба APPROVED на `4b1ef65`. Internal review iter 1 (standard) + iter 2 (adversarial) APPROVED. Итого 9 review passes + 7 Copilot requests.
+- Triage: 0 fix-now open, 3 defer to Beads (`big-heroes-dalp` расширен + `big-heroes-b7so` новый), 1 reject with rationale. Defer ratio 75% (все INFO от adversarial-прохода, реальный drift GDD vs код в `04_pvp.md` для `calcArenaPoints` семантики — deferred на отдельный doc-PR).
+- Beads открытые после PR #19: `big-heroes-dalp` (P3, унификация 04_pvp таблицы «Онлайн-бой» под calcArenaPoints + семантика аргумента), `big-heroes-b7so` (P3, sprint-pr-cycle SKILL.md tier-matrix sync с AGENT_ROLES v2.1).
+- Следующий шаг: после merge оператором — PM создаёт tag `v0.2.0` + GitHub Release (release notes из archived zesty-lemon).
 
 ---
 
