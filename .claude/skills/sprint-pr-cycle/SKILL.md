@@ -144,7 +144,7 @@ Tier выбирается по содержимому изменений PR:
 | **Light** | Только документация (`.md`), конфиги без логики | Один проход, аспекты «Архитектура» и «Гигиена кода» |
 | **Standard** | Фичи, рефакторинг, обычные PR | Один проход, все 4 аспекта параллельно |
 | **Critical** | Изменения в `shared/`, `config/balance.json`, игровая логика, формулы, **нормативные артефакты пайплайна** (`.claude/settings.json` hooks, `.claude/hooks/*`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.agents/*.md` — governance-документы AGENT_ROLES/PM_ROLE/AGENTIC_PIPELINE) | Tester gate + два прохода, все 4 аспекта |
-| **Sprint Final** | PR, завершающий спринт (готовится к merge в master) | Standard/Critical + обязательный `/external-review` |
+| **Sprint Final** | PR, завершающий спринт (готовится к merge в master) | Standard/Critical + обязательный `/external-review` (Sprint Pipeline v3.6: Mode A Node.js native через `.claude/tools/openai-review.mjs`; Codex CLI — только legacy fallback) |
 
 Определение tier:
 ```bash

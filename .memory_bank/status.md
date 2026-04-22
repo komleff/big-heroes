@@ -18,7 +18,7 @@
   - `docs/archive/sprint-post-6-pm-review-cheerful-fairy.md` — PM-ревью + operational checklist, перемещён из `docs/plans/` в landing commit (вместе со zesty-lemon).
 - Review cycle: 7 итераций Mode A external (GPT-5.4 + GPT-5.3-Codex) → iter 7 оба APPROVED на `4b1ef65`. Internal review iter 1 (standard) + iter 2 (adversarial) APPROVED. Итого 9 review passes + 7 Copilot requests.
 - Triage: 0 fix-now open, 3 defer to Beads (`big-heroes-dalp` расширен + `big-heroes-b7so` новый), 1 reject with rationale. Defer ratio 75% (все INFO от adversarial-прохода, реальный drift GDD vs код в `04_pvp.md` для `calcArenaPoints` семантики — deferred на отдельный doc-PR).
-- Beads открытые после PR #19: `big-heroes-dalp` (P3, унификация 04_pvp таблицы «Онлайн-бой» под calcArenaPoints + семантика аргумента), `big-heroes-b7so` (P3, sprint-pr-cycle SKILL.md tier-matrix sync с AGENT_ROLES v2.1).
+- Beads: `big-heroes-b7so` CLOSED in iter 9 (fix-now в этом PR: `sprint-pr-cycle/SKILL.md:146` tier-matrix sync + Sprint Final строка синхронизирована с v3.6 Node.js native в iter 10). Открытым остаётся `big-heroes-dalp` (P3, унификация 04_pvp таблицы «Онлайн-бой» под calcArenaPoints + семантика аргумента).
 - Следующий шаг: после merge оператором — PM создаёт tag `v0.2.0` + GitHub Release (release notes из archived zesty-lemon).
 
 ---
