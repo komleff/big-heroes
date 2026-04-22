@@ -5,7 +5,7 @@
 
 ---
 
-## Post-Sprint 6 docs PR #19 итог (COMPLETE 2026-04-23, первый финализирующий /finalize-pr --pre-landing на `4b1ef65`)
+## Post-Sprint 6 docs PR #19 (LANDING PHASE, первый финализирующий /finalize-pr --pre-landing на `4b1ef65`; landing commit на `12dcb14`, ожидает operator merge)
 
 - Tier: Sprint Final + inner Critical (после AGENT_ROLES v2.1 `.agents/*.md` относится к Critical).
 - Цель: синхронизация документации с реализацией Sprint 6 (GDD v1.2→v1.3) + документирование Sprint Pipeline v3.4/v3.6 в AGENT_ROLES (v2.0→v2.1) + подготовка GitHub Release v0.2.0.
@@ -15,7 +15,7 @@
   - `docs/gdd/00_index.md` — changelog v1.3.
   - `.agents/AGENT_ROLES.md` — v2.1: §0 pre-merge landing (v3.4), §3 Critical tier расширен на `.agents/*.md`, Sprint Final tier → Node.js native v3.6 (`.claude/tools/openai-review.mjs`).
   - `docs/archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md` — superseded Planner-план.
-  - `docs/plans/pm-agents-agent-roles-md-cheerful-fairy.md` → архивация в landing commit.
+  - `docs/archive/sprint-post-6-pm-review-cheerful-fairy.md` — PM-ревью + operational checklist, перемещён из `docs/plans/` в landing commit (вместе со zesty-lemon).
 - Review cycle: 7 итераций Mode A external (GPT-5.4 + GPT-5.3-Codex) → iter 7 оба APPROVED на `4b1ef65`. Internal review iter 1 (standard) + iter 2 (adversarial) APPROVED. Итого 9 review passes + 7 Copilot requests.
 - Triage: 0 fix-now open, 3 defer to Beads (`big-heroes-dalp` расширен + `big-heroes-b7so` новый), 1 reject with rationale. Defer ratio 75% (все INFO от adversarial-прохода, реальный drift GDD vs код в `04_pvp.md` для `calcArenaPoints` семантики — deferred на отдельный doc-PR).
 - Beads открытые после PR #19: `big-heroes-dalp` (P3, унификация 04_pvp таблицы «Онлайн-бой» под calcArenaPoints + семантика аргумента), `big-heroes-b7so` (P3, sprint-pr-cycle SKILL.md tier-matrix sync с AGENT_ROLES v2.1).

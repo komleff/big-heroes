@@ -1,6 +1,6 @@
 # Планирование: GDD v1.3 + AGENT_ROLES v2.1 + Release v0.2.0
 
-> **⚠️ Superseded** by [pm-agents-agent-roles-md-cheerful-fairy.md](../plans/pm-agents-agent-roles-md-cheerful-fairy.md) (PM-ревью + операционный чек-лист, 2026-04-22). Этот документ — исторический артефакт исходного планирования Planner-агентом. Исполняемые инструкции смотри в cheerful-fairy (секция «Корректировки к плану zesty-lemon» → C1–C4). Stale-поля исправлены, но актуальным source of truth остаётся cheerful-fairy.
+> **⚠️ Superseded / Historical** by [sprint-post-6-pm-review-cheerful-fairy.md](./sprint-post-6-pm-review-cheerful-fairy.md) (PM-ревью + операционный чек-лист, 2026-04-22; также перемещён в archive в landing commit). Этот документ — исторический artifact исходного планирования Planner-агентом, **не исполняемый**: оба документа сохранены как transcript для аудита, не как actionable-инструкции. Пути `docs/plans/…` в командах ниже отражают состояние до архивации и не соответствуют текущему расположению файлов.
 
 **Дата:** 2026-04-22
 **Спринт:** пост-Sprint 6
@@ -141,6 +141,7 @@ git checkout -b docs/gdd-v1.3-agent-roles-v2.1
 git add docs/gdd/00_index.md docs/gdd/04_pvp.md docs/gdd/06_inventory.md .agents/AGENT_ROLES.md \
         docs/plans/pm-agents-agent-roles-md-zesty-lemon.md \
         docs/plans/pm-agents-agent-roles-md-cheerful-fairy.md
+# Historical note: оба plan-файла впоследствии перемещены в docs/archive/ в landing commit.
 git commit -m "docs: GDD v1.2→v1.3 (Sprint 6 sync) + AGENT_ROLES v2.0→v2.1"
 git push -u origin docs/gdd-v1.3-agent-roles-v2.1
 ```
