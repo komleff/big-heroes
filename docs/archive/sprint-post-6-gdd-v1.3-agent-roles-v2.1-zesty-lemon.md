@@ -1,6 +1,6 @@
 # Планирование: GDD v1.3 + AGENT_ROLES v2.1 + Release v0.2.0
 
-> **⚠️ Superseded** by [pm-agents-agent-roles-md-cheerful-fairy.md](pm-agents-agent-roles-md-cheerful-fairy.md) (PM-ревью + операционный чек-лист, 2026-04-22). Этот документ — исторический артефакт исходного планирования Planner-агентом. Исполняемые инструкции смотри в cheerful-fairy (секция «Корректировки к плану zesty-lemon» → C1–C4). Stale-поля исправлены, но актуальным source of truth остаётся cheerful-fairy.
+> **⚠️ Superseded** by [pm-agents-agent-roles-md-cheerful-fairy.md](../plans/pm-agents-agent-roles-md-cheerful-fairy.md) (PM-ревью + операционный чек-лист, 2026-04-22). Этот документ — исторический артефакт исходного планирования Planner-агентом. Исполняемые инструкции смотри в cheerful-fairy (секция «Корректировки к плану zesty-lemon» → C1–C4). Stale-поля исправлены, но актуальным source of truth остаётся cheerful-fairy.
 
 **Дата:** 2026-04-22
 **Спринт:** пост-Sprint 6
