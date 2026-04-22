@@ -12,6 +12,7 @@ import type {
     IRelic,
     IPveRoute,
     IPveExpeditionState,
+    IArenaSession,
 } from 'shared';
 import { createExpeditionState, MAX_RELICS } from 'shared';
 import { EventBus, GameEvents } from './EventBus';
@@ -45,6 +46,9 @@ export class GameState {
     private _arenaRelic: IRelic | null = null; // Реликвия для арены (extraction после босса)
     private _collectedItemIds: string[] = []; // Предметы, собранные в экспедициях (id)
     private _expeditionState: IPveExpeditionState | null = null;
+    // Активная PvP-сессия арены (серия боёв). null вне арены.
+    // Опциональное в IGameState — отсутствие поля валидно для старых save-файлов.
+    private _arenaSession: IArenaSession | null = null;
     private eventBus: EventBus;
 
     constructor(config: IBalanceConfig, eventBus: EventBus) {
@@ -178,6 +182,10 @@ export class GameState {
         return this._expeditionState;
     }
 
+    get arenaSession(): Readonly<IArenaSession> | null {
+        return this._arenaSession;
+    }
+
     // --- Сеттеры с уведомлениями ---
 
     /** Установить массу героя (клэмп 0..massCap) */
@@ -269,9 +277,20 @@ export class GameState {
         this._activeRelics = []; // Очистить реликвии предыдущего похода
     }
 
-    /** Обновить состояние экспедиции */
+    /**
+     * Обновить состояние экспедиции.
+     *
+     * Инвариант: `beltAdditions` управляется отдельными API —
+     * `appendBeltAddition` (auto-place), `useConsumable` (очистка при
+     * использовании), `endExpedition` (rollback при defeat). Поле НЕ
+     * изменяется через этот метод, иначе callsite-ы со stale snapshot-ом
+     * (capture _expeditionState → autoPlace → updateExpeditionState(stale))
+     * затирают свежие appendBeltAddition (adversarial F-1 round 2).
+     * Preserve всегда берётся из текущего `_expeditionState.beltAdditions`.
+     */
     updateExpeditionState(state: IPveExpeditionState): void {
-        this._expeditionState = state;
+        const preservedBeltAdditions = this._expeditionState?.beltAdditions ?? state.beltAdditions;
+        this._expeditionState = { ...state, beltAdditions: preservedBeltAdditions };
     }
 
     /** Завершить экспедицию — перенести результаты в постоянное состояние */
@@ -285,6 +304,18 @@ export class GameState {
             for (const itemId of exp.itemsFound) {
                 this._collectedItemIds.push(itemId);
             }
+        } else if (exp.status === 'defeat') {
+            // GDD loot-loss invariant: combat-расходники с пояса, авто-добавленные
+            // во время похода, теряются при defeat (GPT-5.4 external CRITICAL).
+            // Slot-based tracking: удаляем именно добавленные слоты, даже если id
+            // совпадает со старым расходником до экспедиции (adversarial F-2).
+            // useConsumable очищает slot из beltAdditions, поэтому использованный
+            // расходник не пытаемся remove (safely skip).
+            for (const slotIdx of exp.beltAdditions) {
+                if (this._belt[slotIdx]) {
+                    this.setBelt(slotIdx, null);
+                }
+            }
         }
         this._activeRelics = []; // Реликвии не переносятся между экспедициями
         this._expeditionState = null;
@@ -297,6 +328,20 @@ export class GameState {
         this._belt = newBelt;
     }
 
+    /**
+     * Регистрирует, что слот пояса был заполнен авто-размещением во время
+     * экспедиции. endExpedition при defeat очистит эти слоты (loot-loss).
+     * Прямая запись в _expeditionState обходит гонку с callsite-ами,
+     * которые вызывают updateExpeditionState со stale snapshot-ом после
+     * autoPlace (adversarial F-1). Без активной экспедиции — no-op.
+     */
+    appendBeltAddition(slotIdx: 0 | 1): void {
+        if (!this._expeditionState) return;
+        const current = this._expeditionState.beltAdditions;
+        if (current.includes(slotIdx)) return;
+        this._expeditionState = { ...this._expeditionState, beltAdditions: [...current, slotIdx] };
+    }
+
     /** Использовать расходник из слота пояса (обнуляет слот) */
     useConsumable(index: 0 | 1): IConsumable | null {
         const consumable = this._belt[index];
@@ -306,6 +351,40 @@ export class GameState {
         newBelt[index] = null;
         this._belt = newBelt;
 
+        // Очищаем slot из beltAdditions — расходник потреблён, rollback при defeat не нужен.
+        // Без этого adversarial F-2: при совпадении id старого и нового rollback
+        // мог удалить pre-expedition расходник вместо использованного нового.
+        if (this._expeditionState) {
+            const filtered = this._expeditionState.beltAdditions.filter(i => i !== index);
+            if (filtered.length !== this._expeditionState.beltAdditions.length) {
+                this._expeditionState = { ...this._expeditionState, beltAdditions: filtered };
+            }
+        }
+
         return consumable;
+    }
+
+    // ─── Сессия PvP-арены ────────────────────────────────────────────
+
+    /** Задать активную PvP-сессию (null — нет активной сессии) */
+    setArenaSession(session: IArenaSession | null): void {
+        this._arenaSession = session;
+    }
+
+    /** Полностью очистить сессию арены (выход в Hub / завершение) */
+    clearArenaSession(): void {
+        this._arenaSession = null;
+    }
+
+    /**
+     * Атомарное завершение арена-сессии: очистка сессии + потребление реликвии.
+     * Инвариант: «сессия закончилась ⇒ реликвия потрачена», независимо от причины
+     * (ручной выход, max battles, потеря массы, критический износ, fallback).
+     * Без этого метода каждый callsite clearArenaSession рискует забыть
+     * consumeArenaRelic → эксплойт бесконечной реликвии через start→end без боя.
+     */
+    endArenaSession(): void {
+        this._arenaSession = null;
+        this._arenaRelic = null;
     }
 }

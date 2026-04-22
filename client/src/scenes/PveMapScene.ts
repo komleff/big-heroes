@@ -8,7 +8,7 @@ import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { ResourceBar } from '../ui/ResourceBar';
 import { addRelicWithUI } from '../utils/relicHelper';
-import { autoEquipIfBetter } from '../utils/autoEquip';
+import { autoEquipIfBetter, autoPlaceConsumableOnBelt } from '../utils/autoEquip';
 import {
     advanceToNode, exitExpedition,
     generateRelicPool, configToRelic,
@@ -420,12 +420,25 @@ export class PveMapScene extends BaseScene {
                     const totalGold = this.gameState.resources.gold + state.goldGained;
                     if (totalGold < item.price) return totalGold;
                     const newGoldGained = state.goldGained - item.price;
-                    this.gameState.updateExpeditionState({
-                        ...state,
-                        goldGained: newGoldGained,
-                        itemsFound: [...state.itemsFound, item.itemId],
-                    });
-                    autoEquipIfBetter(this.gameState, item.itemId, config.equipment.catalog);
+                    // e0o: сначала пробуем на пояс, fallback в рюкзак
+                    const placedOnBelt = autoPlaceConsumableOnBelt(
+                        this.gameState,
+                        item.itemId,
+                        config.consumables,
+                    );
+                    if (placedOnBelt) {
+                        this.gameState.updateExpeditionState({
+                            ...state,
+                            goldGained: newGoldGained,
+                        });
+                    } else {
+                        this.gameState.updateExpeditionState({
+                            ...state,
+                            goldGained: newGoldGained,
+                            itemsFound: [...state.itemsFound, item.itemId],
+                        });
+                        autoEquipIfBetter(this.gameState, item.itemId, config.equipment.catalog);
+                    }
                     return this.gameState.resources.gold + newGoldGained;
                 },
                 onLeave: () => {
@@ -566,6 +579,7 @@ export class PveMapScene extends BaseScene {
                                     if (tier1Items.length > 0) {
                                         const picked = tier1Items[Math.floor(rng() * tier1Items.length)];
                                         state = { ...state, itemsFound: [...state.itemsFound, picked.id] };
+                                        newItemIds.push(picked.id);
                                         results.push(`Получен предмет!`);
                                     }
                                 }
@@ -592,9 +606,26 @@ export class PveMapScene extends BaseScene {
                             }
                         }
                     }
-                    this.gameState.updateExpeditionState(state);
-                    // Авто-экипировать новые предметы
+                    // e0o: сначала пробуем на пояс, fallback в рюкзак
+                    // Расходники, попавшие на пояс, удаляем из itemsFound (чтобы не дублировать)
+                    const beltPlacedIds: string[] = [];
                     for (const id of newItemIds) {
+                        const placed = autoPlaceConsumableOnBelt(this.gameState, id, config.consumables);
+                        if (placed) beltPlacedIds.push(id);
+                    }
+                    if (beltPlacedIds.length > 0) {
+                        // Удаляем из itemsFound ровно те id, что размещены на поясе (по одному вхождению)
+                        const filtered = [...state.itemsFound];
+                        for (const id of beltPlacedIds) {
+                            const idx = filtered.lastIndexOf(id);
+                            if (idx >= 0) filtered.splice(idx, 1);
+                        }
+                        state = { ...state, itemsFound: filtered };
+                    }
+                    this.gameState.updateExpeditionState(state);
+                    // Авто-экипировать новые предметы (кроме уже размещённых на поясе расходников)
+                    for (const id of newItemIds) {
+                        if (beltPlacedIds.includes(id)) continue;
                         autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
                     }
                     return results.length > 0 ? results.join('\n') : 'Ничего не произошло';
@@ -628,6 +659,14 @@ export class PveMapScene extends BaseScene {
 
         const onTake = (drop: { itemId: string }) => {
             const state = this.gameState.expeditionState as IPveExpeditionState;
+            // Если расходник и есть свободный belt-slot — на пояс (big-heroes-e0o);
+            // иначе — в itemsFound (рюкзак экспедиции) и попытка авто-экипировки.
+            const placedOnBelt = autoPlaceConsumableOnBelt(
+                this.gameState,
+                drop.itemId,
+                config.consumables,
+            );
+            if (placedOnBelt) return;
             this.gameState.updateExpeditionState({ ...state, itemsFound: [...state.itemsFound, drop.itemId] });
             // Авто-экипировать если слот пустой или предмет лучше
             autoEquipIfBetter(this.gameState, drop.itemId, config.equipment.catalog);

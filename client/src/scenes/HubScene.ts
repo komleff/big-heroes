@@ -9,7 +9,7 @@ import { BottomNav } from '../ui/BottomNav';
 import { DurabilityPips } from '../ui/DurabilityPips';
 import balanceConfig from '@config/balance.json';
 import type { IResources, IHeroState, IEquipmentSlots, IBalanceConfig, IEquipmentItem, IRelic } from 'shared';
-import { generateRoute, createRng, calcHeroStats, getLeagueConfig } from 'shared';
+import { generateRoute, createRng, calcHeroStats, getLeagueConfig, startSession } from 'shared';
 
 // ─── Константы раскладки ──────────────────────────────────────────
 const W = THEME.layout.designWidth;
@@ -568,6 +568,12 @@ export class HubScene extends BaseScene {
             '⚔️ Арена', THEME.colors.accent_magenta, THEME.colors.accent_magenta_dark,
             '', '', bigBtnW,
             () => {
+                // При входе в арену из Hub инициализируем серию боёв, если её нет.
+                // Возврат в Hub через session-end/manual очистит сессию (см. BattleScene/PvpLobbyScene).
+                if (!this.gameState.arenaSession) {
+                    const session = startSession(this.gameState.hero, balance.pvp.session);
+                    this.gameState.setArenaSession(session);
+                }
                 void this.sceneManager.goto('pvpLobby', { transition: TransitionType.SLIDE_LEFT });
             },
         );

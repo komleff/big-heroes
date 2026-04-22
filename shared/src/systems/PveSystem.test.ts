@@ -253,6 +253,7 @@ describe('createExpeditionState', () => {
         expect(state.itemsFound).toEqual([]);
         expect(state.pityCounter).toBe(0);
         expect(state.combatsInRow).toBe(0);
+        expect(state.beltAdditions).toEqual([]);
     });
 });
 
@@ -506,6 +507,53 @@ describe('generateForkPaths', () => {
             // Assert — среди некомбатных типов нет повторов
             const unique = new Set(nonCombatTypes);
             expect(unique.size).toBe(nonCombatTypes.length);
+        }
+    });
+
+    test('property: 200 сидов — нет дублей non-combat типов на одной развилке (generateForkPaths)', () => {
+        // Arrange
+        const target = makeTargetNode({ type: 'shop' });
+        const combatTypes = new Set<string>(['combat', 'elite']);
+
+        // Act & Assert — property-инвариант на расширенном пуле сидов
+        for (let seed = 0; seed < 200; seed++) {
+            const paths = generateForkPaths(target, pveConfig, enemies, events, 3, createRng(seed));
+            const nonCombatTypes = paths
+                .map(p => p.nodeType)
+                .filter(t => !combatTypes.has(t));
+            const unique = new Set(nonCombatTypes);
+            expect(unique.size).toBe(nonCombatTypes.length);
+        }
+    });
+});
+
+// ─── Property test для generateRoute: дедупликация на развилках (big-heroes-tqh) ──────────
+
+describe('generateRoute — дедупликация типов на развилках (tqh)', () => {
+    test('property: 500 сидов — на каждой развилке нет дублей non-combat типов', () => {
+        // Arrange — combat/elite допускают повторы (разные враги), остальные типы — нет
+        const combatTypes = new Set<string>(['combat', 'elite']);
+
+        // Act & Assert — 500 сидов, на каждой развилке проверяем все forkPaths
+        for (let seed = 0; seed < 500; seed++) {
+            const route = generateRoute(pveConfig, enemies, events, createRng(seed), seed);
+
+            for (const node of route.nodes) {
+                if (!node.isFork || !node.forkPaths) continue;
+
+                const nonCombatTypes = node.forkPaths
+                    .map(p => p.nodeType)
+                    .filter(t => !combatTypes.has(t));
+
+                const unique = new Set(nonCombatTypes);
+                if (unique.size !== nonCombatTypes.length) {
+                    // Детали для диагностики при падении
+                    throw new Error(
+                        `seed=${seed} node#${node.index} имеет дубли non-combat типов: ` +
+                        JSON.stringify(node.forkPaths.map(p => p.nodeType)),
+                    );
+                }
+            }
         }
     });
 });

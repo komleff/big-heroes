@@ -1,6 +1,61 @@
 import { GameState } from '../core/GameState';
-import type { IEquipmentItem, EquipmentSlotId } from 'shared';
+import { findFreeBeltSlotIndex } from 'shared';
+import type { IEquipmentItem, EquipmentSlotId, IConsumable, IConsumableConfig } from 'shared';
 import type { IStarterEquipmentConfigItem, IPveExpeditionState } from 'shared';
+
+/**
+ * Помещает расходник на пояс и регистрирует слот в expeditionState.beltAdditions,
+ * чтобы endExpedition на defeat очистил этот слот (loot-loss инвариант).
+ * Если экспедиция не активна (fallback single-PvP / starterBelt init) — регистрация no-op.
+ * Используем gameState.appendBeltAddition вместо updateExpeditionState, чтобы
+ * обойти stale overwrite от callsite-ов вызывающих updateExpeditionState
+ * со старым snapshot-ом (adversarial F-1).
+ */
+function placeOnBeltWithExpeditionTracking(
+    gameState: GameState, slotIdx: 0 | 1, consumable: IConsumable,
+): void {
+    gameState.setBelt(slotIdx, consumable);
+    gameState.appendBeltAddition(slotIdx);
+}
+
+/**
+ * Пытается поместить расходник на пояс при наличии свободного слота.
+ * Возвращает true, если расходник размещён (fallback в рюкзак — задача вызывающей стороны).
+ * Если itemId не является расходником — возвращает false (обрабатывать как equipment).
+ *
+ * Закрывает баг big-heroes-e0o: при подборе consumable из сундука при свободной
+ * ячейке пояса предмет должен автоматически занять слот, а не уходить в рюкзак.
+ *
+ * dolt-ebh: non-combat расходники (scout / hiking) НЕ кладём на пояс — на поясе
+ * их невозможно использовать (в бою блокируется guard'ом, на fork-узле нет UI —
+ * см. dolt-zxc). Non-combat идут в рюкзак как обычное снаряжение; когда появится
+ * UI для non-combat на перекрёстке (dolt-zxc), правило можно ослабить.
+ */
+export function autoPlaceConsumableOnBelt(
+    gameState: GameState,
+    itemId: string,
+    consumables: IConsumableConfig[],
+): boolean {
+    const cfg = consumables.find(c => c.id === itemId);
+    if (!cfg) return false;
+
+    // На пояс — только combat-расходники. Non-combat (scout/hiking) → fallback в рюкзак.
+    if (cfg.type !== 'combat') return false;
+
+    const freeIdx = findFreeBeltSlotIndex(gameState.belt);
+    if (freeIdx === -1) return false; // Свободных слотов нет — fallback в рюкзак
+
+    const consumable: IConsumable = {
+        id: cfg.id,
+        name: cfg.name,
+        type: cfg.type,
+        tier: cfg.tier,
+        effect: cfg.effect,
+        value: cfg.value,
+    };
+    placeOnBeltWithExpeditionTracking(gameState, freeIdx, consumable);
+    return true;
+}
 
 /**
  * Авто-экипировать предмет, если слот пустой или новый предмет лучше.

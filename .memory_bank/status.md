@@ -1,40 +1,31 @@
 # Статус проекта Big Heroes
 
 **Обновлён:** 2026-04-22
-**Фаза:** **Sprint Pipeline v3.6 Mode A Native — PR [#17](https://github.com/komleff/big-heroes/pull/17) ✅ COMPLETE 2026-04-22** (pre-merge finalize на commit `0a35b9a`, Правка 1 реализована: Node.js native OpenAI review tool заменил Codex CLI подпроцесс; правки 2–7 → отдельные PR). Предыдущие: Sprint Pipeline v3.5 Cleanup after v3.4 (PR [#15](https://github.com/komleff/big-heroes/pull/15)) COMPLETE 2026-04-21 ожидает merge + Sprint Pipeline v3.4 Pre-Merge Landing (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED + PR [#13](https://github.com/komleff/big-heroes/pull/13) chore/landing-pr-12 MERGED + Sprint Pipeline v3.3 (PR [#9](https://github.com/komleff/big-heroes/pull/9)) MERGED + PR [#10](https://github.com/komleff/big-heroes/pull/10) infra fix MERGED.
-**Base master HEAD:** `d3dab6b` (base для v3.6 pre-merge) · План архивирован **на HEAD ветки PR** в `docs/archive/sprint-pipeline-v3-6-mode-a-native.md` (ещё не в master до merge).
+**Фаза:** **Sprint 6 PvP Arena Session — PR [#18](https://github.com/komleff/big-heroes/pull/18) ✅ LANDING PHASE** (hard gate APPROVED на `a5c9e3b`, ready for merge after landing artifacts). Параллельно: **Sprint Pipeline v3.6 Mode A Native — PR [#17](https://github.com/komleff/big-heroes/pull/17) COMPLETE 2026-04-22** (pre-merge finalize на `0a35b9a`). Предыдущие: Sprint Pipeline v3.5 Cleanup (PR [#15](https://github.com/komleff/big-heroes/pull/15)) ожидает merge + Sprint Pipeline v3.4 (PR [#14](https://github.com/komleff/big-heroes/pull/14)) MERGED 2026-04-19 + Sprint 5 Codex Auth (PR [#12](https://github.com/komleff/big-heroes/pull/12)) MERGED.
+
+---
+
+## Sprint 6 PvP Arena Session итог (COMPLETE 2026-04-22, финальный HEAD `e7a3146`)
+
+- Tracking: `big-heroes-tgr` closed (core feature: серия PvP-боёв); `big-heroes-e0o`, `big-heroes-bfv`, `big-heroes-tqh` closed (P1 bugs); `big-heroes-91e`, `big-heroes-bb0`, `big-heroes-dy3`, `big-heroes-7r8`, `big-heroes-00q` closed (Arena UX cluster); `big-heroes-2eh` sprint tracker closed.
+- Реализовано: `startSession`, `shouldEndSession`, `applyBattleToSession`, `calcArenaPoints` в `shared/src/systems/PvpSystem.ts`; `IArenaSession` в `GameState.ts`; `PvpLobbyScene` с полным UX арены; `findFreeBeltSlotIndex` + авторазмещение расходников; `generateForkPaths` рефакторинг.
+- 213 тестов (196 shared + 17 client). VC-1..VC-4, VC-6, VC-9 покрыты. Verification Contract выполнен.
+- Review cycle: Internal APPROVED (iter 10) → External Mode C CHANGES_REQUESTED (MAJOR F-1 + 3 MINOR + 3 NIT, commit 9e6496f) → fix-round 2 (commits 42c85b3, e715d2e) → Internal APPROVED (iter 11, commit e715d2e) + External Mode C delta-verify APPROVED на `59cc375` → post-landing fixes (commit e7a3146) → Internal adversarial (findings S-1..3, Q-1..4) + External C (degraded adversarial, Codex BE-11 block) → APPROVED.
+- External review: Mode C (degraded, Claude adversarial 2 прохода). Codex CLI недоступен на Windows (BE-11: CreateProcessWithLogonW 1326). GPT-5.4 критичное ревью оператором на `e7a3146` — APPROVED.
+- Deferred Beads (12 items): `big-heroes-biu`, `big-heroes-6d3r`, `big-heroes-bh1o`, `big-heroes-fy7i`, `big-heroes-kgt2`, `big-heroes-252b`, `big-heroes-vf6u`, `big-heroes-nkfu`, `big-heroes-4uzr`, `big-heroes-wzul`, `big-heroes-kfb4`, `big-heroes-9ari`.
+- ⚠️ Merge-blocker: ветка конфликтует с master в `.memory_bank/status.md` (параллельная разработка PR#17/18). Требуется resolve конфликта перед merge.
+- VC-5, VC-7, VC-8 требуют ручного QA оператора (визуальный, arena flow, non-combat guard).
+
+---
 
 ## Sprint v3.6 Mode A Native (Правка 1) итог (COMPLETE 2026-04-22, первый финализирующий /finalize-pr --pre-landing на `0a35b9a`)
 
 - Tracking: `big-heroes-95c` (sprint), `big-heroes-59z` (Правка 1) — закроются после merge.
-- Цель: заменить подпроцесс Codex CLI на native Node.js-скрипт, обращающийся к OpenAI API напрямую через SDK, и убрать зависимость от BE-11 Windows sandbox. Две полноразмерные модели разных архитектур (gpt-5.4 chat.completions reasoning:high + gpt-5.3-codex responses reasoning:high) запускаются параллельно для adversarial diversity.
-- **Dogfood (второй sprint под v3.4 pre-merge landing flow + первый под Mode A native):** Mode A прогнан два раза подряд на сам PR (первый — на `4dafb08`, после cycle фиксов — на `0a35b9a`). Landing commit этим самым commit message в ветке PR.
-- Артефакты:
-  - `.claude/tools/openai-review.mjs` (~580 LoC) — native review-инструмент с runtime allowlist, endpoint dispatch, validateOutputFormat (Cyrillic-safe regex), exitDeferred (libuv workaround Windows Node 24), classifyApiError, buildUserPrompt с BEGIN_DIFF/END_DIFF маркерами, explicit refspec fetch.
-  - `.claude/tools/package.json` + `package-lock.json` — OpenAI SDK 6.34.0 pinned, Node ≥18.17.0.
-  - `.claude/tools/smoke-test.mjs` — 5 offline CLI тестов (T1–T5), cwd-independent через `git rev-parse --show-toplevel`.
-  - `.claude/tools/README.md` — установка/диагностика/exit-codes/allowlist.
-  - `.claude/skills/external-review/SKILL.md` — полностью переписан под Mode A как основной режим; Codex CLI остался как A-legacy fallback; Mode B (ChatGPT OAuth) удалён.
-  - `.claude/skills/pipeline-audit/SKILL.md` — 3.5 Режимы (v3.6+: A / C / D + A-legacy, B deprecated), 3.6 Инварианты Правки 1.
-  - `.agents/CODEX_AUTH.md` — deprecation note.
-  - `.gitignore` — `.review-responses/` для артефактов.
-- Review cycle (18 Copilot rounds + 21 internal passes + 6 external Mode A на двух моделях):
-  - Copilot auto-review 18 rounds: все fix-now закрыты (последний round 18: 2 fix-now — docs + smoke cwd; 3-й — отложен `big-heroes-eful`).
-  - Internal Claude 21 passes: 20 финализирующий на `4dafb08` APPROVED с defer; 21 adversarial second pass на `0a35b9a` APPROVED с defer (два runtime-бага закрыты: Cyrillic regex + libuv exit assert).
-  - External Mode A: первые dogfood-прогоны на `4dafb08` дали CHANGES_REQUESTED (trust-boundary) + обнаружили 2 runtime-бага через parallel adversarial diversity; после фикса на `0a35b9a` — те же known-deferred + 1 новый P3 (git fetch race в параллели) → pending bd restore.
-  - Triage iteration 21: 0 fix-now, 5 defer, 0 reject. Регрессий 0.
-- Convention change: Mode A — прямой вызов OpenAI API через `.claude/tools/openai-review.mjs`. Codex CLI удалён из обязательного пути, оставлен в A-legacy. `--pre-landing` / landing commit / second `/finalize-pr` паттерн сохранён.
-- Deferred Beads (5 items):
-  - `big-heroes-iyuo` P1 — supply-chain trust boundary (tool из PR checkout с доступом к ключу). Bootstrap-ограничение первого PR с tool в master; полное разделение — следующим PR.
-  - `big-heroes-xe4e` P2 — contract-тесты (endpoint dispatch / validateOutputFormat / git flow / API-errors).
-  - `big-heroes-gijq` P3 — SSOT для allowlist/режимов/endpoint (дублирование README / SKILL / план).
-  - `big-heroes-eful` P2 — 6 polish замечаний Copilot round 16–17.
-  - Новый P3 pending bd restore — `git fetch` race при параллельном запуске двух ревьюеров в одну `refs/remotes/origin/<base>`.
-- Ранее deferred (v3.6-sprint-scope, ожидают merge для закрытия):
-  - `big-heroes-ig4c` P2 — HTML-escape helper для raw output.
-  - `big-heroes-3t44` P3 — уточнение AC6 до <4 сек (после libuv фикса `--ping` стабильно укладывается в ~2 сек).
-  - `big-heroes-0obi` P1 — контрольный внешний прогон на текущем HEAD (выполнен этим review-pass).
-- ⚠️ **Beads DB warning:** локальная Dolt DB этого worktree потеряна при переключении веток (server up, database `big_heroes` not found on disk). Все беады в Dolt remote `beads-sync`; восстановление — follow-up после merge. Не блокер финализации (hard gate `/finalize-pr` опирается на PR comments).
+- Цель: заменить подпроцесс Codex CLI на native Node.js-скрипт (обход BE-11). Две модели параллельно для adversarial diversity.
+- Dogfood (второй sprint под v3.4 pre-merge landing flow + первый под Mode A native): Mode A прогнан на `4dafb08` и `0a35b9a`.
+- Review cycle: 18 Copilot + 21 internal + 6 external Mode A → 0 fix-now, 5 defer, 0 reject. Регрессий 0.
+- Deferred Beads: `big-heroes-iyuo` P1, `big-heroes-xe4e` P2, `big-heroes-gijq` P3, `big-heroes-eful` P2, git fetch race P3.
+- ⚠️ Beads DB warning: локальная DB потеряна при переключении веток (не блокер финализации).
 
 ---
 

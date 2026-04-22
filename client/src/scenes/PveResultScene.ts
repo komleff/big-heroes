@@ -110,21 +110,25 @@ export class PveResultScene extends BaseScene {
 
         let nextY = panelY + panelH + 16;
 
-        // --- Boss loot items (u1z): информационная секция ---
-        if (data.status === 'victory' && data.bossLootItems && data.bossLootItems.length > 0) {
-            nextY = this.buildBossLootSection(data.bossLootItems, nextY);
-        }
-
-        // --- Boss relic: информационная карточка ---
-        if (data.status === 'victory' && data.bossRelic) {
-            nextY = this.buildBossRelicInfo(data.bossRelic, nextY);
+        // --- Boss loot items (u1z) + boss relic info ---
+        // После выбора арена-реликвии эти секции скрываются, чтобы не дублировать
+        // информацию и не путать игрока с выбранной реликвией (big-heroes-7r8).
+        if (!this.extractionDone) {
+            if (data.status === 'victory' && data.bossLootItems && data.bossLootItems.length > 0) {
+                nextY = this.buildBossLootSection(data.bossLootItems, nextY);
+            }
+            if (data.status === 'victory' && data.bossRelic) {
+                nextY = this.buildBossRelicInfo(data.bossRelic, nextY);
+            }
         }
 
         // --- Extraction: выбор arena relic ---
         if (data.status === 'victory' && data.extractionPool && data.extractionPool.length > 0 && !this.extractionDone) {
             this.buildExtractionSection(data.extractionPool, nextY);
         } else {
-            // Сообщение о выбранной реликвии для арены
+            // Сообщение о выбранной реликвии для арены.
+            // Цвет — accent_yellow с тенью: контраст по WCAG AA ≥ 4.5:1 на голубом
+            // градиенте PvE (старый accent_green сливался — big-heroes-dy3).
             if (this.savedRelicName) {
                 const relicMsg = new Text({
                     text: `Вы выбрали реликвию «${this.savedRelicName}» для арены`,
@@ -132,7 +136,8 @@ export class PveResultScene extends BaseScene {
                         fontSize: 14,
                         fontFamily: THEME.font.family,
                         fontWeight: THEME.font.weights.bold,
-                        fill: THEME.colors.accent_green,
+                        fill: THEME.colors.accent_yellow,
+                        dropShadow: { distance: 2, alpha: 0.5 },
                         wordWrap: true,
                         wordWrapWidth: W - 64,
                         align: 'center',
@@ -144,13 +149,20 @@ export class PveResultScene extends BaseScene {
                 nextY += 36;
             }
 
-            // Кнопка «Домой»
+            // Кнопки «Домой» / «Арена»: вертикальный layout с явным gap.
+            // primary-кнопка высотой 68, секондари — 56. Между ними — 16px
+            // (screenPadding). Раньше arenaBtn стартовала на nextY+72 → перекрытие
+            // 12px с hubBtn (big-heroes-00q).
+            const hubHeight = THEME.layout.buttonHeight.primary; // 68
+            const buttonGap = THEME.layout.spacing.screenPadding; // 16
+
+            const hubTopY = nextY + 16;
             const hubBtn = new Button({
                 text: 'ДОМОЙ',
                 variant: 'primary',
                 onClick: () => data.onContinue(),
             });
-            hubBtn.position.set(W / 2, nextY + 16);
+            hubBtn.position.set(W / 2, hubTopY);
             this.addChild(hubBtn);
 
             // Кнопка «Арена» (если выбрана реликвия для арены)
@@ -160,7 +172,7 @@ export class PveResultScene extends BaseScene {
                     variant: 'secondary',
                     onClick: () => data.onGoArena!(),
                 });
-                arenaBtn.position.set(W / 2, nextY + 72);
+                arenaBtn.position.set(W / 2, hubTopY + hubHeight + buttonGap);
                 this.addChild(arenaBtn);
             }
         }

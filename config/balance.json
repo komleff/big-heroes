@@ -81,7 +81,7 @@
     { "id": "relic_shop_discount", "name": "Торговый талант", "effect": "shop_discount", "value": 0.3, "rarity": "common" },
     { "id": "relic_polymorph_bonus", "name": "Печать чародея", "effect": "polymorph_bonus", "value": 0.2, "rarity": "rare" }
   ],
-  "starterBelt": ["torch_t1", "str_pot_t1"],
+  "starterBelt": ["arm_pot_t1", "str_pot_t1"],
   "starterBackpack": ["str_pot_t1", "str_pot_t1", "repair_t1", null],
   "pve": {
     "total_nodes_min": 12,
@@ -192,7 +192,13 @@
     "mass_loss_on_defeat": 0.1,
     "bot_count": 3,
     "bot_mass_multipliers": [0.8, 1.0, 1.2],
-    "bot_rating_spread": 50,
-    "bot_names": ["Теневой рыцарь", "Буря клинков", "Каменный страж"]
+    "bot_rating_spread": 300,
+    "bot_names": ["Теневой рыцарь", "Буря клинков", "Каменный страж"],
+    "session": {
+      "min_mass_threshold": 30,
+      "critical_durability_percent": 0.25,
+      "max_battles": 10,
+      "points_thresholds": { "small": 10, "medium": 25 }
+    }
   }
 }

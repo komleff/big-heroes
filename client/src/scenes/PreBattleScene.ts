@@ -374,16 +374,19 @@ export class PreBattleScene extends BaseScene {
 
         for (let i = 0; i < 2; i++) {
             const slot = belt[i];
+            // GDD bfv: в бою разрешены только combat-расходники.
+            // scout/hiking — только на перекрёстке, в PreBattleScene блокируем.
+            const isNonCombat = slot !== null && slot.type !== 'combat';
             const container = new Container();
             container.x = startX + i * (slotW + gap);
             container.y = startY;
             container.eventMode = 'static';
-            container.cursor = 'pointer';
+            container.cursor = isNonCombat ? 'default' : 'pointer';
 
-            // Фон слота
+            // Фон слота (затемнённый для non-combat — guard визуально явный)
             const slotBg = new Graphics();
             slotBg.roundRect(0, 0, slotW, slotH, 10);
-            slotBg.fill({ color: 0x000000, alpha: 0.3 });
+            slotBg.fill({ color: 0x000000, alpha: isNonCombat ? 0.5 : 0.3 });
             container.addChild(slotBg);
 
             if (slot) {
@@ -394,7 +397,7 @@ export class PreBattleScene extends BaseScene {
                         fontSize: 8,
                         fontFamily: THEME.font.family,
                         fontWeight: THEME.font.weights.regular,
-                        fill: THEME.colors.text_secondary,
+                        fill: isNonCombat ? THEME.colors.text_muted : THEME.colors.text_secondary,
                         wordWrap: true,
                         wordWrapWidth: slotW - 4,
                         align: 'center',
@@ -402,8 +405,25 @@ export class PreBattleScene extends BaseScene {
                 });
                 slotName.anchor.set(0.5, 0.5);
                 slotName.x = slotW / 2;
-                slotName.y = slotH / 2;
+                slotName.y = slotH / 2 - 6;
                 container.addChild(slotName);
+
+                if (isNonCombat) {
+                    // Явная маркировка: «не в бою»
+                    const lockLabel = new Text({
+                        text: 'не в бою',
+                        style: new TextStyle({
+                            fontSize: 7,
+                            fontFamily: THEME.font.family,
+                            fontWeight: THEME.font.weights.bold,
+                            fill: THEME.colors.accent_red,
+                        }),
+                    });
+                    lockLabel.anchor.set(0.5, 0.5);
+                    lockLabel.x = slotW / 2;
+                    lockLabel.y = slotH - 8;
+                    container.addChild(lockLabel);
+                }
             } else {
                 // Пустой слот — прочерк
                 const dash = new Text({
@@ -434,7 +454,12 @@ export class PreBattleScene extends BaseScene {
     /** Обработка тапа по слоту пояса */
     private onBeltSlotTap(index: number): void {
         const belt = this.gameState.belt;
-        if (!belt[index]) return; // пустой слот — ничего не делаем
+        const slot = belt[index];
+        if (!slot) return; // пустой слот — ничего не делаем
+
+        // GDD bfv: в бою выбирать можно только combat-расходники.
+        // Non-combat (scout/hiking) — тап игнорируется, визуальный guard уже показывает «не в бою».
+        if (slot.type !== 'combat') return;
 
         // Повторный тап — снять выделение
         if (this.selectedBeltIndex === index) {

@@ -8,9 +8,10 @@ import { THEME } from '../config/ThemeConfig';
 import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
 import { addRelicWithUI } from '../utils/relicHelper';
-import { autoEquipIfBetter } from '../utils/autoEquip';
-import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic } from 'shared';
-import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange, calcPvpMassLoss } from 'shared';
+import { autoEquipIfBetter, autoPlaceConsumableOnBelt } from '../utils/autoEquip';
+import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic, IArenaSession, IEquipmentSlots, ArenaSessionEndReason } from 'shared';
+import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange, calcPvpMassLoss, applyBattleToSession, shouldEndSession, calcArenaPoints, startSession } from 'shared';
+import { ProgressBar } from '../ui/ProgressBar';
 import balanceConfig from '@config/balance.json';
 
 /** Данные, передаваемые в onEnter */
@@ -492,6 +493,24 @@ export class BattleScene extends BaseScene {
             'alpha', 0, 0.6, 500, ticker,
         );
 
+        // dolt-1em: для PvP terminal (victory/defeat) в АКТИВНОЙ сессии пропускаем
+        // legacy banner с кнопкой «Продолжить». onContinue откроет информативный
+        // overlay (showPvpDefeatOverlay / showPvpVictoryOverlay / showSessionSummaryOverlay)
+        // на том же затемнении. Fallback single-PvP (без сессии) оставляет banner
+        // с rewards — иначе победа уходила бы silent в Hub без фидбека (external
+        // review Mode C F-3).
+        // Guard также убирает added overlay перед onContinue, чтобы не копилось
+        // два затемнения (alpha 0.6 + 0.85 createDimOverlay) — F-4.
+        const isPvpTerminalInSession = this.battleData.isPvp
+            && (result.outcome === 'victory' || result.outcome === 'defeat')
+            && this.gameState.arenaSession?.active === true;
+        if (isPvpTerminalInSession) {
+            this.removeChild(overlay);
+            overlay.destroy();
+            this.onContinue();
+            return;
+        }
+
         // --- Баннер результата ---
         const bannerContainer = new Container();
         bannerContainer.position.set(W / 2, H / 2 - 60);
@@ -584,46 +603,353 @@ export class BattleScene extends BaseScene {
         );
     }
 
-    /** Оверлей результата PvP с деталями потерь */
-    private showPvpResultOverlay(message: string): void {
+    /**
+     * Затемняющий фон-оверлей на весь экран.
+     * Блокирует клики по нижележащим элементам сцены.
+     */
+    private createDimOverlay(): Container {
         const W = THEME.layout.designWidth;
         const H = THEME.layout.designHeight;
-
         const overlay = new Container();
         const dimBg = new Graphics();
         dimBg.rect(0, 0, W, H);
         dimBg.fill({ color: 0x000000 });
-        dimBg.alpha = 0.8;
+        dimBg.alpha = 0.85;
         dimBg.eventMode = 'static';
         overlay.addChild(dimBg);
+        return overlay;
+    }
 
-        const msgText = new Text({
-            text: message,
+    /** Оверлей победы в PvP: «+N очков арены» и кнопка «Продолжить» в lobby */
+    private showPvpVictoryOverlay(points: 1 | 2 | 3, onContinue: () => void): void {
+        const W = THEME.layout.designWidth;
+        const H = THEME.layout.designHeight;
+
+        const overlay = this.createDimOverlay();
+
+        const title = new Text({
+            text: 'ПОБЕДА!',
+            style: new TextStyle({
+                fontSize: 36,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.black,
+                fill: THEME.colors.accent_yellow,
+            }),
+        });
+        title.anchor.set(0.5);
+        title.position.set(W / 2, H / 2 - 80);
+        overlay.addChild(title);
+
+        const pointsText = new Text({
+            text: `+${points} ${points === 1 ? 'очко' : 'очка'} арены`,
+            style: new TextStyle({
+                fontSize: 22,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.bold,
+                fill: THEME.colors.accent_cyan,
+            }),
+        });
+        pointsText.anchor.set(0.5);
+        pointsText.position.set(W / 2, H / 2 - 20);
+        overlay.addChild(pointsText);
+
+        const continueBtn = new Button({
+            text: 'ПРОДОЛЖИТЬ',
+            variant: 'primary',
+            onClick: onContinue,
+        });
+        continueBtn.position.set(W / 2, H / 2 + 60);
+        overlay.addChild(continueBtn);
+
+        this.addChild(overlay);
+    }
+
+    /**
+     * Оверлей завершения PvP-сессии (session-summary).
+     * Показывает итоги серии: битв / масса / рейтинг + причину, кнопка «В Хаб».
+     */
+    private showSessionSummaryOverlay(
+        session: IArenaSession, reason: ArenaSessionEndReason, lastWinPoints: 1 | 2 | 3 | null,
+    ): void {
+        const W = THEME.layout.designWidth;
+        const H = THEME.layout.designHeight;
+
+        const overlay = this.createDimOverlay();
+
+        const title = new Text({
+            text: 'СЕССИЯ АРЕНЫ ЗАВЕРШЕНА',
+            style: new TextStyle({
+                fontSize: 20,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.black,
+                fill: THEME.colors.text_primary,
+            }),
+        });
+        title.anchor.set(0.5);
+        title.position.set(W / 2, H / 2 - 130);
+        overlay.addChild(title);
+
+        const reasonText = new Text({
+            text: this.formatEndReason(reason),
+            style: new TextStyle({
+                fontSize: 13,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.regular,
+                fill: THEME.colors.text_muted,
+                wordWrap: true,
+                wordWrapWidth: W - 48,
+                align: 'center',
+            }),
+        });
+        reasonText.anchor.set(0.5, 0);
+        reasonText.position.set(W / 2, H / 2 - 100);
+        overlay.addChild(reasonText);
+
+        const ratingSign = session.totalRatingDelta >= 0 ? '+' : '';
+        const stats: string[] = [
+            `Проведено боёв: ${session.battlesPlayed}`,
+            `Потеряно массы: ${session.totalMassLost} кг`,
+            `Рейтинг: ${ratingSign}${session.totalRatingDelta}`,
+        ];
+        if (lastWinPoints) {
+            stats.push(`Очки за последний бой: +${lastWinPoints}`);
+        }
+        const statsText = new Text({
+            text: stats.join('\n'),
             style: new TextStyle({
                 fontSize: 16,
                 fontFamily: THEME.font.family,
                 fontWeight: THEME.font.weights.medium,
                 fill: THEME.colors.text_primary,
-                wordWrap: true,
-                wordWrapWidth: W - 64,
                 align: 'center',
             }),
         });
-        msgText.anchor.set(0.5);
-        msgText.position.set(W / 2, H / 2 - 40);
-        overlay.addChild(msgText);
+        statsText.anchor.set(0.5);
+        statsText.position.set(W / 2, H / 2);
+        overlay.addChild(statsText);
 
         const homeBtn = new Button({
-            text: 'ДОМОЙ',
+            text: 'В ХАБ',
             variant: 'primary',
             onClick: () => {
+                // Сессия завершается: чистим session + consume реликвии атомарно.
+                this.gameState.endArenaSession();
                 void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
             },
         });
-        homeBtn.position.set(W / 2, H / 2 + 40);
+        homeBtn.position.set(W / 2, H / 2 + 100);
         overlay.addChild(homeBtn);
 
         this.addChild(overlay);
+    }
+
+    /**
+     * Оверлей поражения PvP (T8 big-heroes-91e).
+     * Улучшенная визуализация: иконка массы, крупный «−N кг», «было X → стало Y»,
+     * прогресс-бар до min_mass_threshold. Если сессия завершилась (endSession=...) —
+     * вместо перехода в lobby открывает session-summary. Иначе — возврат в lobby
+     * (или Hub, если сессия отсутствует — fallback-ветка).
+     *
+     * @param sessionEnded переданная сессия (если завершена), иначе null.
+     */
+    private showPvpDefeatOverlay(
+        massLoss: number, massBefore: number, consumedRelicName: string | null,
+        sessionEnded: IArenaSession | null, endReason: ArenaSessionEndReason,
+        minMassThreshold: number,
+    ): void {
+        const W = THEME.layout.designWidth;
+        const H = THEME.layout.designHeight;
+
+        const overlay = this.createDimOverlay();
+
+        // Заголовок «ПОРАЖЕНИЕ»
+        const title = new Text({
+            text: 'ПОРАЖЕНИЕ',
+            style: new TextStyle({
+                fontSize: 32,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.black,
+                fill: THEME.colors.accent_red,
+            }),
+        });
+        title.anchor.set(0.5);
+        title.position.set(W / 2, 150);
+        overlay.addChild(title);
+
+        // Иконка массы (эмодзи) + крупный «−N кг» красный
+        const massIcon = new Text({
+            text: '⚖️', // ⚖️
+            style: new TextStyle({
+                fontSize: 40,
+                fontFamily: THEME.font.family,
+            }),
+        });
+        massIcon.anchor.set(0.5);
+        massIcon.position.set(W / 2 - 80, 230);
+        overlay.addChild(massIcon);
+
+        const massLossText = new Text({
+            text: `−${massLoss} кг`,
+            style: new TextStyle({
+                fontSize: 36,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.black,
+                fill: THEME.colors.accent_red,
+            }),
+        });
+        massLossText.anchor.set(0, 0.5);
+        massLossText.position.set(W / 2 - 50, 230);
+        overlay.addChild(massLossText);
+
+        // «было X → стало Y»
+        const massAfter = Math.max(0, massBefore - massLoss);
+        const beforeAfterText = new Text({
+            text: `было ${massBefore} → стало ${massAfter}`,
+            style: new TextStyle({
+                fontSize: 16,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.medium,
+                fill: THEME.colors.text_secondary,
+            }),
+        });
+        beforeAfterText.anchor.set(0.5);
+        beforeAfterText.position.set(W / 2, 290);
+        overlay.addChild(beforeAfterText);
+
+        // Мини-прогресс-бар до min_mass_threshold (сколько ещё можно терять)
+        // Когда массы ≤ threshold — бар пустой/почти пустой: ясно, что сессия на грани.
+        const barLabel = new Text({
+            text: `До выхода из арены (порог ${minMassThreshold} кг)`,
+            style: new TextStyle({
+                fontSize: 11,
+                fontFamily: THEME.font.family,
+                fontWeight: THEME.font.weights.regular,
+                fill: THEME.colors.text_muted,
+            }),
+        });
+        barLabel.anchor.set(0.5, 0);
+        barLabel.position.set(W / 2, 330);
+        overlay.addChild(barLabel);
+
+        // Прогресс-бар показывает ЗАПАС массы над порогом — сколько ещё можно проиграть
+        // до вылета из арены. max = сколько массы было над порогом в начале этого боя,
+        // current = сколько осталось над порогом после боя. При massAfter ≤ threshold бар = 0.
+        // Monotonically decreasing по ходу серии (если сессия проходит через один defeat за один вызов).
+        const massReserveMax = Math.max(1, massBefore - minMassThreshold);
+        const massReserveCurrent = Math.min(massReserveMax, Math.max(0, massAfter - minMassThreshold));
+        const progress = new ProgressBar({
+            width: W - 80,
+            max: massReserveMax,
+            current: massReserveCurrent,
+        });
+        progress.position.set(40, 350);
+        overlay.addChild(progress);
+
+        // Доп-строка «реликвия потеряна», если применимо
+        let lineY = 390;
+        if (consumedRelicName) {
+            const relicLostText = new Text({
+                text: `Реликвия «${consumedRelicName}» потеряна`,
+                style: new TextStyle({
+                    fontSize: 13,
+                    fontFamily: THEME.font.family,
+                    fontWeight: THEME.font.weights.regular,
+                    fill: THEME.colors.text_muted,
+                    wordWrap: true,
+                    wordWrapWidth: W - 48,
+                    align: 'center',
+                }),
+            });
+            relicLostText.anchor.set(0.5, 0);
+            relicLostText.position.set(W / 2, lineY);
+            overlay.addChild(relicLostText);
+            lineY += 24;
+        }
+
+        // Кнопки: если сессия завершилась — только «В Хаб» (c очисткой сессии и показом summary)
+        // Иначе — «Продолжить» (в lobby для следующего боя) и «В Хаб» (ручной выход, очистка сессии).
+        if (sessionEnded) {
+            // Показать причину завершения сразу под блоком
+            const endReasonText = new Text({
+                text: `Сессия завершена: ${this.formatEndReason(endReason)}`,
+                style: new TextStyle({
+                    fontSize: 13,
+                    fontFamily: THEME.font.family,
+                    fontWeight: THEME.font.weights.bold,
+                    fill: THEME.colors.accent_yellow,
+                    wordWrap: true,
+                    wordWrapWidth: W - 48,
+                    align: 'center',
+                }),
+            });
+            endReasonText.anchor.set(0.5, 0);
+            endReasonText.position.set(W / 2, lineY + 10);
+            overlay.addChild(endReasonText);
+
+            const homeBtn = new Button({
+                text: 'В ХАБ',
+                variant: 'primary',
+                onClick: () => {
+                    // Сессия завершена (ended=true в вызове выше) — атомарный end.
+                    this.gameState.endArenaSession();
+                    void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                },
+            });
+            homeBtn.position.set(W / 2, H - 120);
+            overlay.addChild(homeBtn);
+        } else {
+            // Сессия продолжается — «Продолжить» возвращает в lobby.
+            // В fallback-ветке (без активной сессии) кнопка «Продолжить» отсутствует:
+            // вместо неё сразу «В Хаб».
+            const hasActiveSession = this.gameState.arenaSession?.active === true;
+            if (hasActiveSession) {
+                const continueBtn = new Button({
+                    text: 'ПРОДОЛЖИТЬ',
+                    variant: 'primary',
+                    onClick: () => {
+                        void this.sceneManager.goto('pvpLobby', { transition: TransitionType.FADE });
+                    },
+                });
+                continueBtn.position.set(W / 2, H - 180);
+                overlay.addChild(continueBtn);
+
+                const endBtn = new Button({
+                    text: 'В ХАБ',
+                    variant: 'danger',
+                    onClick: () => {
+                        // Manual-exit из defeat-overlay в продолжающейся серии —
+                        // игрок досрочно заканчивает серию. Инвариант «сессия end → реликвия потрачена».
+                        this.gameState.endArenaSession();
+                        void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                    },
+                });
+                endBtn.position.set(W / 2, H - 110);
+                overlay.addChild(endBtn);
+            } else {
+                const homeBtn = new Button({
+                    text: 'В ХАБ',
+                    variant: 'primary',
+                    onClick: () => {
+                        void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
+                    },
+                });
+                homeBtn.position.set(W / 2, H - 120);
+                overlay.addChild(homeBtn);
+            }
+        }
+
+        this.addChild(overlay);
+    }
+
+    /** Человекочитаемая причина завершения сессии. */
+    private formatEndReason(reason: ArenaSessionEndReason): string {
+        switch (reason) {
+            case 'mass': return 'масса ниже порога';
+            case 'durability': return 'экипировка изношена';
+            case 'maxBattles': return 'лимит боёв достигнут';
+            case 'manual': return 'завершение вручную';
+            default: return 'причина не указана';
+        }
     }
 
     /**
@@ -725,14 +1051,20 @@ export class BattleScene extends BaseScene {
                         );
                         if (loot.drops.length > 0) {
                             const items = loot.drops.map(d => d.itemId);
+                            // e0o: сначала пробуем на пояс, fallback в рюкзак
+                            const backpackIds: string[] = [];
+                            for (const id of items) {
+                                const placed = autoPlaceConsumableOnBelt(this.gameState, id, config.consumables);
+                                if (!placed) backpackIds.push(id);
+                            }
                             newState = {
                                 ...newState,
-                                itemsFound: [...newState.itemsFound, ...items],
+                                itemsFound: [...newState.itemsFound, ...backpackIds],
                                 pityCounter: loot.newPityCounter,
                             };
                             this.gameState.updateExpeditionState(newState);
-                            // Авто-экипировать лут
-                            for (const id of items) {
+                            // Авто-экипировать лут, оставшийся в рюкзаке
+                            for (const id of backpackIds) {
                                 autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
                             }
                         }
@@ -770,6 +1102,12 @@ export class BattleScene extends BaseScene {
                                 },
                                 onGoArena: () => {
                                     this.gameState.endExpedition();
+                                    // Инициализация арена-сессии перед входом в лобби из PveResult (второй путь входа),
+                                    // иначе BattleScene уходит в fallback single-battle. Параллельно с HubScene-логикой.
+                                    if (!this.gameState.arenaSession) {
+                                        const session = startSession(this.gameState.hero, config.pvp.session);
+                                        this.gameState.setArenaSession(session);
+                                    }
                                     void this.sceneManager.goto('pvpLobby', { transition: TransitionType.FADE });
                                 },
                             },
@@ -789,15 +1127,21 @@ export class BattleScene extends BaseScene {
                                 // Boss loot: 2 random items (GDD: boss_loot_count)
                                 const bossLoot = generateLoot('boss', config.pve.loot, config.equipment.catalog, config.consumables, newState.pityCounter, bossRng);
                                 const bossLootItems = bossLoot.drops.slice(0, config.pve.loot.boss_loot_count).map(d => d.itemId);
-                                // Обновить itemsFound и pityCounter с boss loot
+                                // e0o: сначала пробуем на пояс, fallback в рюкзак
+                                const bossBackpackIds: string[] = [];
+                                for (const id of bossLootItems) {
+                                    const placed = autoPlaceConsumableOnBelt(this.gameState, id, config.consumables);
+                                    if (!placed) bossBackpackIds.push(id);
+                                }
+                                // Обновить itemsFound и pityCounter с boss loot (только то, что в рюкзаке)
                                 const updatedState = {
                                     ...newState,
-                                    itemsFound: [...newState.itemsFound, ...bossLootItems],
+                                    itemsFound: [...newState.itemsFound, ...bossBackpackIds],
                                     pityCounter: bossLoot.newPityCounter,
                                 };
                                 this.gameState.updateExpeditionState(updatedState);
-                                // Авто-экипировать boss loot
-                                for (const id of bossLootItems) {
+                                // Авто-экипировать boss loot (расходники на поясе уже размещены)
+                                for (const id of bossBackpackIds) {
                                     autoEquipIfBetter(this.gameState, id, config.equipment.catalog);
                                 }
 
@@ -843,17 +1187,21 @@ export class BattleScene extends BaseScene {
             const opponentRating = this.battleData.pvpOpponentRating ?? this.gameState.hero.rating;
 
             // GDD: victory → +Elo, defeat → −Elo, retreat/bypass/polymorph → 0 Elo
+            let eloChange = 0;
             if (result.outcome === 'victory' || result.outcome === 'defeat') {
                 const eloResult: 0 | 1 = result.outcome === 'victory' ? 1 : 0;
-                const eloChange = calcEloChange(
+                eloChange = calcEloChange(
                     this.gameState.hero.rating, opponentRating, eloResult, config.formulas.eloK,
                 );
                 this.gameState.setRating(this.gameState.hero.rating + eloChange);
             }
             // retreat/bypass/polymorph → 0 Elo change (GDD: бой не засчитан / 0 рейтинга)
 
-            // Сохраняем имя реликвии до потребления
-            const consumedRelicName = this.gameState.arenaRelic?.name ?? null;
+            // Сохраняем имя реликвии ДО потребления (показываем в overlay только когда фактически consumed).
+            const arenaRelicName = this.gameState.arenaRelic?.name ?? null;
+
+            // Снимки масса/рейтинг ДО применения потерь — для defeat-оверлея «было → стало»
+            const massBefore = this.gameState.hero.mass;
 
             // GDD: при поражении в PvP −N% массы. Только defeat!
             let massLoss = 0;
@@ -867,21 +1215,75 @@ export class BattleScene extends BaseScene {
                 this.gameState.wearItem(result.durabilityTarget);
             }
 
-            // Потребить arenaRelic только при завершении PvP сессии (victory/defeat)
-            // Retreat/bypass — сессия продолжается, relic сохраняется
-            if (result.outcome === 'victory' || result.outcome === 'defeat') {
-                this.gameState.consumeArenaRelic();
-            }
+            // arenaRelic потребляется только когда серия реально завершается:
+            // для активной сессии — при endCheck.ended, для fallback — на каждом terminal-исходе.
+            // Consume перенесён внутрь веток ниже.
 
             this.eventBus.emit(GameEvents.BATTLE_RESULT, result);
 
-            // Показать экран результата PvP с деталями потерь
+            // ─── Сессия арены ──────────────────────────────────────────
+            // Засчитываем бой в сессию только при заверш. исходах (victory/defeat).
+            // retreat/bypass/polymorph не инкрементируют battlesPlayed (0 Elo, 0 масса).
+            const session = this.gameState.arenaSession as IArenaSession | null;
+            const isTerminal = result.outcome === 'victory' || result.outcome === 'defeat';
+            if (session?.active && isTerminal) {
+                // massDelta < 0 при defeat (потеря), 0 при victory
+                const massDelta = result.outcome === 'defeat' ? -massLoss : 0;
+                const updatedSession = applyBattleToSession(session, massDelta, eloChange);
+                this.gameState.setArenaSession(updatedSession);
+
+                // Проверяем завершение сессии после боя
+                const endCheck = shouldEndSession(
+                    this.gameState.hero, this.gameState.equipment as IEquipmentSlots,
+                    updatedSession, config.pvp.session,
+                );
+
+                // Реликвия потребляется атомарно через endArenaSession в обработчиках
+                // кнопок В ХАБ (summary / defeat-ended). Здесь только вычисляем имя для overlay.
+                const consumedRelicName = endCheck.ended ? arenaRelicName : null;
+
+                if (result.outcome === 'victory') {
+                    // Очки арены за победу
+                    const points = calcArenaPoints(eloChange, config.pvp.session.points_thresholds);
+                    if (endCheck.ended) {
+                        // Сессия завершена победой → сводка → Hub
+                        this.showSessionSummaryOverlay(updatedSession, endCheck.reason, points);
+                    } else {
+                        // Серия продолжается → показать краткий victory-итог и вернуть в lobby
+                        this.showPvpVictoryOverlay(points, () => {
+                            void this.sceneManager.goto('pvpLobby', { transition: TransitionType.FADE });
+                        });
+                    }
+                } else {
+                    // Поражение.
+                    if (endCheck.ended) {
+                        // Сессия завершена поражением → полная сводка серии (битв, масса, рейтинг, причина).
+                        // null очков: последний бой — поражение, очки начисляются только за victory.
+                        this.showSessionSummaryOverlay(updatedSession, endCheck.reason, null);
+                    } else {
+                        // Серия продолжается → defeat-overlay с деталями последнего боя и возвратом в lobby.
+                        // consumedRelicName=null: реликвия ещё активна, «потеряна» не показываем.
+                        this.showPvpDefeatOverlay(
+                            massLoss, massBefore, consumedRelicName,
+                            null, null,
+                            config.pvp.session.min_mass_threshold,
+                        );
+                    }
+                }
+                return;
+            }
+
+            // ─── Fallback: сессии нет (старый flow) ────────────────────
+            // Совместимость со смоук-тестами и прямым вызовом PvP вне хаба.
+            // Для одиночного PvP-боя реликвия потребляется на terminal-исходе (victory/defeat).
+            if (isTerminal) {
+                this.gameState.consumeArenaRelic();
+            }
             if (result.outcome === 'defeat') {
-                const lines: string[] = [];
-                if (massLoss > 0) lines.push(`Потеряно ${massLoss} кг массы`);
-                if (consumedRelicName) lines.push(`Реликвия «${consumedRelicName}» потеряна`);
-                lines.push('Добудьте новую реликвию в Походе!');
-                this.showPvpResultOverlay(lines.join('\n'));
+                this.showPvpDefeatOverlay(
+                    massLoss, massBefore, arenaRelicName, null, null,
+                    config.pvp.session.min_mass_threshold,
+                );
             } else {
                 void this.sceneManager.goto('hub', { transition: TransitionType.FADE });
             }
