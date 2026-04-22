@@ -1,7 +1,6 @@
 # Планирование: GDD v1.3 + AGENT_ROLES v2.1 + Release v0.2.0
 
-> **⚠️ Superseded** by [pm-agents-agent-roles-md-cheerful-fairy.md](pm-agents-agent-roles-md-cheerful-fairy.md) (PM-ревью + операционный чек-лист, 2026-04-22).
-> Этот документ — исторический артефакт исходного планирования Planner-агентом. Исполняемые инструкции смотри в cheerful-fairy (секция «Корректировки к плану zesty-lemon» → C1–C4). Known stale fields in this file: `Дата: 2026-04-20` для AGENT_ROLES v2.1 (фактически публикуется `2026-04-22`), относительные ссылки в секции «Файлы для изменения» (из `docs/plans/` корректны пути вида `../gdd/...`, `../../.agents/...`), в `git add` не перечислены сами plan-файлы. Все поправки учтены в cheerful-fairy — не используй этот файл как source of truth.
+> **⚠️ Superseded** by [pm-agents-agent-roles-md-cheerful-fairy.md](pm-agents-agent-roles-md-cheerful-fairy.md) (PM-ревью + операционный чек-лист, 2026-04-22). Этот документ — исторический артефакт исходного планирования Planner-агентом. Исполняемые инструкции смотри в cheerful-fairy (секция «Корректировки к плану zesty-lemon» → C1–C4). Stale-поля исправлены, но актуальным source of truth остаётся cheerful-fairy.
 
 **Дата:** 2026-04-22
 **Спринт:** пост-Sprint 6
@@ -112,7 +111,7 @@ git checkout -b docs/gdd-v1.3-agent-roles-v2.1
 
 **Правка 1 — Шапка:**
 - Строка `**Версия:** 2.0` → `**Версия:** 2.1`
-- Строка `**Дата:** 2026-04-13` → `**Дата:** 2026-04-20`
+- Строка `**Дата:** 2026-04-13` → `**Дата:** 2026-04-22`
 
 **Правка 2 — Секция §3 Reviewer, строка Sprint Final в таблице тиров:**
 
@@ -139,7 +138,9 @@ git checkout -b docs/gdd-v1.3-agent-roles-v2.1
 ### Коммит и PR
 
 ```bash
-git add docs/gdd/00_index.md docs/gdd/04_pvp.md docs/gdd/06_inventory.md .agents/AGENT_ROLES.md
+git add docs/gdd/00_index.md docs/gdd/04_pvp.md docs/gdd/06_inventory.md .agents/AGENT_ROLES.md \
+        docs/plans/pm-agents-agent-roles-md-zesty-lemon.md \
+        docs/plans/pm-agents-agent-roles-md-cheerful-fairy.md
 git commit -m "docs: GDD v1.2→v1.3 (Sprint 6 sync) + AGENT_ROLES v2.0→v2.1"
 git push -u origin docs/gdd-v1.3-agent-roles-v2.1
 ```
@@ -264,7 +265,7 @@ NOTES
 
 | Файл | Тип изменения |
 |------|--------------|
-| [`docs/gdd/00_index.md`](docs/gdd/00_index.md) | Версия, дата, changelog entry |
-| [`docs/gdd/04_pvp.md`](docs/gdd/04_pvp.md) | 4 расхождения (критические + высокие + средние) |
-| [`docs/gdd/06_inventory.md`](docs/gdd/06_inventory.md) | 2 расхождения (авторазмещение, starterBelt) |
-| [`.agents/AGENT_ROLES.md`](.agents/AGENT_ROLES.md) | Версия v2.1, Sprint Final tier, pre-merge landing |
+| [`docs/gdd/00_index.md`](../gdd/00_index.md) | Версия, дата, changelog entry |
+| [`docs/gdd/04_pvp.md`](../gdd/04_pvp.md) | 4 расхождения (критические + высокие + средние) |
+| [`docs/gdd/06_inventory.md`](../gdd/06_inventory.md) | 2 расхождения (авторазмещение, starterBelt) |
+| [`.agents/AGENT_ROLES.md`](../../.agents/AGENT_ROLES.md) | Версия v2.1, Sprint Final tier, pre-merge landing |
