@@ -1,18 +1,41 @@
 import { autoPlaceConsumableOnBelt } from './autoEquip';
 import type { GameState } from '../core/GameState';
-import type { IBeltSlot, IConsumable, IConsumableConfig } from 'shared';
+import type { IBeltSlot, IConsumable, IConsumableConfig, IPveExpeditionState } from 'shared';
 
-// Минимальный fake GameState: интересующее поведение затрагивает только
-// belt и setBelt. Приводим к GameState через unknown — это test-фикстура,
-// не production wrapper.
-function makeGameState(belt: [IBeltSlot, IBeltSlot] = [null, null]): GameState {
+// Минимальный fake GameState: интересующее поведение затрагивает belt, setBelt,
+// expeditionState и updateExpeditionState. Приводим к GameState через unknown —
+// это test-фикстура, не production wrapper.
+function makeGameState(
+    belt: [IBeltSlot, IBeltSlot] = [null, null],
+    expeditionState: IPveExpeditionState | null = null,
+): GameState {
     const state = {
         belt,
+        expeditionState,
         setBelt(idx: number, value: IConsumable): void {
             state.belt[idx as 0 | 1] = value;
         },
+        updateExpeditionState(next: IPveExpeditionState): void {
+            state.expeditionState = next;
+        },
     };
     return state as unknown as GameState;
+}
+
+function makeExpeditionState(overrides: Partial<IPveExpeditionState> = {}): IPveExpeditionState {
+    return {
+        route: { nodes: [], bossId: 'boss' } as unknown as IPveExpeditionState['route'],
+        currentNodeIndex: 0,
+        status: 'active',
+        visitedNodes: [],
+        massGained: 0,
+        goldGained: 0,
+        itemsFound: [],
+        pityCounter: 0,
+        combatsInRow: 0,
+        beltAdditions: [],
+        ...overrides,
+    };
 }
 
 const combatCfg: IConsumableConfig = {
@@ -93,5 +116,29 @@ describe('autoPlaceConsumableOnBelt', () => {
         const placed = autoPlaceConsumableOnBelt(gs, 'compass_t2', [scoutCfg, combatCfg]);
         expect(placed).toBe(false);
         expect(gs.belt[0]).toBeNull();
+    });
+
+    test('loot-loss tracking: при активной экспедиции place регистрируется в beltAdditions', () => {
+        const exp = makeExpeditionState({ beltAdditions: [] });
+        const gs = makeGameState([null, null], exp);
+        const placed = autoPlaceConsumableOnBelt(gs, 'str_pot_t1', [combatCfg]);
+        expect(placed).toBe(true);
+        expect(gs.expeditionState?.beltAdditions).toEqual(['str_pot_t1']);
+    });
+
+    test('loot-loss tracking: без активной экспедиции beltAdditions не трогается (fallback single-PvP)', () => {
+        const gs = makeGameState([null, null], null);
+        const placed = autoPlaceConsumableOnBelt(gs, 'str_pot_t1', [combatCfg]);
+        expect(placed).toBe(true);
+        expect(gs.expeditionState).toBeNull();
+    });
+
+    test('loot-loss tracking: два auto-place за экспедицию — обе id попадают в beltAdditions', () => {
+        const armCfg: IConsumableConfig = { id: 'arm_pot_t1', name: 'Броня', type: 'combat', tier: 1, effect: 'armor_bonus', value: 8, basePrice: 30 };
+        const exp = makeExpeditionState({ beltAdditions: [] });
+        const gs = makeGameState([null, null], exp);
+        autoPlaceConsumableOnBelt(gs, 'str_pot_t1', [combatCfg, armCfg]);
+        autoPlaceConsumableOnBelt(gs, 'arm_pot_t1', [combatCfg, armCfg]);
+        expect(gs.expeditionState?.beltAdditions).toEqual(['str_pot_t1', 'arm_pot_t1']);
     });
 });

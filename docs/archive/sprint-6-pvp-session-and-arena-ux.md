@@ -110,7 +110,7 @@ Grep по `arenaRelic` в `client/src/`, найти карточку в PvpLobby
 | VC-6 | Consumable из сундука идёт на пояс при свободном slot'е | Unit для helper + ручной QA | `npm run test -w client` |
 | VC-7 | В бою нельзя активировать non-combat consumable (guard) | Unit на обработчик + ручной QA | Манипуляция в BattleScene |
 | VC-8 | UX 91e/dy3/00q/7r8 — скриншоты до/после в PR-описании | Attachments block | Визуальный review |
-| VC-9 | `config/balance.json` — только additive (новый блок `pvp.session`), старые поля не тронуты | `git diff config/balance.json` | Reviewer проверяет diff |
+| VC-9 | `config/balance.json` — добавлен блок `pvp.session`, плюс post-QA правки существующих полей `starterBelt` (F-1 MAJOR: arm_pot_t1 вместо torch_t1) и `pvp.bot_rating_spread` (dolt-48h: 50→300 для корректного calcArenaPoints). Контракт отражает фактический diff. | `git diff config/balance.json` | Reviewer проверяет diff на соответствие scope |
 
 Все shared-тесты идут рядом с исходниками как `*.test.ts` (конвенция проекта, см. `shared/src/systems/*.test.ts`).
 

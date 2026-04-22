@@ -253,6 +253,7 @@ describe('createExpeditionState', () => {
         expect(state.itemsFound).toEqual([]);
         expect(state.pityCounter).toBe(0);
         expect(state.combatsInRow).toBe(0);
+        expect(state.beltAdditions).toEqual([]);
     });
 });
 

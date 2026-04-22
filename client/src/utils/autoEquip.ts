@@ -4,6 +4,25 @@ import type { IEquipmentItem, EquipmentSlotId, IConsumable, IConsumableConfig } 
 import type { IStarterEquipmentConfigItem, IPveExpeditionState } from 'shared';
 
 /**
+ * Помещает итем на пояс и регистрирует его в expeditionState.beltAdditions,
+ * чтобы endExpedition на defeat откатил этот predмет (loot-loss инвариант).
+ * Если экспедиция не активна (fallback single-PvP / вне PvE) — регистрация пропускается.
+ */
+function placeOnBeltWithExpeditionTracking(
+    gameState: GameState, slotIdx: 0 | 1, consumable: IConsumable,
+): void {
+    gameState.setBelt(slotIdx, consumable);
+    const expedition = gameState.expeditionState;
+    if (expedition) {
+        const state = expedition as IPveExpeditionState;
+        gameState.updateExpeditionState({
+            ...state,
+            beltAdditions: [...state.beltAdditions, consumable.id],
+        });
+    }
+}
+
+/**
  * Пытается поместить расходник на пояс при наличии свободного слота.
  * Возвращает true, если расходник размещён (fallback в рюкзак — задача вызывающей стороны).
  * Если itemId не является расходником — возвращает false (обрабатывать как equipment).
@@ -38,7 +57,7 @@ export function autoPlaceConsumableOnBelt(
         effect: cfg.effect,
         value: cfg.value,
     };
-    gameState.setBelt(freeIdx, consumable);
+    placeOnBeltWithExpeditionTracking(gameState, freeIdx, consumable);
     return true;
 }
 

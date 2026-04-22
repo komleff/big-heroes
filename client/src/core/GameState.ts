@@ -293,6 +293,23 @@ export class GameState {
             for (const itemId of exp.itemsFound) {
                 this._collectedItemIds.push(itemId);
             }
+        } else if (exp.status === 'defeat') {
+            // GDD loot-loss invariant: combat-расходники с пояса, авто-добавленные
+            // во время похода, теряются при defeat (GPT-5.4 external CRITICAL).
+            // Откатываем первое вхождение каждого beltAdditions id. Использованные
+            // расходники уже не в belt — safely skip. Старые расходники до
+            // экспедиции сохраняются (они не в beltAdditions).
+            const remainingAdditions = [...exp.beltAdditions];
+            for (let idx: 0 | 1 = 0; idx <= 1; idx = (idx + 1) as 0 | 1) {
+                const slot = this._belt[idx];
+                if (!slot) continue;
+                const additionIdx = remainingAdditions.indexOf(slot.id);
+                if (additionIdx !== -1) {
+                    this.setBelt(idx, null);
+                    remainingAdditions.splice(additionIdx, 1);
+                }
+                if (idx === 1) break;
+            }
         }
         this._activeRelics = []; // Реликвии не переносятся между экспедициями
         this._expeditionState = null;

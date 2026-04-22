@@ -4,7 +4,7 @@ import { GameState } from '../core/GameState';
 import { SceneManager, TransitionType } from '../core/SceneManager';
 import { Button } from '../ui/Button';
 import { THEME } from '../config/ThemeConfig';
-import type { IMobConfig, IBalanceConfig, IEquipmentSlots, IRelic, IArenaSession } from 'shared';
+import type { IMobConfig, IBalanceConfig, IEquipmentSlots, IRelic, IArenaSession, ArenaSessionEndReason } from 'shared';
 import { generateBots, calcHeroStats, shouldEndSession } from 'shared';
 import balanceConfig from '@config/balance.json';
 
@@ -43,7 +43,7 @@ export class PvpLobbyScene extends BaseScene {
                 this.gameState.hero, this.gameState.equipment as IEquipmentSlots,
                 session, config.pvp.session,
             )
-            : { ended: false, reason: null as string | null };
+            : { ended: false, reason: null as ArenaSessionEndReason };
 
         // Заголовок: «Бой N / max» при активной сессии, иначе «АРЕНА»
         const headingText = session && !preCheck.ended
@@ -341,7 +341,7 @@ export class PvpLobbyScene extends BaseScene {
      * Оверлей «Сессия завершена» — блокирует лобби, показывает причину
      * и единственную кнопку «В Хаб» (очистка сессии).
      */
-    private showSessionEndedOverlay(reason: string | null): void {
+    private showSessionEndedOverlay(reason: ArenaSessionEndReason): void {
         const H = THEME.layout.designHeight;
 
         const overlay = new Container();
@@ -398,7 +398,7 @@ export class PvpLobbyScene extends BaseScene {
     }
 
     /** Человекочитаемая причина завершения сессии. */
-    private formatEndReason(reason: string | null): string {
+    private formatEndReason(reason: ArenaSessionEndReason): string {
         switch (reason) {
             case 'mass': return 'масса ниже порога';
             case 'durability': return 'экипировка изношена';

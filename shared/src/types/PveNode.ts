@@ -42,4 +42,9 @@ export interface IPveExpeditionState {
     itemsFound: string[];
     pityCounter: number;
     combatsInRow: number;
+    // itemIds расходников, авто-размещённых на пояс во время экспедиции.
+    // При defeat endExpedition откатывает их из belt — loot-loss инвариант
+    // (GDD: при провале похода лишний лут теряется). Без этого поля combat-
+    // расходник с пояса переживал defeat, обходя правило (GPT-5.4 CRITICAL).
+    beltAdditions: string[];
 }

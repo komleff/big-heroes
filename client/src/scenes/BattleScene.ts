@@ -9,7 +9,7 @@ import { Button } from '../ui/Button';
 import { tweenProperty } from '../utils/Tween';
 import { addRelicWithUI } from '../utils/relicHelper';
 import { autoEquipIfBetter, autoPlaceConsumableOnBelt } from '../utils/autoEquip';
-import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic, IArenaSession, IEquipmentSlots } from 'shared';
+import type { IBattleResult, IHitAnimation, BattleOutcome, IMobConfig, IPveExpeditionState, IBalanceConfig, IRelic, IArenaSession, IEquipmentSlots, ArenaSessionEndReason } from 'shared';
 import { applyBattleResult, advanceToNode, generateRelicPool, configToRelic, generateLoot, createRng, calcEloChange, calcPvpMassLoss, applyBattleToSession, shouldEndSession, calcArenaPoints, startSession } from 'shared';
 import { ProgressBar } from '../ui/ProgressBar';
 import balanceConfig from '@config/balance.json';
@@ -669,7 +669,7 @@ export class BattleScene extends BaseScene {
      * Показывает итоги серии: битв / масса / рейтинг + причину, кнопка «В Хаб».
      */
     private showSessionSummaryOverlay(
-        session: IArenaSession, reason: string | null, lastWinPoints: 1 | 2 | 3 | null,
+        session: IArenaSession, reason: ArenaSessionEndReason, lastWinPoints: 1 | 2 | 3 | null,
     ): void {
         const W = THEME.layout.designWidth;
         const H = THEME.layout.designHeight;
@@ -754,7 +754,7 @@ export class BattleScene extends BaseScene {
      */
     private showPvpDefeatOverlay(
         massLoss: number, massBefore: number, consumedRelicName: string | null,
-        sessionEnded: IArenaSession | null, endReason: string | null,
+        sessionEnded: IArenaSession | null, endReason: ArenaSessionEndReason,
         minMassThreshold: number,
     ): void {
         const W = THEME.layout.designWidth;
@@ -942,7 +942,7 @@ export class BattleScene extends BaseScene {
     }
 
     /** Человекочитаемая причина завершения сессии. */
-    private formatEndReason(reason: string | null): string {
+    private formatEndReason(reason: ArenaSessionEndReason): string {
         switch (reason) {
             case 'mass': return 'масса ниже порога';
             case 'durability': return 'экипировка изношена';

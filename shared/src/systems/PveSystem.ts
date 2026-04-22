@@ -119,6 +119,7 @@ export function createExpeditionState(route: IPveRoute): IPveExpeditionState {
         itemsFound: [],
         pityCounter: 0,
         combatsInRow: 0,
+        beltAdditions: [],
     };
 }
 
