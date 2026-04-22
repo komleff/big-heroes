@@ -4,6 +4,10 @@
 **Дата:** 2026-04-22
 **Базовый план:** [docs/archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md](../archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md)
 
+> **📜 Ретроспективная пометка (iter 6 external review):** Классификация «Light tier» в этом документе отражает состояние **до** принятия AGENT_ROLES v2.1 — т.е. до того, как этот же PR добавил `.agents/*.md` в Critical. Начиная с v2.1 подобные PR (любые правки в `.agents/*.md`) должны классифицироваться как **Critical**. Фактическое покрытие этого PR внешним ревью (Mode A, 6+ итераций × 4 аспекта + Copilot re-review) превышает требования Critical.
+>
+> **Статус файла:** после merge этот документ подлежит архивации в `docs/archive/` (landing-фаза) — он содержит одноразовый operational checklist и перестаёт быть actionable после закрытия задачи.
+
 ---
 
 ## Контекст
