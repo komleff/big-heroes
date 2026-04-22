@@ -81,7 +81,7 @@
     { "id": "relic_shop_discount", "name": "Торговый талант", "effect": "shop_discount", "value": 0.3, "rarity": "common" },
     { "id": "relic_polymorph_bonus", "name": "Печать чародея", "effect": "polymorph_bonus", "value": 0.2, "rarity": "rare" }
   ],
-  "starterBelt": ["torch_t1", "str_pot_t1"],
+  "starterBelt": ["arm_pot_t1", "str_pot_t1"],
   "starterBackpack": ["str_pot_t1", "str_pot_t1", "repair_t1", null],
   "pve": {
     "total_nodes_min": 12,
