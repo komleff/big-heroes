@@ -16,9 +16,13 @@
   - `.agents/AGENT_ROLES.md` — v2.1: §0 pre-merge landing (v3.4), §3 Critical tier расширен на `.agents/*.md`, Sprint Final tier → Node.js native v3.6 (`.claude/tools/openai-review.mjs`).
   - `docs/archive/sprint-post-6-gdd-v1.3-agent-roles-v2.1-zesty-lemon.md` — superseded Planner-план.
   - `docs/archive/sprint-post-6-pm-review-cheerful-fairy.md` — PM-ревью + operational checklist, перемещён из `docs/plans/` в landing commit (вместе со zesty-lemon).
-- Review cycle: 7 итераций Mode A external (GPT-5.4 + GPT-5.3-Codex) → iter 7 оба APPROVED на `4b1ef65`. Internal review iter 1 (standard) + iter 2 (adversarial) APPROVED. Итого 9 review passes + 7 Copilot requests.
-- Triage: 0 fix-now open, 3 defer to Beads (`big-heroes-dalp` расширен + `big-heroes-b7so` новый), 1 reject with rationale. Defer ratio 75% (все INFO от adversarial-прохода, реальный drift GDD vs код в `04_pvp.md` для `calcArenaPoints` семантики — deferred на отдельный doc-PR).
-- Beads: `big-heroes-b7so` CLOSED in iter 9 (fix-now в этом PR: `sprint-pr-cycle/SKILL.md:146` tier-matrix sync + Sprint Final строка синхронизирована с v3.6 Node.js native в iter 10). Открытым остаётся `big-heroes-dalp` (P3, унификация 04_pvp таблицы «Онлайн-бой» под calcArenaPoints + семантика аргумента).
+- Review cycle (pre-landing, HEAD `4b1ef65`): 7 итераций Mode A external (GPT-5.4 + GPT-5.3-Codex) → iter 7 оба APPROVED. Internal review iter 1 (standard) + iter 2 (adversarial) APPROVED на том же HEAD.
+- Review cycle (post-landing, HEAD `12dcb14` → `492f8aa`): 4 итерации Mode A external (iter 8–11) → iter 11 APPROVED/APPROVED. Internal delta review iter 1 (standard) APPROVED + iter 2 (adversarial) APPROVED с 2 LOW defer (stale метрики в этой же секции — исправлено в iter 11+).
+- Итого по PR: **11 external + 4 internal = 15 review passes**, 8+ Copilot re-review requests.
+- Triage (итог по всему циклу):
+  - **Pre-landing**: 0 fix-now open, 3 defer to Beads (`big-heroes-dalp` расширен + `big-heroes-b7so` новый), 1 reject with rationale (terminology в archived cheerful-fairy).
+  - **Post-landing fix-rounds (iter 8–10)**: 8 fix-now applied (drift archive cross-ref, status.md post-landing sync, SKILL.md tier-matrix добавление `.agents/*.md`, SKILL.md Sprint Final sync с v3.6, status.md b7so closure note и т. п.).
+- Beads: `big-heroes-b7so` CLOSED в iter 9 (fix-now, `sprint-pr-cycle/SKILL.md:146` + Sprint Final синхронизированы с v3.6 Node.js native в iter 10). Открытым остаётся `big-heroes-dalp` (P3, унификация 04_pvp таблицы «Онлайн-бой» под calcArenaPoints + семантика аргумента).
 - Следующий шаг: после merge оператором — PM создаёт tag `v0.2.0` + GitHub Release (release notes из archived zesty-lemon).
 
 ---
