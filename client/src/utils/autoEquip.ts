@@ -10,6 +10,11 @@ import type { IStarterEquipmentConfigItem, IPveExpeditionState } from 'shared';
  *
  * Закрывает баг big-heroes-e0o: при подборе consumable из сундука при свободной
  * ячейке пояса предмет должен автоматически занять слот, а не уходить в рюкзак.
+ *
+ * dolt-ebh: non-combat расходники (scout / hiking) НЕ кладём на пояс — на поясе
+ * их невозможно использовать (в бою блокируется guard'ом, на fork-узле нет UI —
+ * см. dolt-zxc). Non-combat идут в рюкзак как обычное снаряжение; когда появится
+ * UI для non-combat на перекрёстке (dolt-zxc), правило можно ослабить.
  */
 export function autoPlaceConsumableOnBelt(
     gameState: GameState,
@@ -18,6 +23,9 @@ export function autoPlaceConsumableOnBelt(
 ): boolean {
     const cfg = consumables.find(c => c.id === itemId);
     if (!cfg) return false;
+
+    // На пояс — только combat-расходники. Non-combat (scout/hiking) → fallback в рюкзак.
+    if (cfg.type !== 'combat') return false;
 
     const freeIdx = findFreeBeltSlotIndex(gameState.belt);
     if (freeIdx === -1) return false; // Свободных слотов нет — fallback в рюкзак
